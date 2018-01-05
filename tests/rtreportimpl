@@ -63,19 +63,24 @@ checkout_top=os.path.dirname(os.path.dirname(os.path.dirname(
 rtreport( 'Repository information:')
 rtreport()
 rtreport()
-rtreport( 'REPO TOP:')
-svn=alias(exe('svn'))
-info=alias(svn['info'])
 try:
     with produtil.cd.NamedDir(checkout_top):
-        rtreport(runstr(info['.']))
-        status=runstr(svn['status',checkout_top])
-        for line in status.splitlines():
-            m=re.match('X\s+(.*)',line)
-            if not m: 
-                continue
-            rtreport('EXTERNAL %s:'%(m.group(1),))
-            rtreport(runstr(info[os.path.join(checkout_top,m.group(1))]))
+        if os.path.exists(os.path.join(checkout_top,'.svn')):
+            rtreport( 'REPO TOP:')
+            svn=alias(exe('svn'))
+            info=alias(svn['info'])
+            rtreport(runstr(info['.']))
+            status=runstr(svn['status',checkout_top])
+            for line in status.splitlines():
+                m=re.match('X\s+(.*)',line)
+                if not m: 
+                    continue
+                rtreport('EXTERNAL %s:'%(m.group(1),))
+                rtreport(runstr(info[os.path.join(checkout_top,m.group(1))]))
+        else:
+            git_info=exe(os.path.abspath(os.path.join(
+                os.path.dirname(__file__),'git_info.sh')))
+            rtreport(runstr(git_info))
 except(ValueError,KeyError,ExitStatusException,EnvironmentError) as e:
     print 'WARNING: Could not complete subversion checks: '+str(e)
 

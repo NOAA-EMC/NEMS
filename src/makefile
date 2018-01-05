@@ -376,8 +376,15 @@ ESMADIR=$(CHEM_LIB)
 #
 WHOAMI  := $(shell whoami)
 CMP_DATE := $(shell date)
-SVN_REV := $(shell svnversion -n .)
-SVN_URL := $(shell svn info | grep URL | cut -f 2 -d ' ')
+
+SVN_URL := $(shell git remote show origin | grep 'Fetch URL:' | sed 's,^[^:]*: ,,g' )
+SVN_REV := $(shell git show HEAD | head -1 | awk '{print $$2}' | cut -c1-12 )...
+
+ifeq ($(SVN_URL),)
+  SVN_REV := $(shell svnversion -n .)
+  SVN_URL := $(shell svn info | grep URL | cut -f 2 -d ' ')
+endif
+
 CMP_YEAR := $(shell date +"%Y" )
 CMP_JD := $(shell date +"%j" )
 
