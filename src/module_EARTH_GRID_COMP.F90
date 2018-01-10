@@ -2545,6 +2545,42 @@
       endif
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_wave_radiation_stress")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_wave_radiation_stress", &
+          canonicalUnits="N m-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_northward_wave_radiation_stress")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_northward_wave_radiation_stress", &
+          canonicalUnits="N m-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "northward_wave_radiation_stress")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="northward_wave_radiation_stress", &
+          canonicalUnits="N m-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "wave_induced_charnock_parameter")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="wave_induced_charnock_parameter", &

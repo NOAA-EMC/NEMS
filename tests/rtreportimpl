@@ -60,24 +60,25 @@ if timestamp is not None:
 checkout_top=os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.realpath(__file__))))
 
-rtreport( 'Repository information:')
-rtreport()
-rtreport()
-rtreport( 'REPO TOP:')
-svn=alias(exe('svn'))
-info=alias(svn['info'])
-try:
-    with produtil.cd.NamedDir(checkout_top):
-        rtreport(runstr(info['.']))
-        status=runstr(svn['status',checkout_top])
-        for line in status.splitlines():
-            m=re.match('X\s+(.*)',line)
-            if not m: 
-                continue
-            rtreport('EXTERNAL %s:'%(m.group(1),))
-            rtreport(runstr(info[os.path.join(checkout_top,m.group(1))]))
-except(ValueError,KeyError,ExitStatusException,EnvironmentError) as e:
-    print 'WARNING: Could not complete subversion checks: '+str(e)
+if os.path.exists(".svn"):
+    rtreport( 'Repository information:')
+    rtreport()
+    rtreport()
+    rtreport( 'REPO TOP:')
+    svn=alias(exe('svn'))
+    info=alias(svn['info'])
+    try:
+        with produtil.cd.NamedDir(checkout_top):
+            rtreport(runstr(info['.']))
+            status=runstr(svn['status',checkout_top])
+            for line in status.splitlines():
+                m=re.match('X\s+(.*)',line)
+                if not m: 
+                    continue
+                rtreport('EXTERNAL %s:'%(m.group(1),))
+                rtreport(runstr(info[os.path.join(checkout_top,m.group(1))]))
+    except(ValueError,KeyError,ExitStatusException,EnvironmentError) as e:
+        print 'WARNING: Could not complete subversion checks: '+str(e)
 
 itest=0
 success=True

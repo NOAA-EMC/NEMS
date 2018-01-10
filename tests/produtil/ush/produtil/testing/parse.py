@@ -441,8 +441,7 @@ class Parser(object):
                 rvaltoken=tokiter.next()
                 lval=self.action_resolve(lvaltoken,scopes)
                 rval=self.action_resolve(rvaltoken,scopes)
-                if lval != rval:
-                    yield False
+                yield lval == rval
 
                 peek=tokiter.peek()
             if peek.token_type!=',':
@@ -960,16 +959,20 @@ class Parser(object):
                     set_con=self.con(peek,scopes)
                     runsets=list()
                     peek=tokiter.peek()
-                    keep=True
+                    keep_by_set=True
+                    keep_by_comparison=None # Will be True/False if "==" is used
                     if peek.token_type=='@':
                         tokiter.next() # discard the @
                         for setname in self.parse_set_list(
                                 tokiter,search_scopes):
-                            if setname is False:
-                                keep=False
+                            if setname is False or setname is True:
+                                keep_by_comparison=keep_by_comparison or setname
                             elif setname not in runsets:
                                 assert(isinstance(setname,basestring))
                                 runsets.append(setname)
+                    keep = keep_by_set
+                    if keep_by_comparison is not None:
+                        keep = keep or keep_by_comparison
                     if keep:
                         if not runsets:
                             runsets.append('**all**')
