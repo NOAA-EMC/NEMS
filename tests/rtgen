@@ -93,9 +93,6 @@ last_cycledone=-999
 last_lostdead=-999
 while [[ 1 == 1 ]] ; do
   log "check dependencies and submit jobs..."
-  # The "grep -v" is to ignore a warning about /gpfs/hps/ptmp being
-  # world-writable.  The user can do nothing to fix the problem,
-  # so there is no reason to warn about it.
   rocotorun -w workflow.xml -d workflow.db
   verbose "check status..."
   cycledone=$( sqlite3 workflow.db 'SELECT id FROM cycles WHERE done>0' | wc -l )
@@ -812,6 +809,12 @@ class RTGen(TestGen):
         here=produtil.cluster.where()
         out.write('#!/usr/bin/env bash\n\n')
         out.write('UNIQUE_ID=%d\n'%(self.unique_id,))
+        out.write('source '+bashify_string(os.path.abspath(os.path.join(
+                        os.path.dirname(os.path.realpath(__file__)),
+                        "../src/conf/module-setup.sh.inc"))))
+        if here.name in [ 'surge', 'luna' ]:
+            out.write(' > /dev/null 2>&1')
+        out.write('\n')
         if here.name in [ 'tide', 'gyre' ]:
             out.write('module load lsf\n')
             out.write('module use /hwrf/noscrub/soft/modulefiles\n')
@@ -826,7 +829,7 @@ class RTGen(TestGen):
             out.write('module load emc-utils ; have_qoutql=YES\n')
         elif 'jet' in here.name:
             out.write('module load hpss rocoto\n')
-            out.write('module use /pan2/projects/hwrf-vd/soft/modulefiles\n')
+            out.write('module use /lfs3/projects/hwrf-vd/soft/modulefiles\n')
             out.write('module load emc-utils\n')
             out.write('have_qoutql=YES\n')
         elif here.name == 'theia':
