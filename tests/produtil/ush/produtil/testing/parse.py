@@ -972,7 +972,7 @@ class Parser(object):
                                 runsets.append(setname)
                     keep = keep_by_set
                     if keep_by_comparison is not None:
-                        keep = keep or keep_by_comparison
+                        keep = keep and keep_by_comparison
                     if keep:
                         if not runsets:
                             runsets.append('**all**')
