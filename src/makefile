@@ -378,11 +378,11 @@ WHOAMI  := $(shell whoami)
 CMP_DATE := $(shell date)
 
 SVN_URL := $(shell git remote show origin | grep 'Fetch URL:' | sed 's,^[^:]*: ,,g' )
-SVN_REV := $(shell git show HEAD | head -1 | awk '{print $$2}' | cut -c1-12 )...
+SVN_REV := $(shell git show HEAD | head -1 | cut -f 2 -d ' ' | cut -c1-12 )
 
 ifeq ($(SVN_URL),)
   SVN_REV := $(shell svnversion -n .)
-  SVN_URL := $(shell svn info | grep URL | cut -f 2 -d ' ')
+  SVN_URL := $(shell svn info | grep URL | cut -f 2 -d ' ' | head -1 )
 endif
 
 CMP_YEAR := $(shell date +"%Y" )
