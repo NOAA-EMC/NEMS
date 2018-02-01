@@ -1320,6 +1320,9 @@ else
     conf_mode="appbuilder-specified"
 fi
 
+autonote "Clobber configuration files."
+rm -f ESMFVersionDefine.h conf/modules.nems* externals.nems
+
 autonote "Configure using $conf_mode mode."
 autonote "Command: ./configure $CONFOPT $CHOSEN_MODULE"
 ./configure "$CONFOPT" $CHOSEN_MODULE \
