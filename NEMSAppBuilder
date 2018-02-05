@@ -988,7 +988,11 @@ build_wrfhydro(){
 
 build_ww3(){
   # in: COMP, COMP_SRCDIR, COMP_BINDIR
-    local WW3_COMP='Intel'
+  #  local WW3_COMP='Intel'
+  local WW3_COMP=$FULL_MACHINE_ID
+  if ([ ! -f "$COMP_SRCDIR/bin/comp.$WW3_COMP" ]); then
+     local WW3_COMP='Intel'
+  fi 
   if [[ "$1" == "clean" ]] ; then
     echo "Cleaning $COMP..."
     cd "$COMP_SRCDIR/esmf"
