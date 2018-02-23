@@ -377,7 +377,7 @@ ESMADIR=$(CHEM_LIB)
 WHOAMI  := $(shell whoami)
 CMP_DATE := $(shell date)
 
-SVN_URL := $(shell git remote show origin | grep 'Fetch URL:' | sed 's,^[^:]*: ,,g' )
+SVN_URL := $(shell git remote show -n origin | grep 'Fetch URL:' | sed 's,^[^:]*: ,,g' )
 SVN_REV := $(shell git show HEAD | head -1 | cut -f 2 -d ' ' | cut -c1-12 )
 
 ifeq ($(SVN_URL),)
