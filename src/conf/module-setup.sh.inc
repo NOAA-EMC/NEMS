@@ -31,7 +31,7 @@ elif [[ -d /scratch3 ]] ; then
 elif [[ -d /gpfs/hps && -e /etc/SuSE-release ]] ; then
     # We are on NOAA Luna or Surge
     if ( ! eval module help > /dev/null 2>&1 ) ; then
-	source /opt/modules/default/init/$__ms_shell
+       source /opt/modules/default/init/$__ms_shell
     fi
     module purge
     module purge
@@ -51,6 +51,12 @@ elif [[ -d /dcom && -d /hwrf ]] ; then
         source /usrx/local/Modules/default/init/$__ms_shell
     fi
     module purge
+elif [[ -L /usrx && "$( readlink /usrx 2> /dev/null )" =~ dell ]] ; then
+    # We are on NOAA Mars or Venus
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+	source /usrx/local/prod/lmod/lmod/init/$__ms_shell
+    fi
+    module purge
 elif [[ -d /glade ]] ; then
     # We are on NCAR Yellowstone
     if ( ! eval module help > /dev/null 2>&1 ) ; then
@@ -66,8 +72,38 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
         # the module command fails.  Hence we actually have to source
         # /etc/profile here.
         source /etc/profile
+        __ms_source_etc_profile=yes
+    else
+        __ms_source_etc_profile=no
     fi
+    echo GAEA
     module purge
+# clean up after purge 
+    unset _LMFILES_
+    unset _LMFILES_000
+    unset _LMFILES_001
+    unset LOADEDMODULES
+    module load modules
+    if [[ -d /opt/cray/ari/modulefiles ]] ; then
+        module use -a /opt/cray/ari/modulefiles
+    fi
+    if [[ -d /opt/cray/pe/ari/modulefiles ]] ; then
+        module use -a /opt/cray/pe/ari/modulefiles
+    fi
+    if [[ -d /opt/cray/pe/craype/default/modulefiles ]] ; then
+        module use -a /opt/cray/pe/craype/default/modulefiles
+    fi
+    if [[ -s /etc/opt/cray/pe/admin-pe/site-config ]] ; then
+        source /etc/opt/cray/pe/admin-pe/site-config
+    fi
+    export NCEPLIBS=/lustre/f1/pdata/ncep_shared/NCEPLIBS/lib
+    if [[ -d "$NCEPLIBS" ]] ; then
+        module use $NCEPLIBS/modulefiles
+    fi
+    if [[ "$__ms_source_etc_profile" == yes ]] ; then
+      source /etc/profile
+      unset __ms_source_etc_profile
+    fi
 else
     echo WARNING: UNKNOWN PLATFORM 1>&2
 fi

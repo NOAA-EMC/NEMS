@@ -1000,7 +1000,7 @@ def parse_rtsh_arguments():
         optval,arglist=getopt.getopt(sys.argv[1:],"c:fst:n:hr:p:b",[
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
-                'resume=','compset='])
+                'resume=','compset=', 'multi-app-test-mode'])
     except getopt.GetoptError as ge:
         rtsh_usage(str(ge))
 
@@ -1026,6 +1026,9 @@ def parse_rtsh_arguments():
                        'Run with -h for more information')
         if opt=='--verbose':
             verbose+=1
+        elif opt == '--multi-app-test-mode':
+            # Enable extra log messages for multi-app-test to parse.
+            script_mode=True
         elif opt in [ '-h', '--help' ]:
             rtsh_full_usage()
         elif opt=='-f':
@@ -1140,7 +1143,7 @@ def parse_rtgen_arguments():
         optval,arglist=getopt.getopt(sys.argv[1:],'vdu:t:bn:i:p:hS',
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
-                'resume=', 'help', 'input-file')
+                'resume=', 'help', 'input-file', 'multi-app-test-mode')
     except getopt.GetoptError as ge:
         rtgen_usage(str(ge))
 
@@ -1156,6 +1159,9 @@ def parse_rtgen_arguments():
     for opt,val in optval:
         if opt in ['-v', '--verbose']:
             verbose+=1
+        elif opt == '--multi-app-test-mode':
+            # Enable extra log messages for multi-app-test to parse.
+            script_mode=True
         elif opt in ['-h', '--help']:
             rtgen_full_usage() # does not return
         elif opt in ['-p', '--project']:

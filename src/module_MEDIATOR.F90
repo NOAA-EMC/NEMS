@@ -21,6 +21,25 @@ module module_MEDIATOR
   !              LND <-> HYD: Regrid, HYD not connected to ATM, OCN, ICE
   ! * 2015-12-16 Added NEMS_GridCopyCoord - DCR
   !              ATM <-> LND: Changed from Redist to Regrid
+  ! * 2017-09-08 Regridding from GSM to CICE or ocean models is done using only
+  !              sea points from GSM - B Li
+  ! * 2017-09-19 Added Nearest neighbor regridding option - B Li
+  ! * 2017-09-26 Set land_mask to be 1 if the interpolated land_mask from
+  !              ocean model is >= 10**(-6) - B Li
+  ! * 2017-10-24 Regridding from GSM to ocean and ice models (OCN/ICE) by masking out
+  !              GSM's land points (i.e. ignoring values at GSM's land points).
+  !              If no interpolated values can be obtained over OCN/ICE models' sea points
+  !              using bilinear or conservative methods, the interpolated values
+  !              from the nearest neighbor method will be used. - B Li.
+  ! * 2017-12-01 Removed fld_list_add(fldsFrIce,"dummyfield","cannot provide","bilinear").
+  !              Add the nearest neighbor regridding option for regridding from
+  !              OCN and ICE to ATM grid (search "BL2017b" in the code to see
+  !              where changes are made.)
+  ! * 2017-12-15 The bilinear and patch interpolation methods are currently not used
+  !              for any export variables from ice model. If
+  !              bilinear or path interpolation method is used in the future for regridding
+  !              ice variables to other model components, changes in subroutine
+  !              "MedPhase_prep_atm" is required. -B Li.
   !-----------------------------------------------------------------------------
 
   use ESMF
@@ -56,7 +75,11 @@ module module_MEDIATOR
     type(ESMF_FieldBundle):: FBaccumHyd  ! accumulator of lnd export data
     type(ESMF_FieldBundle):: FBaccumAtmOcn  ! accumulator of atm export data
     type(ESMF_FieldBundle):: FBAtm_a     ! Atm export data on atm grid
-    type(ESMF_FieldBundle):: FBAtm_o     ! Atm export data mapped to ocn grid
+    type(ESMF_FieldBundle):: FBAtm_o     ! Atm export data mapped to ocn grid 
+!BL2017
+    type(ESMF_FieldBundle):: FBAtm2_o     ! Atm export data mapped to ocn grid
+    type(ESMF_FieldBundle):: FBAtm2_i     ! Atm export data mapped to ice grid
+!BL2017
     type(ESMF_FieldBundle):: FBAtm_i     ! Atm export data mapped to ice grid
     type(ESMF_FieldBundle):: FBAtm_l     ! Atm export data mapped to lnd grid
     type(ESMF_FieldBundle):: FBAtm_h     ! Atm export data mapped to hyd grid
@@ -75,6 +98,11 @@ module module_MEDIATOR
     type(ESMF_FieldBundle):: FBHyd_h     ! Hyd export on hyd grid
     type(ESMF_FieldBundle):: FBAtmOcn_o  ! Atm/Ocn flux fields on ocn grid
     type(ESMF_FieldBundle):: FBAtmOcn_a  ! Atm/Ocn flux fields on atm grid
+!BL2017b
+    type(ESMF_FieldBundle):: FBOcn2_a     ! Ocn export data mapped to atm grid
+    type(ESMF_FieldBundle):: FBIce2_a     ! Ice export data mapped to atm grid
+    type(ESMF_FieldBundle):: FBAtmOcn2_a  ! Atm/Ocn flux fields on atm grid
+!BL2017b
     type(ESMF_FieldBundle):: FBforAtm    ! data storage for atm import
     type(ESMF_FieldBundle):: FBforOcn    ! data storage for ocn import
     type(ESMF_FieldBundle):: FBforIce    ! data storage for ice import
@@ -116,6 +144,14 @@ module module_MEDIATOR
     type(ESMF_RouteHandle):: RH_i2o_consd  ! ice to ocn
     type(ESMF_RouteHandle):: RH_l2h_consd  ! lnd to hyd
     type(ESMF_RouteHandle):: RH_h2l_consd  ! hyd to lnd
+!BL2017
+    type(ESMF_RouteHandle):: RH_a2o_nearest  ! atm to ocn nearest neighbor stod
+    type(ESMF_RouteHandle):: RH_a2i_nearest  ! atm to ice nearest neighbor stod
+!BL2017
+!BL2017b
+    type(ESMF_RouteHandle):: RH_i2a_nearest  ! ice to atm nearest neighbor stod
+    type(ESMF_RouteHandle):: RH_o2a_nearest  ! ocn to atm nearest neighbor stod
+!BL2017b
     type(ESMF_RouteHandle):: RH_a2o_patch  ! atm to ocn patch
     type(ESMF_RouteHandle):: RH_o2a_patch  ! ocn to atm
     type(ESMF_RouteHandle):: RH_a2i_patch  ! atm to ice
@@ -224,6 +260,10 @@ module module_MEDIATOR
   real(ESMF_KIND_R8), parameter :: spval_init = 0.0_ESMF_KIND_R8  ! spval for initialization
   real(ESMF_KIND_R8), parameter :: spval = 0.0_ESMF_KIND_R8  ! spval
   real(ESMF_KIND_R8), parameter :: czero = 0.0_ESMF_KIND_R8  ! spval
+!BL2017b
+!  real(ESMF_KIND_R8), parameter :: c9999 = 9999.0_ESMF_KIND_R8  ! spval
+!  real(ESMF_KIND_R8), parameter :: c9999 = 0.0_ESMF_KIND_R8  ! spval
+!BL2017b
   integer           , parameter :: ispval_mask = -987987     ! spval for RH mask values
 
   type fld_list_type
@@ -525,7 +565,7 @@ module module_MEDIATOR
     call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx"     , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_laten_heat_flx"     , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_lw_flx"        , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_up_lw_flx"          , "will provide","conservefrac")
+!    call fld_list_add(fldsFrAtm,"mean_up_lw_flx"          , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_sw_flx"        , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_prec_rate"          , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_fprec_rate"         , "will provide","conservefrac")
@@ -534,7 +574,7 @@ module module_MEDIATOR
     call fld_list_add(fldsFrAtm,"inst_sensi_heat_flx"     , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_laten_heat_flx"     , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_down_lw_flx"        , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"inst_up_lw_flx"          , "will provide","conservefrac")
+!    call fld_list_add(fldsFrAtm,"inst_up_lw_flx"          , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_down_sw_flx"        , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_temp_height2m"      , "will provide","bilinear")
     call fld_list_add(fldsFrAtm,"inst_spec_humid_height2m", "will provide","bilinear")
@@ -621,13 +661,13 @@ module module_MEDIATOR
     call fld_list_add(fldsToOcn,"mean_down_sw_flx"        , "will provide")
     call fld_list_add(fldsToOcn,"mean_net_sw_flx"         , "will provide")
     call fld_list_add(fldsToOcn,"mean_net_lw_flx"         , "will provide")
-    call fld_list_add(fldsToOcn,"mean_up_lw_flx"          , "will provide")
+!    call fld_list_add(fldsToOcn,"mean_up_lw_flx"          , "will provide")
     call fld_list_add(fldsToOcn,"inst_temp_height2m"      , "will provide")
     call fld_list_add(fldsToOcn,"inst_spec_humid_height2m", "will provide")
     call fld_list_add(fldsToOcn,"net_heat_flx_to_ocn"     , "will provide")
     call fld_list_add(fldsToOcn,"mean_fresh_water_to_ocean_rate", "will provide")
     call fld_list_add(fldsToOcn,"mean_salt_rate"          , "will provide")
-    call fld_list_add(fldsToOcn,"ice_fraction"          , "will provide")
+    call fld_list_add(fldsToOcn,"ice_fraction"            , "will provide")
  
     ! Fields from OCN
     call fld_list_add(fldsFrOcn,"ocean_mask"              , "cannot provide","conservedst")
@@ -689,9 +729,8 @@ module module_MEDIATOR
     call fld_list_add(fldsToIce,"air_density_height_lowest"     , "will provide")
 
     ! Fields from ICE
-    call fld_list_add(fldsFrIce,"dummyfield"              , "cannot provide","bilinear")
+!     call fld_list_add(fldsFrIce,"dummyfield"              , "cannot provide","bilinear")
     call fld_list_add(fldsFrIce,"ice_mask"                , "cannot provide","conservedst")
-!    call fld_list_add(fldsFrIce,"sea_ice_temperature"     , "will provide","bilinear")
     call fld_list_add(fldsFrIce,"sea_ice_temperature"     , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"inst_ice_ir_dir_albedo"  , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"inst_ice_ir_dif_albedo"  , "will provide","conservefrac")
@@ -1481,11 +1520,9 @@ module module_MEDIATOR
 
       type(ESMF_DistGrid)           :: distgrid
       type(ESMF_DistGridConnection), allocatable :: connectionList(:)
-      integer                       :: dimCount, tileCount, petCount
+      integer                       :: dimCount, tileCount
       integer                       :: connectionCount
-      integer                       :: deCountPTile, extraDEs
       integer, allocatable          :: minIndexPTile(:,:), maxIndexPTile(:,:)
-      integer, allocatable          :: regDecompPTile(:,:)
       integer                       :: i, j, n, n1, fieldCount, nxg
       character(ESMF_MAXSTR),allocatable :: fieldNameList(:)
       character(ESMF_MAXSTR)        :: transferAction
@@ -1529,17 +1566,19 @@ module module_MEDIATOR
           if (dbug_flag > 1) then
             call ESMF_LogWrite(trim(subname)//trim(string)//": accept grid for "//trim(fieldNameList(n)), ESMF_LOGMSG_INFO, rc=dbrc)
           endif
-          ! while this is still an empty field, it does now hold a Grid with DistGrid
+          
+          ! this is still an empty field, but holds a Grid with DistGrid
           call ESMF_FieldGet(field, grid=grid, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
 
+          ! diagnostic print
           call Grid_Print(grid,trim(fieldNameList(n))//'_orig',rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
 
-          ! access localDeCount to show this is a real Grid
-          call ESMF_GridGet(grid, localDeCount=localDeCount, distgrid=distgrid, rc=rc)
+          ! access the DistGrid inside the Grid
+          call ESMF_GridGet(grid, distgrid=distgrid, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
            line=__LINE__, file=__FILE__)) return  ! bail out
    
@@ -1563,86 +1602,39 @@ module module_MEDIATOR
             maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-      
-          ! construct a default regDecompPTile -> TODO: move this into ESMF as default
-          call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
+          
+          ! create the new DistGrid with the same minIndexPTile and
+          ! maxIndexPTile, but with default multi-tile regDecomp: 1DE/PET
+          distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+            maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-
-          allocate(regDecompPTile(dimCount, tileCount))
-          deCountPTile = petCount/tileCount
-          extraDEs = max(0, petCount-deCountPTile)
-          do i=1, tileCount
-            if (i<=extraDEs) then
-              regDecompPTile(1, i) = deCountPTile + 1
-            else
-              regDecompPTile(1, i) = deCountPTile
-            endif
-            do j=2, dimCount
-              regDecompPTile(j, i) = 1
-            enddo
-          enddo
-    
-!--- tcraig, hardwire i direction wraparound, temporary
-!--- tcraig, now getting info from model distgrid, see above
-!          allocate(connectionList(1))
-!          nxg = maxIndexPTile(1,1) - minIndexPTile(1,1) + 1
-!          write(msgstring,*) trim(subname)//trim(string),': connlist nxg = ',nxg
-!          call ESMF_LogWrite(trim(msgstring), ESMF_LOGMSG_INFO, rc=rc)
-!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!            line=__LINE__, file=__FILE__)) return  ! bail out
-!          call ESMF_DistGridConnectionSet(connectionList(1), tileIndexA=1, &
-!            tileIndexB=1, positionVector=(/nxg, 0/), rc=rc)
-!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!            line=__LINE__, file=__FILE__)) return  ! bail out
-
-          ! create the new DistGrid with the same minIndexPTile and maxIndexPTile,
-          ! but with a default regDecompPTile
-! tcraig, force connectionlist and gridEdge arguments to fix wraparound
-! add XX to turn this off, remove XX to turn this on.  
-! need ESMF fixes to implement properly.
-!          if (trim(string) == 'XXOcnImp' .or. trim(string) == 'XXOcnExp' .or. &
-!              trim(string) == 'XXIceImp' .or. trim(string) == 'XXIceExp') then
-          if (trim(string) == 'OcnImp' .or. trim(string) == 'OcnExp' .or. &
-              trim(string) == 'AtmImp' .or. trim(string) == 'AtmExp' .or. &
-              trim(string) == 'IceImp' .or. trim(string) == 'IceExp' .or. &
-              trim(string) == 'XXLndImp' .or. trim(string) == 'XXLndExp' .or. &
-              trim(string) == 'XXHydImp' .or. trim(string) == 'XXHydExp' ) then
-            distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
-              maxIndexPTile=maxIndexPTile, regDecompPTile=regDecompPTile, &
-              connectionList=connectionList, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, file=__FILE__)) return  ! bail out
-            if (dbug_flag > 1) then
-              call ESMF_LogWrite(trim(subname)//trim(string)//': distgrid with connlist', ESMF_LOGMSG_INFO, rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=__FILE__)) return  ! bail out
-            endif
-            ! Create a new Grid on the new DistGrid and swap it in the Field
-            grid = ESMF_GridCreate(distgrid, &
-              gridEdgeLWidth=(/0,0/), gridEdgeUWidth=(/0,1/), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, file=__FILE__)) return  ! bail out
-          else
-            distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
-              maxIndexPTile=maxIndexPTile, regDecompPTile=regDecompPTile, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, file=__FILE__)) return  ! bail out
-            if (dbug_flag > 1) then
-              call ESMF_LogWrite(trim(subname)//trim(string)//': distgrid without connlist', ESMF_LOGMSG_INFO, rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=__FILE__)) return  ! bail out
-            endif
-            ! Create a new Grid on the new DistGrid and swap it in the Field
-            grid = ESMF_GridCreate(distgrid, rc=rc)
+          if (dbug_flag > 1) then
+            call ESMF_LogWrite(trim(subname)//trim(string)//': distgrid with connlist', ESMF_LOGMSG_INFO, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=__FILE__)) return  ! bail out
           endif
-
+          
           ! local clean-up
-          deallocate(connectionList)
-          deallocate(minIndexPTile, maxIndexPTile, regDecompPTile)
+          deallocate(minIndexPTile, maxIndexPTile, connectionList)
 
+          ! Create a new Grid on the new DistGrid and swap it in the Field
+          grid = ESMF_GridCreate(distgrid, &
+            gridEdgeLWidth=(/0,0/), gridEdgeUWidth=(/0,1/), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+
+          ! check to ensure 1DE/PET condition is satisfied
+          call ESMF_GridGet(grid, localDeCount=localDeCount, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+           line=__LINE__, file=__FILE__)) return  ! bail out
+          if (localDeCount /= 1) then
+            call ESMF_LogSetError(ESMF_RC_INTNRL_BAD, &
+              msg=SUBNAME//": Violation of 1 DE/PET condition in the Mediator",&
+              line=__LINE__, file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+          endif
+          
           ! Swap all the Grids in the State
     
 !tcx         do n1=1, fieldCount
@@ -1706,6 +1698,7 @@ module module_MEDIATOR
     type(ESMF_RouteHandle)      :: RH_mapmask  ! unmasked conservative remapping 
     type(ESMF_Grid)             :: gridAtmCoord, gridOcnCoord
     integer(ESMF_KIND_I4), pointer :: dataPtr_arrayOcn(:,:), dataPtr_arrayIce(:,:)
+    integer(ESMF_KIND_I4), pointer :: dataPtr_arrayAtm(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_fieldOcn(:,:), dataPtr_fieldAtm(:,:)
     logical                     :: isPresentOcn, isPresentIce
     character(len=*),parameter  :: subname='(module_MEDIATOR:InitializeIPDv03p5)'
@@ -1826,6 +1819,13 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
       deallocate(fieldNameList)
+
+!jwtest
+!      call ESMF_LogWrite("MED: before get fv3grid vtk", ESMF_LOGMSG_INFO, rc=rc)
+!      call ESMF_GridWriteVTK(gridAtm, staggerloc=ESMF_STAGGERLOC_CENTER, &
+!                             filename='mediator_fv3Grid', rc=rc)
+!      call ESMF_LogWrite("MED: aft get fv3grid vtk", ESMF_LOGMSG_INFO, rc=rc)
+
     else
       gridAtm = gridMed
     endif
@@ -1941,6 +1941,166 @@ module module_MEDIATOR
     else
       gridHyd = gridMed
     endif
+!BL2017
+    !--- land mask
+
+    if (generate_landmask) then
+
+      call ESMF_GridGetItem(gridOcn, itemflag=ESMF_GRIDITEM_MASK, staggerLoc=ESMF_STAGGERLOC_CENTER, isPresent=isPresentOcn, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      call ESMF_GridGetItem(gridIce, itemflag=ESMF_GRIDITEM_MASK, staggerLoc=ESMF_STAGGERLOC_CENTER, isPresent=isPresentIce, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      if (isPresentOcn .or. isPresentIce) then
+
+        if (isPresentOcn .and. isPresentIce) then
+
+          ! ocn mask from ocn grid
+
+          call ESMF_GridGetItem(gridOcn, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, array=arrayOcn, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_GridGetItem(gridOcn, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayOcn, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_ArraySet(arrayOcn, name="ocean_mask", rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          write (msgString,*) trim(subname)//"ocn_mask raw = ",minval(dataPtr_arrayOcn),maxval(dataPtr_arrayOcn)
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+          call ESMF_ArrayWrite(arrayOcn, 'field_med_ocn_a_ocean_mask.nc', rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          ! ice mask from ice grid
+
+          call ESMF_GridGetItem(gridIce, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, array=arrayIce, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_GridGetItem(gridIce, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayIce, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_ArraySet(arrayIce, name="ice_mask", rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          write (msgString,*) trim(subname)//"ice_mask raw = ",minval(dataPtr_arrayIce),maxval(dataPtr_arrayIce)
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+          call ESMF_ArrayWrite(arrayIce, 'field_med_ocn_a_ice_mask.nc', rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          ! generate ocn grid with just coords, no mask or area
+          ! create ocn/ice mask field on ocn grid, coords only
+
+          call Grid_CreateCoords(gridOcnCoord, gridOcn, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          fieldOcn = ESMF_FieldCreate(gridOcnCoord, ESMF_TYPEKIND_R8, name='ocnice_mask', rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_FieldGet(fieldOcn, farrayPtr=dataPtr_fieldOcn, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          ! generate atm grid with just coords, no mask or area
+          ! create land mask field on atm grid, coords only
+
+          call Grid_CreateCoords(gridAtmCoord, gridAtm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          fieldAtm = ESMF_FieldCreate(gridAtmCoord, ESMF_TYPEKIND_R8, name='land_mask', rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          call ESMF_FieldGet(fieldAtm, farrayPtr=dataPtr_FieldAtm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          ! Here, the ocean/ice mask is the intersection of ocean and ice masks, which are integer fields of 0 or 1
+          ! Convert to real and make sure values are only 0 or 1.
+
+          do j = lbound(dataPtr_fieldOcn,2),ubound(dataPtr_fieldOcn,2)
+          do i = lbound(dataPtr_fieldOcn,1),ubound(dataPtr_fieldOcn,1)
+            dataPtr_fieldOcn(i,j) = min(dataPtr_arrayIce(i,j),dataPtr_arrayOcn(i,j))
+            if (dataPtr_fieldOcn(i,j) < 0.50_ESMF_KIND_R8) then
+              dataPtr_fieldOcn(i,j) = 0.0_ESMF_KIND_R8
+            else
+              dataPtr_fieldOcn(i,j) = 1.0_ESMF_KIND_R8
+            endif
+          enddo
+          enddo
+
+          ! generate a new RH from Atm and Ocn coords, no masks, no areas.  Should not use o2a_consd mapping
+          ! because it has masks and area corrections.
+
+          call ESMF_FieldRegridStore(fieldOcn, fieldAtm, routehandle=RH_mapmask, &
+            regridmethod=ESMF_REGRIDMETHOD_CONSERVE, &
+            srcTermProcessing=srcTermProcessing_Value, &
+            ignoreDegenerate=.true., &
+            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+          ! regrid ocean mask from ocn to atm grid using unmasked conservative mapping
+
+          if (ESMF_RouteHandleIsCreated(RH_mapmask, rc=rc)) then
+            dataPtr_fieldAtm = 0.0_ESMF_KIND_R8
+            call ESMF_FieldRegrid(fieldOcn, fieldAtm, routehandle=RH_mapmask, &
+              termorderflag=ESMF_TERMORDER_SRCSEQ, zeroregion=ESMF_REGION_TOTAL, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+            call ESMF_FieldRegridRelease(RH_mapmask, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          else
+            call ESMF_LogWrite(trim(subname)//": ERROR RH_mapmask not created", ESMF_LOGMSG_INFO, rc=rc)
+            call ESMF_Finalize(endflag=ESMF_END_ABORT)
+          endif
+
+          ! convert from ocean mask to land mask
+          ! check min/max
+          ! also fill "land_mask" array and save it for later
+
+          allocate(land_mask(lbound(dataPtr_fieldAtm,1):ubound(dataPtr_fieldAtm,1),lbound(dataPtr_fieldAtm,2):ubound(dataPtr_fieldAtm,2)))
+
+          do j = lbound(dataPtr_fieldAtm,2),ubound(dataPtr_fieldAtm,2)
+          do i = lbound(dataPtr_fieldAtm,1),ubound(dataPtr_fieldAtm,1)
+            dataPtr_fieldAtm(i,j) = 1.0_ESMF_KIND_R8 - dataPtr_fieldAtm(i,j)
+            if (dataPtr_fieldAtm(i,j) > 1.0_ESMF_KIND_R8) dataPtr_fieldAtm(i,j) = 1.0_ESMF_KIND_R8
+            if (dataPtr_fieldAtm(i,j) < 1.0e-6_ESMF_KIND_R8) dataPtr_fieldAtm(i,j) = 0.0_ESMF_KIND_R8
+            land_mask(i,j) = dataPtr_fieldAtm(i,j)
+          enddo
+          enddo
+
+          ! write out masks
+
+          call ESMF_FieldWrite(fieldOcn,'field_med_ocn_a_ocnice_mask.nc',overwrite=.true.,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+          write (msgString,*) trim(subname)//"ocean_mask = ",minval(dataPtr_fieldOcn),maxval(dataPtr_fieldOcn)
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+
+#ifndef FRONT_FV3
+          call ESMF_FieldWrite(fieldAtm,'field_med_atm_a_land_mask.nc',overwrite=.true.,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+          write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+#endif
+
+          ! clean up
+
+          call ESMF_GridDestroy(gridAtmCoord,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+          call ESMF_FieldDestroy(fieldAtm,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+          call ESMF_GridDestroy(gridOcnCoord,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+          call ESMF_FieldDestroy(fieldOcn,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+
+        else  ! isPresentOcn .and. isPresentIce
+          call ESMF_LogWrite(trim(subname)//": ABORT more support needed for Ocn or Ice mask", ESMF_LOGMSG_INFO, rc=rc)
+          call ESMF_Finalize(endflag=ESMF_END_ABORT)
+        endif
+
+      endif    ! isPresentOcn .or. isPresentIce
+
+!BL2017b
+!    call ESMF_GridGetItem(gridAtm, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayAtm, rc=rc)
+!          do j = lbound(dataPtr_arrayAtm,2),ubound(dataPtr_arrayAtm,2)
+!          do i = lbound(dataPtr_arrayAtm,1),ubound(dataPtr_arrayAtm,1)
+!          dataPtr_arrayAtm(i,j) = 0    ! over ocean
+!!          if (land_mask(i,j) >= 0.01_ESMF_KIND_R8) dataPtr_arrayAtm(i,j) =1_ESMF_KIND_I4
+!          if (land_mask(i,j) >= 1.0e-6_ESMF_KIND_R8) dataPtr_arrayAtm(i,j) =1_ESMF_KIND_I4
+!          enddo
+!          enddo
+!BL2017
+    endif  ! generate_landmask
+
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
 
     !----------------------------------------------------------
     !--- Diagnose Grid Info
@@ -1975,9 +2135,11 @@ module module_MEDIATOR
     ! dump the Grid coordinate arrays for reference      
     !----------------------------------------------------------
 
+#ifndef FRONT_FV3
     call Grid_Write(gridAtm, 'array_med_atm', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
 
     call Grid_Write(gridOcn, 'array_med_ocn', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2027,8 +2189,18 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
+    call fieldBundle_init(is_local%wrap%FBAtm2_o, grid=gridOcn, &
+      state=NState_AtmImp, name='FBAtm2_o', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     call fieldBundle_init(is_local%wrap%FBAtm_i, grid=gridIce, &
       state=NState_AtmImp, name='FBAtm_i', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call fieldBundle_init(is_local%wrap%FBAtm2_i, grid=gridIce, &
+      state=NState_AtmImp, name='FBAtm2_i', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -2046,6 +2218,10 @@ module module_MEDIATOR
 
     call fieldBundle_init(is_local%wrap%FBOcn_a, grid=gridAtm, &
       state=NState_OcnImp, name='FBOcn_a', rc=rc)
+!BL2017b
+    call fieldBundle_init(is_local%wrap%FBOcn2_a, grid=gridAtm, &
+      state=NState_OcnImp, name='FBOcn2_a', rc=rc)
+!BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -2063,6 +2239,10 @@ module module_MEDIATOR
 
     call fieldBundle_init(is_local%wrap%FBIce_a, grid=gridAtm, &
       state=NState_IceImp, name='FBIce_a', rc=rc)
+!BL2017b
+    call fieldBundle_init(is_local%wrap%FBIce2_a, grid=gridAtm, &
+      state=NState_IceImp, name='FBIce2_a', rc=rc)
+!BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -2155,6 +2335,10 @@ module module_MEDIATOR
 
     call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
       fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
+!BL2017b
+    call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
+      fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
+!BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -2362,6 +2546,9 @@ module module_MEDIATOR
         consdmap=is_local%wrap%RH_a2o_consd, &
         patchmap=is_local%wrap%RH_a2o_patch, &
         fcopymap=is_local%wrap%RH_a2o_fcopy, &
+        nearestmap=is_local%wrap%RH_a2o_nearest, &
+!        srcMaskValue=1, &
+        srcMaskValue=0, &
         dstMaskValue=0, &
         fldlist1=FldsFrAtm, string='a2o_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2375,6 +2562,9 @@ module module_MEDIATOR
         consdmap=is_local%wrap%RH_a2i_consd, &
         patchmap=is_local%wrap%RH_a2i_patch, &
         fcopymap=is_local%wrap%RH_a2i_fcopy, &
+        nearestmap=is_local%wrap%RH_a2i_nearest, &
+!        srcMaskValue=1, &
+        srcMaskValue=0, &
         dstMaskValue=0, &
         fldlist1=FldsFrAtm, string='a2i_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2412,7 +2602,10 @@ module module_MEDIATOR
         consdmap=is_local%wrap%RH_o2a_consd, &
         patchmap=is_local%wrap%RH_o2a_patch, &
         fcopymap=is_local%wrap%RH_o2a_fcopy, &
+        nearestmap=is_local%wrap%RH_o2a_nearest, &
         srcMaskValue=0, &
+!        dstMaskValue=1, &
+        dstMaskValue=0, &
         fldlist1=FldsFrOcn, fldlist2=FldsAtmOcn, string='o2a_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
@@ -2438,7 +2631,10 @@ module module_MEDIATOR
         consdmap=is_local%wrap%RH_i2a_consd, &
         patchmap=is_local%wrap%RH_i2a_patch, &
         fcopymap=is_local%wrap%RH_i2a_fcopy, &
+        nearestmap=is_local%wrap%RH_i2a_nearest, &
         srcMaskValue=0, &
+!        dstMaskValue=1, &
+        dstMaskValue=0, &
         fldlist1=FldsFrIce, string='i2a_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
@@ -2505,149 +2701,6 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
 
-    !--- land mask
-
-    if (generate_landmask) then
-
-      call ESMF_GridGetItem(gridOcn, itemflag=ESMF_GRIDITEM_MASK, staggerLoc=ESMF_STAGGERLOC_CENTER, isPresent=isPresentOcn, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      call ESMF_GridGetItem(gridIce, itemflag=ESMF_GRIDITEM_MASK, staggerLoc=ESMF_STAGGERLOC_CENTER, isPresent=isPresentIce, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-      if (isPresentOcn .or. isPresentIce) then
-
-        if (isPresentOcn .and. isPresentIce) then
-
-          ! ocn mask from ocn grid
-
-          call ESMF_GridGetItem(gridOcn, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, array=arrayOcn, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_GridGetItem(gridOcn, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayOcn, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_ArraySet(arrayOcn, name="ocean_mask", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          write (msgString,*) trim(subname)//"ocn_mask raw = ",minval(dataPtr_arrayOcn),maxval(dataPtr_arrayOcn)
-          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-          call ESMF_ArrayWrite(arrayOcn, 'field_med_ocn_a_ocean_mask.nc', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          ! ice mask from ice grid
-
-          call ESMF_GridGetItem(gridIce, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, array=arrayIce, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_GridGetItem(gridIce, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayIce, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_ArraySet(arrayIce, name="ice_mask", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          write (msgString,*) trim(subname)//"ice_mask raw = ",minval(dataPtr_arrayIce),maxval(dataPtr_arrayIce)
-          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-          call ESMF_ArrayWrite(arrayIce, 'field_med_ocn_a_ice_mask.nc', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          ! generate ocn grid with just coords, no mask or area
-          ! create ocn/ice mask field on ocn grid, coords only
-
-          call Grid_CreateCoords(gridOcnCoord, gridOcn, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          fieldOcn = ESMF_FieldCreate(gridOcnCoord, ESMF_TYPEKIND_R8, name='ocnice_mask', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_FieldGet(fieldOcn, farrayPtr=dataPtr_fieldOcn, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          ! generate atm grid with just coords, no mask or area
-          ! create land mask field on atm grid, coords only
-
-          call Grid_CreateCoords(gridAtmCoord, gridAtm, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          fieldAtm = ESMF_FieldCreate(gridAtmCoord, ESMF_TYPEKIND_R8, name='land_mask', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          call ESMF_FieldGet(fieldAtm, farrayPtr=dataPtr_FieldAtm, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          ! Here, the ocean/ice mask is the intersection of ocean and ice masks, which are integer fields of 0 or 1
-          ! Convert to real and make sure values are only 0 or 1.
-
-          do j = lbound(dataPtr_fieldOcn,2),ubound(dataPtr_fieldOcn,2)
-          do i = lbound(dataPtr_fieldOcn,1),ubound(dataPtr_fieldOcn,1)
-            dataPtr_fieldOcn(i,j) = min(dataPtr_arrayIce(i,j),dataPtr_arrayOcn(i,j))
-            if (dataPtr_fieldOcn(i,j) < 0.50_ESMF_KIND_R8) then
-              dataPtr_fieldOcn(i,j) = 0.0_ESMF_KIND_R8
-            else
-              dataPtr_fieldOcn(i,j) = 1.0_ESMF_KIND_R8
-            endif
-          enddo
-          enddo
-
-          ! generate a new RH from Atm and Ocn coords, no masks, no areas.  Should not use o2a_consd mapping
-          ! because it has masks and area corrections.
-
-          call ESMF_FieldRegridStore(fieldOcn, fieldAtm, routehandle=RH_mapmask, &
-            regridmethod=ESMF_REGRIDMETHOD_CONSERVE, &
-            srcTermProcessing=srcTermProcessing_Value, &
-            ignoreDegenerate=.true., &
-            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-          ! regrid ocean mask from ocn to atm grid using unmasked conservative mapping
-
-          if (ESMF_RouteHandleIsCreated(RH_mapmask, rc=rc)) then
-            dataPtr_fieldAtm = 0.0_ESMF_KIND_R8
-            call ESMF_FieldRegrid(fieldOcn, fieldAtm, routehandle=RH_mapmask, &
-              termorderflag=ESMF_TERMORDER_SRCSEQ, zeroregion=ESMF_REGION_TOTAL, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-            call ESMF_FieldRegridRelease(RH_mapmask, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          else
-            call ESMF_LogWrite(trim(subname)//": ERROR RH_mapmask not created", ESMF_LOGMSG_INFO, rc=rc)
-            call ESMF_Finalize(endflag=ESMF_END_ABORT)
-          endif
-
-          ! convert from ocean mask to land mask
-          ! check min/max
-          ! also fill "land_mask" array and save it for later
-
-          allocate(land_mask(lbound(dataPtr_fieldAtm,1):ubound(dataPtr_fieldAtm,1),lbound(dataPtr_fieldAtm,2):ubound(dataPtr_fieldAtm,2)))
-          do j = lbound(dataPtr_fieldAtm,2),ubound(dataPtr_fieldAtm,2)
-          do i = lbound(dataPtr_fieldAtm,1),ubound(dataPtr_fieldAtm,1)
-            dataPtr_fieldAtm(i,j) = 1.0_ESMF_KIND_R8 - dataPtr_fieldAtm(i,j)
-            if (dataPtr_fieldAtm(i,j) > 1.0_ESMF_KIND_R8) dataPtr_fieldAtm(i,j) = 1.0_ESMF_KIND_R8
-            if (dataPtr_fieldAtm(i,j) < 1.0e-6_ESMF_KIND_R8) dataPtr_fieldAtm(i,j) = 0.0_ESMF_KIND_R8
-            land_mask(i,j) = dataPtr_fieldAtm(i,j)
-          enddo
-          enddo
-
-          ! write out masks
-
-          call ESMF_FieldWrite(fieldOcn,'field_med_ocn_a_ocnice_mask.nc',overwrite=.true.,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          write (msgString,*) trim(subname)//"ocean_mask = ",minval(dataPtr_fieldOcn),maxval(dataPtr_fieldOcn)
-          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-
-          call ESMF_FieldWrite(fieldAtm,'field_med_atm_a_land_mask.nc',overwrite=.true.,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
-          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-
-          ! clean up
-
-          call ESMF_GridDestroy(gridAtmCoord,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          call ESMF_FieldDestroy(fieldAtm,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          call ESMF_GridDestroy(gridOcnCoord,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          call ESMF_FieldDestroy(fieldOcn,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-
-        else  ! isPresentOcn .and. isPresentIce
-          call ESMF_LogWrite(trim(subname)//": ABORT more support needed for Ocn or Ice mask", ESMF_LOGMSG_INFO, rc=rc)
-          call ESMF_Finalize(endflag=ESMF_END_ABORT)
-        endif
-
-      endif    ! isPresentOcn .or. isPresentIce
-
-    endif  ! generate_landmask
-
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
@@ -2661,7 +2714,8 @@ module module_MEDIATOR
     
       integer                     :: n, fieldCount
       character(ESMF_MAXSTR),allocatable :: fieldNameList(:)
-      character(ESMF_MAXSTR)      :: transferAction
+      type(ESMF_FieldStatus_Flag)        :: fieldStatus
+
       character(len=*),parameter  :: subname='(module_MEDIATOR:completeFieldInitialization)'
 #ifndef NUOPC_DOES_SMART_GRID_TRANSFER
       type(ESMF_Grid)             :: grid
@@ -2687,12 +2741,12 @@ module module_MEDIATOR
         call ESMF_StateGet(State, field=field, itemName=fieldNameList(n), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
-        call NUOPC_GetAttribute(field, name="TransferActionGeomObject", &
-          value=transferAction, rc=rc)
+
+        call ESMF_FieldGet(field, status=fieldStatus, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-        if (trim(transferAction) == "accept") then
+        if (fieldStatus==ESMF_FIELDSTATUS_GRIDSET) then 
           if (dbug_flag > 1) then
             call ESMF_LogWrite(subname//" is accepting grid for field "//trim(fieldNameList(n)), &
               ESMF_LOGMSG_INFO, rc=rc)
@@ -2710,7 +2764,7 @@ module module_MEDIATOR
           call ESMF_FieldGet(field, grid=grid, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-        elseif (trim(transferAction) == "accept-internal") then
+        else
           if (dbug_flag > 1) then
             call ESMF_LogWrite(subname//" is accepting INTERNAL grid for field "//trim(fieldNameList(n)), &
               ESMF_LOGMSG_INFO, rc=rc)
@@ -3037,6 +3091,7 @@ module module_MEDIATOR
     type(ESMF_Field)            :: field
     type(InternalState)         :: is_local
     real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:),dataPtr4(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr5(:,:)
     real(ESMF_KIND_R8), pointer :: ifrac_i(:,:)                   ! ice fraction on ice grid
     real(ESMF_KIND_R8), pointer :: ifrac_af(:,:), ifrac_afr(:,:)  ! ice fraction on atm grid consf map
     real(ESMF_KIND_R8), pointer :: ifrac_ad(:,:), ifrac_adr(:,:)  ! ice fraction on atm grid consd map
@@ -3044,7 +3099,12 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: ifrac_ap(:,:), ifrac_apr(:,:)  ! ice fraction on atm grid patch map
     real(ESMF_KIND_R8), pointer :: ocnwgt(:,:),icewgt(:,:),customwgt(:,:)
     integer                     :: i,j,n
+    integer                     :: regridwriteAtmExp_timeslice = 0
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_atm)'
+!BL2017b
+    character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
+    integer                     :: fieldCount
+!BL2017b
     
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
@@ -3125,6 +3185,11 @@ module module_MEDIATOR
     call fieldBundle_reset(is_local%wrap%FBLnd_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBHyd_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBAtmOcn_a, value=czero, rc=rc)
+!BL2017b
+    call fieldBundle_reset(is_local%wrap%FBOcn2_a, value=czero, rc=rc)
+    call fieldBundle_reset(is_local%wrap%FBIce2_a, value=czero, rc=rc)
+    call fieldBundle_reset(is_local%wrap%FBAtmOcn2_a, value=czero, rc=rc)
+!BL2017b
 
     if (is_local%wrap%o2a_active) then
       call Fieldbundle_Regrid(fldsFrOcn, is_local%wrap%FBOcn_o, is_local%wrap%FBOcn_a, &
@@ -3136,6 +3201,42 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 
+!BL2017b 
+! use the nearest neighbor method
+      call Fieldbundle_Regrid2(fldsFrOcn, is_local%wrap%FBOcn_o, is_local%wrap%FBOcn2_a, &
+         nearestmap=is_local%wrap%RH_o2a_nearest, &
+         string='o2a_nearest', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBOcn_a, fieldCount=fieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      allocate(fieldNameList(fieldCount))
+      call ESMF_FieldBundleGet(is_local%wrap%FBOcn_a, fieldNameList=fieldNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do n = 1, fieldCount
+      call FieldBundle_GetFldPtr(is_local%wrap%FBOcn_a, fieldNameList(n),dataPtr1,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call FieldBundle_GetFldPtr(is_local%wrap%FBOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
+      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
+      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
+        dataPtr1(i,j)=dataPtr2(i,j)
+        endif
+      enddo
+      enddo
+      enddo
+      deallocate(fieldNameList)
+!BL2017b
+
       call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
          consfmap=is_local%wrap%RH_o2a_consf, &
          consdmap=is_local%wrap%RH_o2a_consd, &
@@ -3144,6 +3245,42 @@ module module_MEDIATOR
          string='o2aatmocn', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+
+!BL2017b
+! use the nearest neighbor method
+      call Fieldbundle_Regrid2(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn2_a, &
+         nearestmap=is_local%wrap%RH_o2a_nearest, &
+         string='atmocn_o2a_nearest', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldCount=fieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      allocate(fieldNameList(fieldCount))
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldNameList=fieldNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do n = 1, fieldCount
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn_a, fieldNameList(n),dataPtr1,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
+      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
+      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
+        dataPtr1(i,j)=dataPtr2(i,j)
+        endif
+      enddo
+      enddo
+      enddo
+      deallocate(fieldNameList)
+!BL2017b
     endif
 
     if (is_local%wrap%i2a_active) then
@@ -3153,10 +3290,29 @@ module module_MEDIATOR
         !--- need to compute weight by the frac mapped with the correct mapping
         !--- first compute the ice fraction on the atm grid for all active mappings
 
+        !--- copy out the ifrac on ice grid
+
         call FieldBundle_GetFldPtr(is_local%wrap%FBIce_i, 'ice_fraction', dataPtr1, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
         allocate(ifrac_i (lbound(dataPtr1,1):ubound(dataPtr1,1),lbound(dataPtr1,2):ubound(dataPtr1,2)))
+          do j=lbound(dataptr1,2),ubound(dataptr1,2)
+          do i=lbound(dataptr1,1),ubound(dataptr1,1)
+            ifrac_i(i,j) = dataPtr1(i,j)
+          enddo
+          enddo
+!BL2017b
+        !--- need to add the nearest neighbor regridding method here - B Li
+          call FieldBundle_FieldRegrid(is_local%wrap%FBIce_i,'ice_fraction', &
+                                       is_local%wrap%FBIce2_a,'ice_fraction', &
+                                       is_local%wrap%RH_i2a_nearest, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+
+          call FieldBundle_GetFldPtr(is_local%wrap%FBIce2_a,'ice_fraction', dataPtr5, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+!BL2017b
 
         !--- conservative frac
         if (ESMF_RouteHandleIsCreated(is_local%wrap%RH_i2a_consf, rc=rc)) then
@@ -3166,19 +3322,22 @@ module module_MEDIATOR
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
 
-          !--- copy out the ifrac on ice grid and ifrac on atm grid
+          !--- copy out the ifrac on atm grid
           call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, 'ice_fraction', dataPtr2, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
 
+          do j=lbound(dataPtr2,2),ubound(dataPtr2,2)
+          do i=lbound(dataPtr2,1),ubound(dataPtr2,1)
+          if(dataPtr2(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr5(i,j)).gt.0._ESMF_KIND_R8) then
+            dataPtr2(i,j) = dataPtr5(i,j)
+            endif
+          enddo
+          enddo
+!BL2017b
+
           allocate(ifrac_afr(lbound(dataptr2,1):ubound(dataptr2,1),lbound(dataptr2,2):ubound(dataptr2,2)))
           allocate(ifrac_af (lbound(dataptr2,1):ubound(dataptr2,1),lbound(dataptr2,2):ubound(dataptr2,2)))
-
-          do j=lbound(dataptr1,2),ubound(dataptr1,2)
-          do i=lbound(dataptr1,1),ubound(dataptr1,1)
-            ifrac_i(i,j) = dataPtr1(i,j)
-          enddo
-          enddo
 
           do j=lbound(dataptr2,2),ubound(dataptr2,2)
           do i=lbound(dataptr2,1),ubound(dataptr2,1)
@@ -3200,8 +3359,8 @@ module module_MEDIATOR
                                        is_local%wrap%RH_i2a_consd, rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-
-          !--- copy out the ifrac on ice grid and ifrac on atm grid
+!BL2017b
+          !--- copy out the ifrac on atm grid
           call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, 'ice_fraction', dataPtr2, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
@@ -3209,11 +3368,15 @@ module module_MEDIATOR
           allocate(ifrac_adr(lbound(dataptr2,1):ubound(dataptr2,1),lbound(dataptr2,2):ubound(dataptr2,2)))
           allocate(ifrac_ad (lbound(dataptr2,1):ubound(dataptr2,1),lbound(dataptr2,2):ubound(dataptr2,2)))
 
-          do j=lbound(dataptr1,2),ubound(dataptr1,2)
-          do i=lbound(dataptr1,1),ubound(dataptr1,1)
-            ifrac_i(i,j) = dataPtr1(i,j)
+!BL2017b
+          do j=lbound(dataptr2,2),ubound(dataptr2,2)
+          do i=lbound(dataptr2,1),ubound(dataptr2,1)
+          if(dataPtr2(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr5(i,j)).gt.0._ESMF_KIND_R8) then
+            dataPtr2(i,j) = dataPtr5(i,j)
+            endif
           enddo
           enddo
+!BL2017b
 
           do j=lbound(dataptr2,2),ubound(dataptr2,2)
           do i=lbound(dataptr2,1),ubound(dataptr2,1)
@@ -3227,7 +3390,10 @@ module module_MEDIATOR
           enddo
           enddo
         endif
-
+!BL2017b
+        !--- the bilinear and patch interpolation methods are currently not used
+        !--- for any export variables from ice model - B Li
+    
         !--- bilinear
         if (ESMF_RouteHandleIsCreated(is_local%wrap%RH_i2a_bilnr, rc=rc)) then
           call FieldBundle_FieldRegrid(is_local%wrap%FBIce_i,'ice_fraction', &
@@ -3303,11 +3469,11 @@ module module_MEDIATOR
         do n = 1,fldsFrIce%num
           if (FieldBundle_FldChk(is_local%wrap%FBIce_i, fldsFrIce%shortname(n), rc=rc) .and. &
               FieldBundle_FldChk(is_local%wrap%FBIce_if,fldsFrIce%shortname(n), rc=rc)) then
-            call FieldBundle_GetFldPtr(is_local%wrap%FBIce_i , fldsFrIce%shortname(n), dataPtr3, rc=rc)
-            call FieldBundle_GetFldPtr(is_local%wrap%FBIce_if, fldsFrIce%shortname(n), dataPtr4, rc=rc)
+            call FieldBundle_GetFldPtr(is_local%wrap%FBIce_i , fldsFrIce%shortname(n), dataPtr4, rc=rc)
+            call FieldBundle_GetFldPtr(is_local%wrap%FBIce_if, fldsFrIce%shortname(n), dataPtr3, rc=rc)
             do j=lbound(dataptr3,2),ubound(dataptr3,2)
             do i=lbound(dataptr3,1),ubound(dataptr3,1)
-              dataPtr4(i,j) = dataPtr3(i,j) * ifrac_i(i,j)
+              dataPtr3(i,j) = dataPtr4(i,j) * ifrac_i(i,j)
             enddo
             enddo
           endif
@@ -3323,6 +3489,13 @@ module module_MEDIATOR
            string='i2a', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
+!BL2017b
+        call Fieldbundle_Regrid2(fldsFrIce, is_local%wrap%FBIce_if, is_local%wrap%FBIce2_a, &
+         nearestmap=is_local%wrap%RH_i2a_nearest, &
+         string='i2a_nearest', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+!BL2017b
 
         !--- divide FBIce_a by ifrac_a, interpolated ice fraction
         !--- actually multiply by reciprocal of ifrac_a, ifrac_ar
@@ -3330,6 +3503,16 @@ module module_MEDIATOR
         do n = 1,fldsFrIce%num
           if (FieldBundle_FldChk(is_local%wrap%FBIce_a, fldsFrIce%shortname(n), rc=rc)) then
             call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, fldsFrIce%shortname(n), dataPtr3, rc=rc)
+!BL2017b
+            call FieldBundle_GetFldPtr(is_local%wrap%FBIce2_a, fldsFrIce%shortname(n), dataPtr4, rc=rc)
+              do j=lbound(dataptr3,2),ubound(dataptr3,2)
+              do i=lbound(dataptr3,1),ubound(dataptr3,1)
+                if(dataPtr3(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr4(i,j)).gt.0._ESMF_KIND_R8) then
+                dataPtr3(i,j) = dataPtr4(i,j)
+                endif
+              enddo
+              enddo
+!BL2017b
             if (fldsFrIce%mapping(n) == "conservefrac") then
               do j=lbound(dataptr3,2),ubound(dataptr3,2)
               do i=lbound(dataptr3,1),ubound(dataptr3,1)
@@ -3388,8 +3571,31 @@ module module_MEDIATOR
            string='i2a', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
+
+        call Fieldbundle_Regrid2(fldsFrIce, is_local%wrap%FBIce_i, is_local%wrap%FBIce2_a, &
+         nearestmap=is_local%wrap%RH_i2a_nearest, &
+         string='i2a_nearest', rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+        do n = 1,fldsFrIce%num
+          call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, fldsFrIce%shortname(n), dataPtr3, rc=rc)
+          call FieldBundle_GetFldPtr(is_local%wrap%FBIce2_a, fldsFrIce%shortname(n), dataPtr4, rc=rc)
+          do j=lbound(dataPtr3,2),ubound(dataPtr3,2)
+          do i=lbound(dataPtr3,1),ubound(dataPtr3,1)
+            if(dataPtr3(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr4(i,j)).gt.0._ESMF_KIND_R8) then
+            dataPtr3(i,j) = dataPtr4(i,j)
+            endif
+          enddo
+          enddo
+        enddo
       endif
     endif
+!BL2017b
+!      call ESMF_FieldBundleWrite(is_local%wrap%FBIce2_a, 'fields_med_ice2.nc', &
+!        singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
+!        iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+!BL2017b
 
     if (is_local%wrap%l2a_active) then
       call Fieldbundle_Regrid(fldsFrLnd, is_local%wrap%FBLnd_l, is_local%wrap%FBLnd_a, &
@@ -3433,6 +3639,7 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
       ! write the fields imported from ocn to file
+#ifndef FRONT_FV3
       call ESMF_FieldBundleWrite(is_local%wrap%FBOcn_a, 'fields_med_ocn_a.nc', &
         singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
         iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
@@ -3444,6 +3651,7 @@ module module_MEDIATOR
         iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
     endif
 
     !---------------------------------------
@@ -3458,7 +3666,8 @@ module module_MEDIATOR
     allocate(ocnwgt(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
     do j=lbound(icewgt,2),ubound(icewgt,2)
     do i=lbound(icewgt,1),ubound(icewgt,1)
-      ocnwgt = 1.0_ESMF_KIND_R8 - icewgt
+      ocnwgt(i,j) = 1.0_ESMF_KIND_R8 - icewgt(i,j)
+!BL2017      ocnwgt = 1.0_ESMF_KIND_R8 - icewgt
     enddo
     enddo
 
@@ -3470,9 +3679,11 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
       do j=lbound(dataPtr3,2),ubound(dataPtr3,2)
       do i=lbound(dataPtr3,1),ubound(dataPtr3,1)
-        dataPtr3(i,j) = land_mask(i,j)
+!        dataPtr3(i,j) = land_mask(i,j)
+        dataPtr3(i,j) = 1.0_ESMF_KIND_R8
       enddo
       enddo
+!BL2017b
     else
       call ESMF_LogWrite(trim(subname)//": ERROR generate_landmask must be true ", ESMF_LOGMSG_ERROR, line=__LINE__, file=__FILE__, rc=dbrc)
       rc = ESMF_FAILURE
@@ -3545,18 +3756,29 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
+    if (statewrite_flag) then
+      regridwriteAtmExp_timeslice = regridwriteAtmExp_timeslice + 1
+      call ESMFPP_RegridWriteFB(is_local%wrap%FBforAtm, "med_to_atm_export_", regridwriteAtmExp_timeslice, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+
     if (dbug_flag > 1) then
       call state_diagnose(NState_AtmExp, trim(subname)//' AtmExp_final ', rc=rc)
     endif
 
     if (statewrite_flag) then
       ! write the fields exported to atm to file
+#ifndef FRONT_FV3
       call NUOPC_Write(NState_AtmExp, &
         fldsToAtm%shortname(1:fldsToAtm%num), &
         "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
     endif
     
     !---------------------------------------
@@ -3568,6 +3790,114 @@ module module_MEDIATOR
     endif
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
 
+      contains  !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        subroutine ESMFPP_RegridWriteFB(FieldBundle, fileName, timeslice, rc)
+          type(ESMF_FieldBundle), intent(in)    :: fieldBundle
+          character(len=*), intent(in)          :: fileName
+          integer, intent(in)                   :: timeslice
+          integer, intent(out)                  :: rc
+
+          ! local
+          type(ESMF_Field)                       :: field
+          type(ESMF_Grid)                        :: outGrid
+          integer                                :: icount
+          character(64), allocatable             :: itemNameList(:)
+          !PT unused! type(ESMF_StateItem_Flag), allocatable :: typeList(:)
+
+          rc = ESMF_SUCCESS
+
+          outGrid = ESMF_GridCreate1PeriDimUfrm( &
+           maxIndex=(/180,360/), &
+           minCornerCoord=(/0.0_ESMF_KIND_R8,-90.0_ESMF_KIND_R8/), &
+           maxCornerCoord=(/360.0_ESMF_KIND_R8,90.0_ESMF_KIND_R8/), &
+           staggerLocList=(/ESMF_STAGGERLOC_CORNER, ESMF_STAGGERLOC_CENTER/), &
+           rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          
+          call ESMF_FieldBundleGet(fieldBundle, fieldCount=icount, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          allocate(itemNameList(icount))
+
+          call ESMF_FieldBundleGet(fieldBundle, fieldNameList=itemNameList, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          do i = 1, icount
+            call ESMF_LogWrite("RegridWrite Field Name Initiated: "//trim(itemNameList(i)), ESMF_LOGMSG_INFO)
+            call ESMF_FieldBundleGet(fieldBundle, fieldName=itemNameList(i), field=field, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            call ESMFPP_RegridWrite(field, outGrid, ESMF_REGRIDMETHOD_BILINEAR, &
+              fileName//trim(itemNameList(i))//'.nc', timeslice, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            call ESMF_LogWrite("RegridWrite Field Name done: "//trim(itemNameList(i)), ESMF_LOGMSG_INFO)
+          enddo
+
+          ! deallocate(typeList, itemNameList)
+          deallocate(itemNameList)
+
+      end subroutine ESMFPP_RegridWriteFB
+
+      subroutine ESMFPP_RegridWrite(inField, outGrid, regridMethod, fileName, timeslice, rc)
+
+        ! input arguments
+        type(ESMF_Field), intent(in)             :: inField
+        type(ESMF_Grid), intent(in)              :: outGrid
+        type(ESMF_RegridMethod_Flag), intent(in) :: regridMethod
+        character(len=*), intent(in)             :: filename
+        integer,          intent(in)             :: timeslice
+        integer,          intent(inout)          :: rc
+
+        ! local arguments
+        type(ESMF_Routehandle)                   :: rh
+        type(ESMF_Field)                         :: outField
+
+        outField = ESMF_FieldCreate(outGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, &
+             file=__FILE__)) &
+             return  ! bail out
+
+        ! For other options for the regrid operation, please refer to:
+        ! http://www.earthsystemmodeling.org/esmf_releases/last_built/ESMF_refdoc/node5.html#SECTION050366000000000000000
+        call ESMF_FieldRegridStore(inField, outField, regridMethod=regridMethod, &
+             unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+             Routehandle=rh, &
+             rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, &
+             file=__FILE__)) &
+             return  ! bail out
+
+        call ESMF_FieldRegrid(inField, outField, Routehandle=rh, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, &
+             file=__FILE__)) &
+             return  ! bail out
+
+        call ESMF_FieldWrite(outField, fileName, overwrite=.true., timeslice=timeslice, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, &
+             file=__FILE__)) &
+             return  ! bail out
+
+        rc = ESMF_SUCCESS
+
+      end subroutine ESMFPP_RegridWrite
   end subroutine MedPhase_prep_atm
 
   !-----------------------------------------------------------------------------
@@ -3685,8 +4015,17 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:)
     real(ESMF_KIND_R8), pointer :: temperature(:,:), humidity(:,:), pressure(:,:)
     real(ESMF_KIND_R8), pointer :: air_density(:,:)
+    character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
+    integer                     :: fieldCount
     integer                     :: i,j,n
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_ice)'
+!BL2018
+!    real(ESMF_KIND_R8), pointer :: temp293(:,:)
+!    type(ESMF_Grid)                        :: outGrid
+!    type(ESMF_Field)                         :: outField
+!    type(ESMF_Field)                         :: inField
+!    type(ESMF_Routehandle)                   :: rh180
+!BL2018
     
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
@@ -3763,10 +4102,42 @@ module module_MEDIATOR
       call FieldBundle_diagnose(is_local%wrap%FBHyd_h, trim(subname)//' FBHyd_h ', rc=rc)
     endif
 
+!BL2018
+!    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_a, 'inst_temp_height_lowest', temp293, rc=rc)
+!    do j = lbound(temp293,2),ubound(temp293,2)
+!    do i = lbound(temp293,1),ubound(temp293,1)
+!      temp293(i,j) = 293.0_ESMF_KIND_R8
+!    enddo
+!    enddo
+    ! Regrid to lat-lon  180*360
+!       call ESMF_FieldBundleGet(is_local%wrap%FBAtm_a,&
+!        fieldName='inst_temp_height_lowest', &
+!       field=inField,rc=rc)
+
+!    outGrid = ESMF_GridCreate1PeriDimUfrm( &
+!    maxIndex=(/180,360/), &
+!    minCornerCoord=(/0.0_ESMF_KIND_R8,-90.0_ESMF_KIND_R8/), &
+!    maxCornerCoord=(/360.0_ESMF_KIND_R8,90.0_ESMF_KIND_R8/), &
+!    staggerLocList=(/ESMF_STAGGERLOC_CORNER, ESMF_STAGGERLOC_CENTER/), &
+!    rc=rc)
+
+!    outField = ESMF_FieldCreate(outGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+!    call ESMF_FieldRegridStore(inField, outField,&
+!         regridMethod=ESMF_REGRIDMETHOD_BILINEAR,&
+!         unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+!         Routehandle=rh180, &
+!         rc=rc)
+!    call ESMF_FieldRegrid(inField, outField, Routehandle=rh180, rc=rc)
+!    call ESMF_FieldWrite(outField,'field_fv3_to_latlon.nc',overwrite=.true.,rc=rc)
+!BL2018
+
     ! Regrid Full Field Bundles conservatively
 
     call fieldBundle_reset(is_local%wrap%FBAtm_i, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBOcn_i, value=czero, rc=rc)
+!BL2017
+    call fieldBundle_reset(is_local%wrap%FBAtm2_i, value=czero, rc=rc)
+!BL2017
 
     if (is_local%wrap%a2i_active) then
       call Fieldbundle_Regrid(fldsFrAtm, is_local%wrap%FBAtm_a, is_local%wrap%FBAtm_i, &
@@ -3777,6 +4148,41 @@ module module_MEDIATOR
          string='a2i', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+
+!BL2017  use nearest neighbor method
+      call Fieldbundle_Regrid2(fldsFrAtm, is_local%wrap%FBAtm_a, is_local%wrap%FBAtm2_i, &
+         nearestmap=is_local%wrap%RH_a2i_nearest, &
+         string='a2i_nearest', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtm_i, fieldCount=fieldCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      allocate(fieldNameList(fieldCount))
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtm_i, fieldNameList=fieldNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do n = 1, fieldCount
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_i, fieldNameList(n),dataPtr1,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_i, fieldNameList(n), dataPtr2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
+      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
+      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
+      dataPtr1(i,j)=dataPtr2(i,j)
+      endif
+      enddo
+      enddo
+      enddo
+      deallocate(fieldNameList)
+!BL2017
     endif
 
     if (is_local%wrap%o2i_active) then
@@ -4344,12 +4750,14 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
       ! write the fields imported from atm to file
+#ifndef FRONT_FV3
       call NUOPC_Write(NState_AtmImp, &
         fldsFrAtm%shortname(1:fldsFrAtm%num), &
         "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
 
       ! write the fields imported from ice to file
       call NUOPC_Write(NState_IceImp, &
@@ -4454,6 +4862,7 @@ module module_MEDIATOR
     type(ESMF_State)            :: importState, exportState
     type(InternalState)         :: is_local
     integer                     :: i,j,n
+    character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
     real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
                                    qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
     real(ESMF_KIND_R8), pointer :: us  (:,:),vs  (:,:),ts  (:,:),mask(:,:)
@@ -4465,6 +4874,11 @@ module module_MEDIATOR
     real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
     real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
                                    taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
+!BL2017
+    integer                     :: fieldCount
+    real(ESMF_KIND_R8), pointer :: zbot2(:,:),ubot2(:,:),vbot2(:,:)
+    real(ESMF_KIND_R8), pointer :: tbot2(:,:),pbot2(:,:),qbot2(:,:)
+!BL2017
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_atm_ocn_flux)'
     
     if (dbug_flag > 5) then
@@ -4510,6 +4924,10 @@ module module_MEDIATOR
     !---------------------------------------
 
     call fieldBundle_reset(is_local%wrap%FBAtmOcn_o, value=czero, rc=rc)
+!BL2017
+    call fieldBundle_reset(is_local%wrap%FBAtm_o, value=czero, rc=rc)
+    call fieldBundle_reset(is_local%wrap%FBAtm2_o, value=czero, rc=rc)
+!BL2017
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -4524,11 +4942,89 @@ module module_MEDIATOR
         consfmap=is_local%wrap%RH_a2o_consf, &
         consdmap=is_local%wrap%RH_a2o_consd, &
         bilnrmap=is_local%wrap%RH_a2o_bilnr, &
-        patchmap=is_local%wrap%RH_a2o_patch, &
+!        patchmap=is_local%wrap%RH_a2o_patch, &
         string='a2oflx', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 
+!BL2017  use nearest neighbor method
+      call FieldBundle_Regrid2(fldsFrAtm, is_local%wrap%FBAtm_a, is_local%wrap%FBAtm2_o, &
+        nearestmap=is_local%wrap%RH_a2o_nearest, &
+        string='a2oflx_nearest', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtm_o, fieldCount=fieldCount, rc=rc)
+
+      allocate(fieldNameList(fieldCount))
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_height_lowest', zbot, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_height_lowest', zbot2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+!      write(msgString,'(A,3g14.7)') trim(subname)//':'//trim(fieldNameList(1)), &
+!        minval(zbot2),maxval(zbot2),sum(zbot2)
+!      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
+!      write(msgString,'(A,3g14.7)') trim(subname)//':'//trim(fieldNameList(1)), &
+!        minval(zbot),maxval(zbot),sum(zbot)
+!      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_temp_height_lowest', tbot, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_temp_height_lowest', tbot2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_zonal_wind_height_lowest', ubot, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_zonal_wind_height_lowest',ubot2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_merid_wind_height_lowest', vbot, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_merid_wind_height_lowest',vbot2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_pres_height_lowest', pbot, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_pres_height_lowest', pbot2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_spec_humid_height_lowest', qbot, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_spec_humid_height_lowest',qbot2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    do j=lbound(zbot,2),ubound(zbot,2)
+    do i=lbound(zbot,1),ubound(zbot,1)
+    if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
+    zbot(i,j)=zbot2(i,j)
+    tbot(i,j)=tbot2(i,j)
+    ubot(i,j)=ubot2(i,j)
+    vbot(i,j)=vbot2(i,j)
+    qbot(i,j)=qbot2(i,j)
+    pbot(i,j)=pbot2(i,j)
+    endif
+    enddo
+    enddo
+    deallocate(fieldNameList)
+!BL2017 
     endif
 
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_height_lowest', zbot, rc=rc)
@@ -4710,9 +5206,12 @@ module module_MEDIATOR
     type(InternalState)         :: is_local
     integer                     :: i,j,n
     character(ESMF_MAXSTR)      :: fieldname1(10),fieldname2(10),fieldname3(10)
-    real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:)
+!    real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:)
     real(ESMF_KIND_R8), pointer :: atmwgt(:,:),icewgt(:,:),customwgt(:,:)
     real(ESMF_KIND_R8), pointer :: atmwgt1(:,:),icewgt1(:,:),wgtp01(:,:),wgtm01(:,:)
+    real(ESMF_KIND_R8), pointer :: tmp_n1(:,:),tmp_n2(:,:)
+    character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
+    integer                     :: fieldCount
     logical                     :: checkOK, checkOK1, checkOK2
     character(len=*),parameter  :: subname='(module_MEDIATOR:MedPhase_prep_ocn)'
 
@@ -4817,8 +5316,39 @@ module module_MEDIATOR
         bilnrmap=is_local%wrap%RH_a2o_bilnr, &
         patchmap=is_local%wrap%RH_a2o_patch, &
         string='a2o', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+!BL2017  use nearest neighbor method
+    call FieldBundle_Regrid2(fldsFrAtm, is_local%wrap%FBaccumAtm, is_local%wrap%FBAtm2_o, &
+      nearestmap=is_local%wrap%RH_a2o_nearest, &
+      string='a2o_nearest', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtm_o, fieldCount=fieldCount, rc=rc)
+      allocate(fieldNameList(fieldCount))
+      call ESMF_FieldBundleGet(is_local%wrap%FBAtm_o, fieldNameList=fieldNameList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+      do n = 1, fieldCount
+        call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, fieldNameList(n), tmp_n1,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+        call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, fieldNameList(n), tmp_n2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+      do j=lbound(tmp_n1,2),ubound(tmp_n1,2)
+      do i=lbound(tmp_n1,1),ubound(tmp_n1,1)
+        if(tmp_n1(i,j).eq.0._ESMF_KIND_R8.and.abs(tmp_n2(i,j)).gt.0._ESMF_KIND_R8) then
+        tmp_n1(i,j)=tmp_n2(i,j)
+        endif
+      enddo
+      enddo
+      enddo
+      deallocate(fieldNameList)
+!BL2017
     endif
 
     if (is_local%wrap%i2o_active) then
@@ -5132,6 +5662,9 @@ module module_MEDIATOR
     endif
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
 
+!    call ESMF_LogWrite(trim(subname)//": tcx aborting", ESMF_LOGMSG_INFO, rc=dbrc)
+!    call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
   end subroutine MedPhase_prep_ocn
 
   !-----------------------------------------------------------------------------
@@ -5320,11 +5853,17 @@ module module_MEDIATOR
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-
+#ifdef FV3_CPLD
+    fname = trim(bfname)//'_FBaccumAtm_restart.nc'
+    call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+#else
     fname = trim(bfname)//'_FBaccumAtm_restart.nc'
     call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
 
     fname = trim(bfname)//'_FBaccumOcn_restart.nc'
     call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumOcn,read_rest_FBaccumOcn,rc=rc)
@@ -5351,10 +5890,17 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
+#ifdef FV3_CPLD
+    fname = trim(bfname)//'_FBAtm_a_restart.nc'
+    call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+#else
     fname = trim(bfname)//'_FBAtm_a_restart.nc'
     call FieldBundle_RWFields(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
+#endif
     if (mode == 'read') then
       call fieldBundle_copy(NState_AtmImp, is_local%wrap%FBAtm_a, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -5522,10 +6068,109 @@ module module_MEDIATOR
 
   end subroutine FieldBundle_RWFields
 
+
+! This subroutine requires ESMFv8 - for coupled FV3
+#ifdef FV3_CPLD
+  subroutine FieldBundle_RWFields_tiles(mode,fname,FB,flag,rc)
+    character(len=*) :: mode
+    character(len=*) :: fname
+    type(ESMF_FieldBundle) :: FB
+    logical,optional :: flag
+    integer,optional :: rc
+
+    ! local variables
+    type(ESMF_Field) :: f(47)
+    type(ESMF_GridComp) :: IOComp
+    type(ESMF_Grid) :: gridFv3
+    character(len=ESMF_MAXSTR) :: name
+    character(len=ESMF_MAXSTR) :: fname_tile1
+    integer :: fieldcount, n
+    logical :: fexists
+    character(len=*),parameter :: subname='(module_MEDIATOR:FieldBundle_RWFields_tiles)'
+
+    rc = ESMF_SUCCESS
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(fname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+
+    if (mode == 'write') then
+      call ESMF_FieldBundleGet(FB, fieldCount=fieldCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    write(msgString,*) trim(subname)//' fieldCount = ',fieldCount
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
+    call fieldBundle_getFieldN(FB, 1, f(1), rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call ESMF_FieldGet(f(1), grid=gridFv3, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    IOComp = ESMFIO_Create(gridFv3, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+    call ESMF_LogWrite(trim(subname)//": write "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
+
+    do n=2, 47
+    call fieldBundle_getFieldN(FB, n, f(n), rc)
+    enddo
+
+    call ESMFIO_Write(IOComp, fname, f, filePath='./', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    elseif (mode == 'read') then
+      fname_tile1='mediator_FBAtm_a_restart.tile1.nc'
+      inquire(file=fname_tile1,exist=fexists)
+      if (fexists) then
+
+    call ESMF_LogWrite(trim(subname)//": read "//trim(fname)//    &
+     "tile1-tile6", ESMF_LOGMSG_INFO, rc=dbrc)
+
+    call fieldBundle_getFieldN(FB, 1, f(1), rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    call ESMF_FieldGet(f(1), grid=gridFv3, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    IOComp = ESMFIO_Create(gridFv3, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+
+    do n=2, 47
+    call fieldBundle_getFieldN(FB, n, f(n), rc)
+    enddo
+
+    call ESMFIO_Read(IOComp, fname, f, filePath='./', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+
+    if (present(flag)) flag = .true.
+    endif
+    else
+    call ESMF_LogWrite(trim(subname)//": mode WARNING "//trim(fname)//" mode="//trim(mode), ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+! -- Finalize ESMFIO
+    call ESMFIO_Destroy(IOComp, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    line=__LINE__, file=__FILE__)) call ESMF_Finalize()
+
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(fname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+
+  end subroutine FieldBundle_RWFields_tiles
+#endif
+
   !-----------------------------------------------------------------------------
 
   subroutine Compute_RHs(FBsrc, FBdst, bilnrmap, consfmap, consdmap, patchmap, fcopymap, &
-                         srcMaskValue, dstMaskValue, &
+                         nearestmap, srcMaskValue, dstMaskValue, &
                          fldlist1, fldlist2, fldlist3, fldlist4, string, rc)
     type(ESMF_FieldBundle) :: FBsrc
     type(ESMF_FieldBundle) :: FBdst
@@ -5534,6 +6179,7 @@ module module_MEDIATOR
     type(ESMF_Routehandle),optional :: consdmap
     type(ESMF_Routehandle),optional :: patchmap
     type(ESMF_Routehandle),optional :: fcopymap
+    type(ESMF_Routehandle),optional :: nearestmap
     integer               ,optional :: srcMaskValue
     integer               ,optional :: dstMaskValue
     type(fld_list_type)   ,optional :: fldlist1
@@ -5547,21 +6193,23 @@ module module_MEDIATOR
     integer :: n
     character(len=128) :: lstring
     logical :: do_consf, do_consd, do_bilnr, do_patch, do_fcopy
+    logical :: do_nearest
     integer :: lsrcMaskValue, ldstMaskValue
     type(ESMF_Field)            :: fldsrc, flddst
     real(ESMF_KIND_R8), pointer :: factorList(:)
     character(len=*),parameter :: subname='(module_MEDIATOR:Compute_RHs)'
-type(ESMF_VM):: vm
+    type(ESMF_VM):: vm
 
     rc = ESMF_SUCCESS
-    if (dbug_flag > 5) then
-      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
 
     if (present(string)) then
       lstring = trim(string)
     else
       lstring = " "
+    endif
+
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
     if (present(srcMaskValue)) then
@@ -5595,14 +6243,15 @@ type(ESMF_VM):: vm
       do_consd = .true.
       do_patch = .true.
       do_fcopy = .true.
+      do_nearest = .true.
     else
       do_bilnr = .false.
       do_consf = .false.
       do_consd = .false.
       do_patch = .false.
       do_fcopy = .false.
+      do_nearest = .false.
     endif
-
     if (present(fldlist1)) then
       do n = 1,fldlist1%num
         if (fldlist1%mapping(n) == 'bilinear'    ) do_bilnr = .true.
@@ -5648,6 +6297,7 @@ type(ESMF_VM):: vm
     if (.not.present(consdmap)) do_consd = .false.
     if (.not.present(patchmap)) do_patch = .false.
     if (.not.present(fcopymap)) do_fcopy = .false.
+    if (present(nearestmap)) do_nearest = .true.
 
     !---------------------------------------------------
     !--- get single fields from bundles
@@ -5760,6 +6410,34 @@ endif
         call ESMF_LogWrite(trim(subname)//trim(lstring)//": computed RH consd", ESMF_LOGMSG_INFO, rc=dbrc)
       else
         call ESMF_LogWrite(trim(subname)//trim(lstring)//": failed   RH consd", ESMF_LOGMSG_INFO, rc=dbrc)
+      endif
+     endif
+
+    !---------------------------------------------------
+    !--- nearest stod
+    !---------------------------------------------------
+
+    if (do_nearest) then
+      call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=nearestmap, &
+        srcMaskValues=(/lsrcMaskValue/), dstMaskValues=(/ldstMaskValue/), &
+        regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
+        srcTermProcessing=srcTermProcessing_Value, &
+        factorList=factorList, ignoreDegenerate=.true., &
+        unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      if (rhprint_flag) then
+        call NUOPC_Write(factorList, "array_med_"//trim(lstring)//"_nearest.nc", rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+        call ESMF_RouteHandlePrint(nearestmap, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=__FILE__)) return  ! bail out
+      endif
+      if (ESMF_RouteHandleIsCreated(nearestmap, rc=rc)) then
+        call ESMF_LogWrite(trim(subname)//trim(lstring)//": computed RH nearest", ESMF_LOGMSG_INFO, rc=dbrc)
+      else
+        call ESMF_LogWrite(trim(subname)//trim(lstring)//": failed   RH nearest", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
      endif
       
@@ -5876,7 +6554,6 @@ endif
 
     gridnew = ESMF_GridCreate(distgrid=distgrid, coordSys=coordSys, indexflag=indexflag, &
        gridEdgeLWidth=gridEdgeLWidth, gridEdgeUWidth=gridEdgeUWidth, rc=rc)
-!       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     deallocate(gridEdgeLWidth, gridEdgeUWidth)
@@ -6383,7 +7060,7 @@ endif
   !-----------------------------------------------------------------------------
 
   subroutine Fieldbundle_Regrid(fldlist, FBin, FBout, consfmap, consdmap, bilnrmap, patchmap, &
-                                fcopymap, string, rc)
+                       fcopymap,string, rc)
     type(fld_list_type)    :: fldlist
     type(ESMF_FieldBundle) :: FBin
     type(ESMF_FieldBundle) :: FBout
@@ -6551,6 +7228,63 @@ endif
 
   end subroutine Fieldbundle_Regrid
       
+  !-----------------------------------------------------------------------------
+!BL2017
+
+  subroutine Fieldbundle_Regrid2(fldlist, FBin, FBout, &
+                       nearestmap,string, rc)
+    type(fld_list_type)    :: fldlist
+    type(ESMF_FieldBundle) :: FBin
+    type(ESMF_FieldBundle) :: FBout
+    type(ESMF_Routehandle),optional :: nearestmap
+    character(len=*)      ,optional :: string
+    integer               ,optional :: rc
+
+    ! local variables
+    integer :: n
+    character(len=64) :: lstring
+    logical :: oknearest
+    character(len=*),parameter :: subname='(module_MEDIATOR:Fieldbundle_Regrid2)'
+
+    rc = ESMF_SUCCESS
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
+    endif
+
+    if (present(string)) then
+      lstring = trim(string)
+    else
+      lstring = " "
+    endif
+
+    if (.not.present(rc)) then
+      call ESMF_LogWrite(trim(subname)//trim(lstring)//": ERROR rc expected", ESMF_LOGMSG_INFO, rc=rc)
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    endif
+
+    oknearest = .false.
+    if (present(nearestmap)) then
+      if (ESMF_RouteHandleIsCreated(nearestmap, rc=rc)) oknearest = .true.
+    endif
+
+    do n = 1,fldlist%num
+      if (FieldBundle_FldChk(FBin , fldlist%shortname(n), rc=rc) .and. &
+          FieldBundle_FldChk(FBout, fldlist%shortname(n), rc=rc)) then
+
+        if (dbug_flag > 1) then
+          call ESMF_LogWrite(trim(subname)//trim(lstring)//": map=neareststod"// &
+            ": fld="//trim(fldlist%shortname(n)), ESMF_LOGMSG_INFO, rc=dbrc)
+        endif
+
+          call FieldBundle_FieldRegrid(FBin ,fldlist%shortname(n), &
+                                       FBout,fldlist%shortname(n), &
+                                       nearestmap,rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=__FILE__)) return  ! bail out
+      endif
+    enddo
+  end subroutine Fieldbundle_Regrid2
+!BL2017
   !-----------------------------------------------------------------------------
 
   subroutine FieldBundle_FieldRegrid(FBin,fldin,FBout,fldout,RH,rc)
@@ -7953,6 +8687,7 @@ endif
     if (present(mapping)) then
        if (trim(mapping) /= "conservefrac" .and. trim(mapping) /= 'bilinear' .and. &
            trim(mapping) /= 'conservedst'  .and. &
+           trim(mapping) /= 'nearest'  .and. &
            trim(mapping) /= 'patch'    .and. trim(mapping) /= 'copy') then
           call ESMF_LogWrite(trim(subname)//": ERROR mapping not allowed "//trim(mapping), ESMF_LOGMSG_ERROR, rc=rc)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)

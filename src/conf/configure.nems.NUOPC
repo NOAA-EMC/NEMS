@@ -38,6 +38,7 @@ socn_mk       = $(SOCN_DIR)/socn.mk
 xocn_mk       = $(XOCN_DIR)/xocn.mk
 hycom_mk      = $(HYCOM_DIR)/hycom_nuopc.mk
 mom5_mk       = $(MOM5_DIR)/mom5.mk
+mom6_mk       = $(MOM6_DIR)/mom6.mk
 pom_mk        = $(POM_DIR)/pom.mk
 
 ################################################################################

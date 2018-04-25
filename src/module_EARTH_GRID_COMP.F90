@@ -33,7 +33,7 @@
 !          |    |   |
 !          |    |   (CICE, etc.)
 !          |    |
-!          |    (MOM5, HYCOM, POM, etc.)
+!          |    (MOM5, MOM6, HYCOM, POM, etc.)
 !          |
 !          CORE component (GSM, NMM, FV3, etc.)
 !
@@ -80,6 +80,9 @@
 #endif
 #ifdef FRONT_MOM5
       use FRONT_MOM5,       only: MOM5_SS   => SetServices
+#endif
+#ifdef FRONT_MOM6
+      use FRONT_MOM6,       only: MOM6_SS   => SetServices
 #endif
 #ifdef FRONT_POM
       use FRONT_POM,        only: POM_SS    => SetServices
@@ -2460,6 +2463,22 @@
         file=__FILE__)) &
         return  ! bail out
 
+      !For MOM6 and WW3 variables to match: 
+      call NUOPC_FieldDictionarySetSyno( &
+        standardNames = (/"surface_eastward_sea_water_velocity",&
+                          "ocn_current_zonal"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call NUOPC_FieldDictionarySetSyno( &
+        standardNames = (/"surface_northward_sea_water_velocity",&
+                          "ocn_current_merid"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "eastward_stokes_drift_current")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -3006,6 +3025,19 @@
           elseif (trim(model) == "mom5") then
 #ifdef FRONT_MOM5
             call NUOPC_DriverAddComp(driver, trim(prefix), MOM5_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
+          elseif (trim(model) == "mom6") then
+#ifdef FRONT_MOM6
+            call NUOPC_DriverAddComp(driver, trim(prefix), MOM6_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out

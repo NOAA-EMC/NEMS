@@ -1,0 +1,28 @@
+# Directory to receive the webpage with regression test results
+ON jet            WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON theia          WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON wcoss1         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON wcoss2         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON wcoss_cray     WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON wcoss_dell_p3  WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+ON gaea           WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/coupling-test-1/
+
+USER ACCOUNT IS Samuel.Trahan
+ROLE ACCOUNT IS emc.nemspara
+
+# nems branch - branch of NEMS that is being tested.  Set to "default"
+# to test the app's own NEMS
+NEMS   BRANCH IS multi-app-test
+#NEMS   BRANCH IS default
+
+# app branch - branch to use for committing logs to each 
+APP    BRANCH IS coupling-test-1
+
+# If relevant, the starting branch that we copy to make the app
+# branch.  Default is the master branch.
+APP GSM-MOM5-CICE5   CHECKOUT newnems_0417
+APP NEMSGSM          CHECKOUT coupling-update
+APP NEMSfv3gfs       CHECKOUT coupling-update
+
+# master branch - name of the git "master" branch.  Do not change.
+MASTER BRANCH IS master

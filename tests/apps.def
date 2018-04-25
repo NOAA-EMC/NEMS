@@ -1,0 +1,46 @@
+# List of valid platforms and the human-readable names of each:
+PLATFORM jet            NAME Jet
+PLATFORM theia          NAME Theia
+PLATFORM wcoss1         NAME WCOSS Phase 1
+PLATFORM wcoss2         NAME WCOSS Phase 2
+PLATFORM wcoss_cray     NAME WCOSS Cray
+#PLATFORM wcoss_dell_p3  NAME WCOSS Phase 3
+#PLATFORM gaea           NAME GAEA
+
+# List of known apps and the compsets to run for each app.
+APP NEMSfv3gfs      COMPSETS -f
+APP GSM-MOM5-CICE5  COMPSETS -s
+APP NEMSGSM         COMPSETS -f
+APP WW3-FV3         COMPSETS -f
+APP WW3-ATM         COMPSETS -f
+APP HYCOM-GSM-CICE  COMPSETS -f
+
+# URLs of each application's repository.  Default is gerrit:APPNAME
+APP NEMSfv3gfs      URL gerrit:NEMSfv3gfs
+APP GSM-MOM5-CICE5  URL gerrit:EMC_GSM-MOM5-CICE5
+APP NEMSGSM         URL gerrit:EMC_NEMSGSM
+APP WW3-FV3         URL gerrit:EMC_FV3-WW3
+APP WW3-ATM         URL gerrit:EMC_ATM-WW3
+APP HYCOM-GSM-CICE  URL gerrit:EMC_HYCOM-GSM-CICE
+
+# Shell expressions that generate scrub space for a given $username
+# on each platform.
+ON jet              SCRUB /lfs3/projects/hfv3gfs/$username/scrub
+ON theia            SCRUB /scratch4/NCEPDEV/nems/scrub/$username
+ON wcoss1           SCRUB /ptmpp1/$username
+ON wcoss2           SCRUB /ptmpd3/$username
+ON wcoss_cray       SCRUB /gpfs/hps2/ptmp/$username
+#ON wcoss_dell_p3    SCRUB /fixme/$username
+#ON gaea             SCRUB $( ls -1 /lustre/f1/*/$username | head -1 )
+
+# List of apps to run on each platform.
+ON jet              APPS NEMSfv3gfs
+ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM GSM-MOM5-CICE5
+ON wcoss1           APPS NEMSfv3gfs NEMSGSM
+ON wcoss2           APPS NEMSfv3gfs WW3-FV3 WW3-ATM GSM-MOM5-CICE5
+ON wcoss_cray       APPS NEMSfv3gfs WW3-FV3
+#ON wcoss_dell_p3    APPS FIXME
+#ON gaea             APPS NEMSfv3gfs
+
+# Extra arguments to rt.sh for each platform
+ON jet              EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub

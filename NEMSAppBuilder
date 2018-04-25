@@ -14,7 +14,7 @@ PATH=$PATH:/scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin:/glade/p/work/theuri
 
 global_name='NEMSAppBuilder'
 global_version='version 1.1.0'
-global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP LegacyGSM LegacyNMM'
+global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP LegacyGSM LegacyNMM'
 
 # determine whether dialog or whiptail is available
 read dialog <<< "$(which dialog 2> /dev/null)"
@@ -905,6 +905,37 @@ build_mom5(){
   fi
 }
 
+build_mom6(){
+  #TODO: This component has a very non-standard way of building!!!!
+  #TODO: MOM6 and MOM_CAP should be merged into a single source tree, 
+  #TODO: and building the CICE component in NUOPC mode should be done 
+  #TODO: with standard target "nuopc". See HYCOM for an example.
+  #
+  # in: COMP, COMP_SRCDIR, COMP_BINDIR
+  if [[ $1"" == "clean" ]] ; then
+    echo "Cleaning $COMP..."
+    echo "Only partially implemented!!!"
+    cd $COMP_SRCDIR
+    rm -rf exec src/path_names_shared
+    find . -name '*.o' -o -name '*.mod' -o -name '*.a' | xargs rm -f
+    rm -f src/MOM6/config_src/nems_cap/mom5.mk.install
+    cd ..
+    echo "...done cleaning $COMP."
+  else
+    echo "Building $COMP..."
+    cd $COMP_SRCDIR
+    ./compile.sh --platform $MACHINE_ID
+    cd $COMP_SRCDIR/src/MOM6/config_src/nems_cap
+    echo "make -f makefile.nuopc VERSION=mom6 USER_CFLAGS=-DMOM6_CAP NEMSMOMDIR=$COMP_SRCDIR/exec/$MACHINE_ID INSTALLDIR=$COMP_BINDIR install"
+    make -f makefile.nuopc VERSION=mom6 USER_CFLAGS=-DMOM6_CAP NEMSMOMDIR=$COMP_SRCDIR/exec/$MACHINE_ID INSTALLDIR=$COMP_BINDIR install
+    if ([ ! -d "$COMP_BINDIR" ]); then
+      echo "...failed building $COMP."
+    else
+      echo "...done building $COMP."
+    fi
+  fi
+}
+
 build_hycom(){
   # in: COMP, COMP_SRCDIR, COMP_BINDIR
   if [ "$MACHINE_ID" = linux_gnu ]; then
@@ -992,7 +1023,7 @@ build_ww3(){
   local WW3_COMP=$FULL_MACHINE_ID
   if ([ ! -f "$COMP_SRCDIR/bin/comp.$WW3_COMP" ]); then
      local WW3_COMP='Intel'
-  fi 
+  fi
   if [[ "$1" == "clean" ]] ; then
     echo "Cleaning $COMP..."
     cd "$COMP_SRCDIR/esmf"
@@ -1204,6 +1235,7 @@ NEMS)
             SOCN="OCN: Stub Model"                                        \
             XOCN="OCN: Dead Model"                                        \
             MOM5="OCN: NOAA Modular Ocean Model 5"                        \
+            MOM6="OCN: NOAA Modular Ocean Model 6"                        \
             HYCOM="OCN: HYbrid Coordinate Ocean Model"                    \
             POM="OCN: Princeton Ocean Model"                              \
             SWAV="WAV: Stub Model"                                        \
@@ -1236,7 +1268,7 @@ NEMS)
 # Need to find the associated appBuilder file
 FOUNDAPP=false
 for i in "${appbuilderlist[@]}" ; do
-  if [[ $( basename $i ) =~ "$APP" ]] ; then
+  if [[ $( basename $i ) == "$APP.appBuilder" ]] ; then
     source "$i"
     echo "${COMPONENTS[@]}" >> $LOGFILE
     FOUNDAPP=true
@@ -1416,6 +1448,8 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
             BUILD_FUNC=build_hycom
         elif [[ ${COMPOS[0]} == "MOM5" ]] ; then
             BUILD_FUNC=build_mom5
+        elif [[ ${COMPOS[0]} == "MOM6" ]] ; then
+            BUILD_FUNC=build_mom6 
         elif [[ ${COMPOS[0]} == "CICE" ]] ; then
             BUILD_FUNC=build_cice
         elif [[ ${COMPOS[0]} == "IPE" ]] ; then
@@ -1535,6 +1569,9 @@ for i in "${COMPONENTS[@]}" ; do
   elif [[ ${COMPOS[0]} == "MOM5" ]] ; then
     COMP=$COMP",mom5"
     COMPDIRS="$COMPDIRS MOM5_DIR=$MOM5_BINDIR"
+  elif [[ ${COMPOS[0]} == "MOM6" ]] ; then
+    COMP=$COMP",mom6"
+    COMPDIRS="$COMPDIRS MOM6_DIR=$MOM6_BINDIR"
   # - actual wave model components
   elif [[ ${COMPOS[0]} == "WW3" ]] ; then
     COMP=$COMP",ww3"
