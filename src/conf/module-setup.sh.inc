@@ -76,7 +76,6 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
     else
         __ms_source_etc_profile=no
     fi
-    echo GAEA
     module purge
 # clean up after purge 
     unset _LMFILES_

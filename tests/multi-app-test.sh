@@ -36,23 +36,28 @@ trap 'prolicide ; exit 1' SIGINT SIGTERM SIGHUP SIGQUIT
 platform="$1"
 stage="$2"
 
+# Jet CRON workaround:
+if [[ -x /apps/local/bin/account_params && -d /lfs3 ]] ; then
+    export PATH=$PATH:/apps/local/bin
+fi
+
 ########################################################################
 
 nonsense() {
     local which=$(( RANDOM % 12 ))
     case "$which" in
-        0) echo "blunder: Script is aborting due to metaphysical dilemma." ;;
-        1) echo "blunder: Rumination failure.  Check for false dichotomies." ;;
-        2) echo "blunder: Aborting due to loss of ipseity." ;;
-        3) echo "blunder: This process has been eaten by a grue." ;;
-        4) echo "blunder: Check for gremlins." ;;
-        5) echo "blunder: Brain-dump into sewer. Please retrieve." ;;
-        6) echo "blunder: Kernel panic: no popcorn remains." ;;
-        7) echo "blunder: Existential error: null pointer dereference." ;;
-        8) echo "blunder: No clam found in shell.  Try again?" ;;
-        9) echo "blunder: Sanity lost.  Please find." ;;
-        10) echo "blunder: Operator failed.  Please replace." ;;
-        *) echo "blunder: CPU elves are on a lunch break.  Check back later?" ;;
+        0) echo "Script is aborting due to metaphysical dilemma." ;;
+        1) echo "Rumination failure.  Check for false dichotomies." ;;
+        2) echo "Aborting due to loss of ipseity." ;;
+        3) echo "This process has been eaten by a grue." ;;
+        4) echo "Check for gremlins." ;;
+        5) echo "Brain-dump into sewer. Please retrieve." ;;
+        6) echo "Kernel panic: no popcorn remains." ;;
+        7) echo "Existential error: null pointer dereference." ;;
+        8) echo "No clam found in shell.  Try again?" ;;
+        9) echo "Sanity lost.  Please find." ;;
+        10) echo "Operator failed.  Please replace." ;;
+        *) echo "CPU elves are on a lunch break.  Check back later?" ;;
     esac
 }
 
@@ -558,7 +563,7 @@ make_branch() {
     mkdir_p_workaround "$workdir"
     cd $workdir
 
-    local test_hash=$( generate_hash_for_test_name branch "$test_name" )
+    local test_hash=$( generate_hash_for_test_name branch "$test_name.$$.$RANDOM" )
 
     rm -rf "$test_hash"
     repeatedly_try_to_run git clone "$app_url" "$test_hash"
@@ -612,7 +617,7 @@ delete_branch() {
     mkdir_p_workaround "$workdir"
     cd $workdir
 
-    local test_hash=$( generate_hash_for_test_name branch "$test_name" )
+    local test_hash=$( generate_hash_for_test_name branch "$test_name.$$.$RANDOM" )
 
     rm -rf "$test_hash"
     repeatedly_try_to_run git clone "$app_url" "$test_hash"
@@ -641,7 +646,7 @@ checkout_app() {
         return 1
     fi
 
-    local test_hash=$( generate_hash_for_test_name checkout "$test_name" )
+    local test_hash=$( generate_hash_for_test_name checkout "$test_name.$$.$RANDOM" )
 
     mkdir_p_workaround "$workuser"
     cd $workuser
@@ -744,11 +749,14 @@ test_app() {
         exit 1
     fi
 
-    local test_hash=$( generate_hash_for_test_name test "$test_name" )
+    local test_hash=$( generate_hash_for_test_name test "$test_name.$$.$RANDOM" )
 
     local workarea="$worknems/$test_hash"
     cd /
-    rm -rf "$workarea"
+    if ( ! rm -rf "$workarea" ) ; then
+        sleep 10
+        rm -rf "$workarea" || true
+    fi
     mkdir_p_workaround "$workarea"
     cd "$workarea"
     set +e
@@ -910,9 +918,9 @@ generate_regtest_txt_and_send_email() {
         cat "$repo_info_file"
         echo
         echo "========================================================================"
-        echo "Regression test log:"
-        cat $RTREPORT
-    ) | mail \
+   echo "Regression test log:"
+   cat $RTREPORT
+    ) | /bin/true mail \
         -s "Regression test result: $result" \
         -r "$email_from" \
         "$email_to"
@@ -1283,6 +1291,12 @@ case "$stage" in
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" make_branches \
             'make_branch "$app" "$global_unique_id"' all_apps
+        ;;
+    checkout_all_apps)
+        forbid_terminals $stage
+        global_unique_id=$$.$RANDOM
+        run_in_background_for_each_app "$workuser" checkout      \
+            'checkout_app "$app" "$global_unique_id"' all_apps
         ;;
     delete_branches)
         forbid_terminals $stage

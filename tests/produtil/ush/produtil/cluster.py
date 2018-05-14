@@ -105,6 +105,8 @@ def where():
             here=NOAAWCOSS()
         elif os.path.exists('/gpfs/hps/nco'):
             here=WCOSSCray()
+        elif os.path.exists('/lustre/f1'):
+            here=NOAAGAEA()
         else:
             here=Cluster(False,False,False,'noname','noname')
     return here
@@ -177,10 +179,10 @@ class NOAAJet(Cluster):
 
 class NOAAGAEA(Cluster):
     """!Represents the NOAA GAEA cluster.  Allows ACLs to be used for
-    restricted data, and specifies that group quotas are in use."""
+    restricted data, and specifies that group quotas are not in use."""
     def __init__(self):
         """!constructor for NOAAGAEA"""
-        super(NOAAGAEA,self).__init__(True,True,False,'gaea',
+        super(NOAAGAEA,self).__init__(False,True,False,'gaea',
                                       'gaea.rdhpcs.noaa.gov')
 
 class NOAAZeus(Cluster):

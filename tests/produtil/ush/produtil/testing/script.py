@@ -176,7 +176,7 @@ function atparse {
 class ProdutilRunner(produtil.testing.parsetree.Context):
     """!Uses produtil.run to generate an mpirun command from a
     produtil.testing.parsetree.SpawnProcess object"""
-    def __init__(self,scopes,token,run_mode,logger,MPI):
+    def __init__(self,scopes,token,run_mode,logger,MPI,nodesize):
         """!Constructor
 
         @param scopes a list of nested scopes to search when resolving
@@ -196,8 +196,10 @@ class ProdutilRunner(produtil.testing.parsetree.Context):
         if MPI=='lsfcray':  MPI='lsf_cray_intel'   # alias for Rocoto lsfcray
         if MPI=='mpich':    MPI='impi'
         if MPI=='mvapich2': MPI='mpiexec'
+        if MPI=='moab':     MPI='moab_cray'        # alias for Rocoto moab
 
-        self.mpiimpl=produtil.run.make_mpi(MPI,total_tasks=-1,force=True,silent=True)
+        self.mpiimpl=produtil.run.make_mpi(
+            MPI,total_tasks=nodesize,nodesize=nodesize,force=True,silent=True)
     def mpirunner(self,spawnProcess):
         """!Generates the mpi launching command for the given
         produtil.testing.parsetree.SpawnProcess object
@@ -318,7 +320,8 @@ def runner_context_for(con):
     @returns A Context whose mpirunner() function can create MPI
     program launcher commands. """
     MPI=con.scopes[-1].resolve('plat%MPI').string_context(con)
-    return ProdutilRunner(con.scopes,con.token,con.run_mode,con.logger,MPI)
+    nodesize=con.scopes[-1].resolve('plat%cores_per_node').numeric_context(con)
+    return ProdutilRunner(con.scopes,con.token,con.run_mode,con.logger,MPI,nodesize)
 
 class BashRunner(object):
     """!Generates self-contained bash scripts that can run an entire test suite."""

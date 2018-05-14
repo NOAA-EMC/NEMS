@@ -22,6 +22,12 @@ class Implementation(ImplementationBase):
         return 'lsf_cray_intel'
 
     @staticmethod
+    def synonyms():
+        yield 'moab_alps'
+        yield 'moab_cray'
+        yield 'lsf_alps_intel'
+
+    @staticmethod
     def detect(aprun_path=None,total_tasks=None,nodesize=None,hyperthreads=None,
                logger=None,force=False,p_state_turbo=None,silent=False,**kwargs):
         """!Determines if Cray aprun should be used to run MPI programs by

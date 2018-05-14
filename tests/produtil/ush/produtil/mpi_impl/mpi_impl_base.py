@@ -84,6 +84,13 @@ class ImplementationBase(object):
         self.logger=logger
         self._mpiserial_path=None
 
+    @staticmethod
+    def synonyms():
+        """!Iterates over alternative names for this MPI implementation, such
+        as the names of other MPI implementations this class can handle."""
+        return
+        yield 'xyz' # trick to ensure this is an iterator
+
     def getmpiserial_path(self):
         if not self._mpiserial_path:
             self._mpiserial_path=self.find_mpiserial(None,False)

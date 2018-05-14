@@ -170,6 +170,8 @@ while [[ 1 == 1 ]] ; do
 done
 '''
 
+class NoProjectException(Exception): pass
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Attempt to get the produtil package:
 try:
@@ -191,7 +193,7 @@ import produtil.run, produtil.cluster, produtil.fileop
 from produtil.log import jlogger
 from produtil.run import runstr, ExitStatusException, checkrun, batchexe, run
 from produtil.testing.testgen import TestGen
-from produtil.testing.utilities import BASELINE, EXECUTION, bashify_string, PTParserError
+from produtil.testing.utilities import BASELINE, EXECUTION, bashify_string, PTParserError, PTPlatformError
 from produtil.testing.rocoto import RocotoRunner
 from produtil.testing.setarith import ArithKeyError
 
@@ -660,6 +662,88 @@ def decide_project_jet():
 
 ########################################################################
 
+# GAEA project detection
+
+def decide_tmp_gaea():
+    logger=logging.getLogger('rtgen')
+
+    for gdir in [ 
+            '/lustre/f1',
+            '/lustre/f1/ncep',
+            '/lustre/f1/oar.esrl.rocoto',
+            '/lustre/f1/oar.gfdl.bgrp-account',
+            '/lustre/f1/oar.gfdl.ccsp-users',
+            '/lustre/f1/oar.gfdl.cm3',
+            '/lustre/f1/oar.gfdl.cmip6',
+            '/lustre/f1/oar.gfdl.decp',
+            '/lustre/f1/oar.gfdl.esm2g',
+            '/lustre/f1/oar.gfdl.esm2m',
+            '/lustre/f1/oar.gfdl.fre_test',
+            '/lustre/f1/oar.gfdl.hrao',
+            '/lustre/f1/oar.gfdl.ogrp-account',
+            '/lustre/f1/oar.gfdl.ssam' ]:
+        if os.path.isdir(gdir) and os.access(gdir,os.W_OK):
+            return os.path.join(gdir,username())
+    raise NoProjectException('Cannot find your /lustre/f1 area.  Please specify --temp-dir.')
+
+def decide_project_gaea():
+    logger=logging.getLogger('rtgen')
+    try:
+        hpcrpt=runstr(batchexe('sh')['-c','/usw/hpcrpt/hpcrpt/noaa-3/bin/hpcrpt'].err('/dev/null'))
+    except produtil.run.ExitStatusException as ese: pass
+
+    projects=[]
+    for line in hpcrpt.splitlines():
+        if not re.match("Project:\s+\[",line): continue
+        projects=re.findall("'([^',\[\]]*)'",line)
+
+    if not projects:
+        raise NoProjectException('Cannot find any valid projects from hpcrpt.  Please specify --project.')
+
+    print('projects: '+str(projects))
+    if not projects:
+        raise NoProjectException('Cannot find project balance information from hpcrpt.  Please specify --project.')
+
+    projlist=' '.join([str(p) for p in projects])
+    try:
+        cmd=batchexe('sh')['-c','/usw/hpcrpt/hpcrpt/noaa-3/bin/hpcrpt '+projlist].err('/dev/null')
+        print(repr(cmd))
+        hpcrpt=runstr(cmd,logger=logger)
+    except produtil.run.ExitStatusException as ese: pass
+    big_project=None
+    big_balance=None
+        
+    project=None
+    balance=None
+    for line in hpcrpt.splitlines():
+        match=False
+        m=re.match("Project:\s+(\S+)",line)
+        if m:
+            project=m.group(1)
+            #print('project '+project+' from line '+repr(line))
+            match=True
+        else:
+            m=re.match("Adjusted\s+Balance\s+([0-9,]+)",line)
+            if m:
+                balance=int(m.group(1).replace(',',''),10)
+                #print('balance '+str(balance)[+' from line '+repr(line))
+                match=True
+        if match and project and balance is not None:
+            #print(project+': account balance is '+repr(balance))
+            if not big_project or big_balance is None or balance>big_balance:
+                #print(project+': highest balance so far.')
+                big_project=project
+                big_balance=balance
+            project=None
+            balance=None
+
+    if not big_project:
+        raise NoProjectException('Cannot find project balance information from hpcrpt.  Please specify --project.')
+    
+    return big_project
+
+########################################################################
+
 # WCOSS project detection
 
 def decide_project_wcoss():
@@ -757,7 +841,7 @@ class RTGen(TestGen):
     def __init__(self,baseline,scratch_dir,unique_id=None,
                  logger=None,baseline_dir=None,
                  verbose=True,dry_run=False,inputfile=None,
-                 setarith=None,project=None):
+                 setarith=None,project=None,platform_name=None):
         baseline=bool(baseline)
         self.no_copy_template = baseline_dir is not None
         if unique_id is None:
@@ -768,13 +852,14 @@ class RTGen(TestGen):
         super(RTGen,self).__init__(
             BASELINE if baseline else EXECUTION,
             RocotoRunner,outloc,inputfile,dry_run,unique_id,
-            logger=logger,verbose=verbose,setarith=setarith)
+            logger=logger,verbose=verbose,setarith=setarith,
+            platform_name=platform_name)
         self._scratch_dir=scratch_dir
         self._new_baseline=baseline_dir
         if baseline and not self._new_baseline:
             self._new_baseline=os.path.join(
                 self._scratch_dir,'REGRESSION_TEST')
-        self.platform_name=None
+        self.platform_name=platform_name
         self.project=project
         assert(project)
         assert(self.project)
@@ -836,6 +921,9 @@ class RTGen(TestGen):
             out.write('module load rocoto\n')
             out.write('module use /scratch3/NCEPDEV/hwrf/save/Samuel.Trahan/emc-utils/modulefiles/\n')
             out.write('module load hpss emc-utils ; have_qoutql=YES\n')
+        elif here.name == 'gaea':
+            out.write('module use /lustre/f1/pdata/ncep_shared/emc.nemspara/soft/modulefiles\n')
+            out.write('module load rocoto/gaea-support-1.2.4 emc-utils ; have_qoutql=YES\n')
         else:
             out.write('have_qoutql=NO\n')
         out.write('work=%s/rocoto\n'%(bashify_string(self.outloc),))
@@ -1000,7 +1088,8 @@ def parse_rtsh_arguments():
         optval,arglist=getopt.getopt(sys.argv[1:],"c:fst:n:hr:p:b",[
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
-                'resume=','compset=', 'multi-app-test-mode'])
+                'resume=','compset=', 'multi-app-test-mode',
+                'platform='])
     except getopt.GetoptError as ge:
         rtsh_usage(str(ge))
 
@@ -1018,6 +1107,7 @@ def parse_rtsh_arguments():
     platform_name=None
     run_dir=None
     resume_sets=None
+    platform=None
 
     for opt,val in optval:
         if opt in ['--compset','-f','-s','-c','-t'] and sets is not None:
@@ -1037,6 +1127,8 @@ def parse_rtsh_arguments():
             sets='standard'
         elif opt in ['-b','--baseline']:
             baseline=True
+        elif opt == '--platform':
+            platform_name=val
         elif opt=='-t':
             sets=str(val)
         elif opt=='-c':
@@ -1143,7 +1235,8 @@ def parse_rtgen_arguments():
         optval,arglist=getopt.getopt(sys.argv[1:],'vdu:t:bn:i:p:hS',
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
-                'resume=', 'help', 'input-file', 'multi-app-test-mode')
+                'resume=', 'help', 'input-file', 'multi-app-test-mode'
+                'platform=')
     except getopt.GetoptError as ge:
         rtgen_usage(str(ge))
 
@@ -1156,6 +1249,7 @@ def parse_rtgen_arguments():
     inputfile=None
     project=None
     script_mode=False
+    platform_name=None
     for opt,val in optval:
         if opt in ['-v', '--verbose']:
             verbose+=1
@@ -1166,6 +1260,8 @@ def parse_rtgen_arguments():
             rtgen_full_usage() # does not return
         elif opt in ['-p', '--project']:
             project=val
+        elif opt == '--platform':
+            platform_name=val
         elif opt in ['-d', '--dry-run']:
             dry_run=True
         elif opt in ['-b', '--baseline']:
@@ -1190,7 +1286,7 @@ def parse_rtgen_arguments():
             arglist_nowhite.append(arg)
     setup_produtil('rtgen',verbose)
     return verbose,baseline_dir,dry_run,baseline,unique_id,temp, \
-           inputfile,arglist_nowhite,project,script_mode
+           inputfile,arglist_nowhite,project,script_mode,platform_name
 
 ########################################################################
 # Main program for rtgen
@@ -1198,7 +1294,7 @@ def parse_rtgen_arguments():
 
 def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
           inputfile,arglist,project,script_mode, logger,
-          send_rtrun_instructions):
+          send_rtrun_instructions,platform_name):
 
     ## Generate the set arithmetic string
     if len(arglist)>1:
@@ -1231,8 +1327,10 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
             project=decide_project_jet()
             assert('aoml' not in project)
             assert('hfip' not in project)
+        elif produtil.cluster.name() == 'gaea':
+            project=decide_project_gaea()
         else:
-            fail('Unknown system.  Only Theia and WCOSS Phase 1 are supported.')
+            fail('Unknown system.  Only Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen project for job submission is %s'%(
                 repr(project),))
     else:
@@ -1245,6 +1343,8 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
             scratch_dir=decide_tmp_theia()
         elif produtil.cluster.name() in ['gyre','tide','luna','surge']:
             scratch_dir=decide_tmp_wcoss(produtil.cluster.where().wcoss_phase)
+        elif produtil.cluster.name() == 'gaea':
+            scratch_dir=decide_tmp_gaea()
         elif produtil.cluster.name() == 'jet':
             fail('Specify the temp dir when running on Jet.  Example --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub')
             scratch_dir=decide_tmp_jet()
@@ -1253,7 +1353,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
             assert('nceplibs' not in scratch_dir)
             assert('hwrfdata' not in scratch_dir)
         else:
-            fail('Unknown system.  Only Theia and WCOSS Phase 1 are supported.')
+            fail('Unknown system.  Only Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen ptmp is %s'%(repr(scratch_dir),))
     else:
         scratch_dir=temp
@@ -1271,7 +1371,8 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
     testgen=RTGen(baseline,scratch_dir,unique_id,logger,
                   baseline_dir,inputfile=inputfile,
                   verbose=bool(verbose),dry_run=dry_run,
-                  setarith=arith,project=project)
+                  setarith=arith,project=project,
+                  platform_name=platform_name)
 
     jlogger.info('Parsing compset descriptions.')
     testgen.parse()
@@ -1386,7 +1487,10 @@ def main():
         name=type(p).__name__
         if name.find('KeyError')>=0:
             name='undefined value'
-        sys.stderr.write('Error in compset: %s %s\nSee earlier lines for details.\n'%(name,str(p)))
+        if isinstance(p,PTPlatformError):
+            sys.stderr.write('Use --platform to select a platform.\n')
+        else:
+            sys.stderr.write('Error in compset: %s %s\nSee earlier lines for details.\n'%(name,str(p)))
 
 def main_impl():
 
@@ -1403,7 +1507,7 @@ def main_impl():
     global usage
     if called_as=='rtgen':
         verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir, \
-            inputfile,arglist,project,script_mode = \
+            inputfile,arglist,project,script_mode,platform_name = \
             parse_rtgen_arguments()
         usage=rtgen_usage
         resume=False
@@ -1431,7 +1535,7 @@ def main_impl():
     ( platform_name, run_dir, scratch_dir ) = \
         rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir,
               inputfile,arglist,project,script_mode,logger,
-              called_as=='rtgen')
+              called_as=='rtgen',platform_name=platform_name)
     assert('/' not in platform_name)
 
     if called_as=='rtgen': exit(0)

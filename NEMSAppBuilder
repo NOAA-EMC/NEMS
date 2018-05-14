@@ -20,11 +20,13 @@ global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 MOM6 CICE IPE WRFH
 read dialog <<< "$(which dialog 2> /dev/null)"
 read whiptail <<< "$(which whiptail 2> /dev/null)"
 
+echo "$dialog"
+
 # use whichever tool was found
 if [[ "$#" -gt 0 ]] ; then
   tool=autobuild
   toolflag=autobuild
-elif ["${dialog}x" != "x" ] ; then
+elif [[ "${dialog}x" != "x" ]] ; then
   tool=$dialog
   toolflag="dialog"
   if [[ "$tool" =~ "scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin" ]]; then
@@ -32,8 +34,11 @@ elif ["${dialog}x" != "x" ] ; then
     # processes. Those branches seem to cause (intermittent) trouble on Theia
     # for some reason!
     toolflag="NOTdialog"
+  else
+    set +x
   fi
 elif [ "${whiptail}x" != "x" ] ; then
+  set +x
   tool=$whiptail
   toolflag="whiptail"
 else
@@ -644,7 +649,7 @@ build_checkloop(){
   
           # now wait for either for $mypid to finish because of canceling, or
           # $makepid to finish due to done or bail out of make command.
-  
+          set +x
           while ps -p "$makepid" > /dev/null
           do
             if ! ps -p "$mypid" > /dev/null
@@ -682,7 +687,7 @@ build_checkloop(){
 
       # now wait for either for $mypid to finish because of canceling, or
       # $makepid to finish due to done or bail out of make command.
-  
+      set +x
       while ps -p "$makepid" > /dev/null
       do
         if ! ps -p "$mypid" > /dev/null
@@ -691,7 +696,7 @@ build_checkloop(){
         fi
       done
       kill "$mypid" > /dev/null 2>&1
-  
+
       if ([ ! -d "$COMP_BINDIR" ]); then
         # build did not succeed
         "$tool" --clear --backtitle "NEMS Application Builder" \
@@ -1665,7 +1670,7 @@ if [[ "$CLEAN_FIRST" == YES ]] ; then
   
       # now wait for either for $mypid to finish because of canceling, or
       # $makepid to finish due to done or bail out of make command.
-  
+      set +x
       while ps -p $makepid > /dev/null
       do
         if ! ps -p $mypid > /dev/null
@@ -1700,7 +1705,7 @@ while [[ ! -f ../exe/NEMS.x ]] ; do
           --and-widget --ok-label "CANCEL" \
           --begin 2 1 --msgbox "Press CANCEL to interrupt." 5 30 \
           2> /dev/null &
-    set -x
+
     mypid=$!
     # NOTE: $MAKEOPT must NOT be in quotes.
     make $MAKEOPT 2>&1 | tee -a $LOGDIR/appBuilder.NEMS.log.$$
@@ -1718,6 +1723,7 @@ while [[ ! -f ../exe/NEMS.x ]] ; do
       fi
     done
     kill $mypid > /dev/null 2>&1
+
   
     echo "Passed build step."
     if [[ ! -f ../exe/NEMS.x ]] ; then
