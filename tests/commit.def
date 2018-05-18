@@ -1,26 +1,26 @@
 # Directory to receive the webpage with regression test results
-ON xjet           WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON svjet          WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON theia          WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON wcoss1         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON wcoss2         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON wcoss_cray     WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON wcoss_dell_p3  WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
-ON gaea           WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/gaea-jet-support/
+ON xjet           WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON svjet          WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON theia          WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON wcoss1         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON wcoss2         WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON wcoss_cray     WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON wcoss_dell_p3  WEBPAGE strahan@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
+ON gaea           WEBPAGE samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/nems-commit/port-nems/
 
 USER ACCOUNT IS Samuel.Trahan
 ROLE ACCOUNT IS emc.nemspara
 
 # nems branch - branch of NEMS that is being tested.  Set to "default"
 # to test the app's own NEMS
-NEMS   BRANCH IS gaea-support
+NEMS   BRANCH IS frozen-dom
 
 # app branch - branch to use for committing logs to each 
-APP    BRANCH IS gaea-jet-support
+APP    BRANCH IS port-nems
 
 # If relevant, the starting branch that we copy to make the app
 # branch.  Default is the master branch.
-APP NEMSfv3gfs       CHECKOUT gaea-support
+#  APP NEMSfv3gfs       CHECKOUT some-branch
 
 # master branch - name of the git "master" branch.  Do not change.
 MASTER BRANCH IS master

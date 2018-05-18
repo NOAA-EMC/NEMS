@@ -2466,14 +2466,14 @@
       !For MOM6 and WW3 variables to match: 
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_eastward_sea_water_velocity",&
-                          "ocn_current_zonal"/), rc=rc)
+                          "ocn_current_zonal                  "/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_northward_sea_water_velocity",&
-                          "ocn_current_merid"/), rc=rc)
+                          "ocn_current_merid                   "/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &

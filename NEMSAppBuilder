@@ -9,7 +9,7 @@ set -x
 
 ulimit -s 200000
 
-# add paths to find personal "dialog" installations on Theia, Yellowstone.
+# add paths to find personal "dialog" installations on Theia, Cheyenne
 PATH=$PATH:/scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin:/glade/p/work/theurich/bin
 
 global_name='NEMSAppBuilder'
@@ -81,8 +81,8 @@ elif [[ -e /scratch4 && -e /scratch3 ]] ; then
     FULL_MACHINE_ID=theia
     MACHINE_ID=theia
 elif [[ -e /glade ]] ; then
-    FULL_MACHINE_ID=yellowstone
-    MACHINE_ID=yellowstone
+    FULL_MACHINE_ID=cheyenne
+    MACHINE_ID=cheyenne
 elif [[ -e /pan2 && -e /lfs3 ]] ; then
     FULL_MACHINE_ID=jet
     MACHINE_ID=jet
@@ -102,13 +102,14 @@ MACHINE_ID_UNDER=$( echo "$MACHINE_ID" | sed 's,\.,_,g' )
 FULL_MACHINE_ID_DOT=$( echo "$FULL_MACHINE_ID" | sed 's,_,\.,g' )
 FULL_MACHINE_ID_UNDER=$( echo "$FULL_MACHINE_ID" | sed 's,\.,_,g' )
 
-if [[ "$MACHINE_ID" == yellowstone ]] ; then
-    source /glade/apps/opt/lmod/lmod/init/bash
-elif [[ "$MACHINE_ID" == gaea ]] ; then
+if [[ "$MACHINE_ID" == gaea ]] ; then
     # The module init stuff is buggy on gaea.  You really do need
     # /etc/profile.
     source /etc/profile
 fi
+
+NEMS_COMPILER="${NEMS_COMPILER:-intel}"
+BUILD_TARGET="$FULL_MACHINE_ID.$NEMS_COMPILER"
 
 echo "MACHINE_ID=$MACHINE_ID FULL_MACHINE_ID=$FULL_MACHINE_ID"
 
@@ -813,7 +814,12 @@ build_fv3(){
     cp -fp $NEMSDIR/src/conf/configure.nems "$COMP_SRCDIR"/conf/configure.fv3
     cp -fp $NEMSDIR/src/conf/modules.nems "$COMP_SRCDIR"/conf/modules.fv3
     gmake clean
-    gmake ${COMPOS[@]:1} -j 8 nemsinstall
+    # CISL kills your shell if using too much resources on the login node
+    if [[ $MACHINE_ID == "cheyenne" ]]; then
+      gmake ${COMPOS[@]:1} -j 3 nemsinstall
+    else
+      gmake ${COMPOS[@]:1} -j 8 nemsinstall
+    fi
     if ([ ! -d $COMP_BINDIR ]); then
       echo "...failed building $COMP."
     else
@@ -1343,6 +1349,8 @@ note "Determine platform...$MACHINE_ID" 10 35 "Info"
 # configure NEMS for the specific platform
 if [ $MACHINE_ID = linux_gnu ]; then
   COMPILER=""
+elif [ $MACHINE_ID = theia ] || [ $MACHINE_ID = cheyenne ]; then
+  COMPILER=${NEMS_COMPILER}_
 else
   COMPILER="intel_"
 fi

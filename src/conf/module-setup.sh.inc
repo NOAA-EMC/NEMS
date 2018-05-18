@@ -58,9 +58,9 @@ elif [[ -L /usrx && "$( readlink /usrx 2> /dev/null )" =~ dell ]] ; then
     fi
     module purge
 elif [[ -d /glade ]] ; then
-    # We are on NCAR Yellowstone
+    # We are on NCAR Cheyenne   
     if ( ! eval module help > /dev/null 2>&1 ) ; then
-        . /usr/share/Modules/init/$__ms_shell
+      . /glade/u/apps/ch/modulefiles/default/localinit/localinit.sh
     fi
     module purge
 elif [[ -d /lustre && -d /ncrc ]] ; then
@@ -103,6 +103,9 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
       source /etc/profile
       unset __ms_source_etc_profile
     fi
+elif [[ -d /Applications ]] ; then
+    # We are on a MacOSX system, nothing to do
+    echo " "
 else
     echo WARNING: UNKNOWN PLATFORM 1>&2
 fi

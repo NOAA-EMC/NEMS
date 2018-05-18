@@ -42,9 +42,9 @@ else if ( { test -L /usrx && sh -c "readlink /usrx 2> /dev/null | grep dell" } )
     endif
     module purge
 else if ( { test -d /glade } ) then
-    # We are on NCAR Yellowstone
+    # We are on NCAR Cheyenne
     if ( ! { module help >& /dev/null } ) then
-        source /usr/share/Modules/init/$__ms_shell
+      source /glade/u/apps/ch/modulefiles/default/localinit/localinit.csh
     endif
     module purge
 else if ( { test -d /lustre -a -d /ncrc } ) then
@@ -83,6 +83,9 @@ else if ( { test -d /lustre -a -d /ncrc } ) then
       source /etc/csh.login
       unset __ms_source_etc_csh_login
     endif
+else if ( { test -d /Applications } ) then
+    # We are on a MacOSX system, nothing to do
+    echo " "
 else
     # Workaround for csh limitation.  Use sh to print to stderr.
     sh -c 'echo WARNING: UNKNOWN PLATFORM 1>&2'

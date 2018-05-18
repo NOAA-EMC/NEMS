@@ -60,16 +60,27 @@ copy_diff_mod()  {
     else
 	echo "confirmed $2"
     fi
-    cat > "$2.sh" <<EOF
+    if [[ "$CONF_OPTION" == "configure.fv3.macosx.gnu" ]]; then
+        cat > "$2.sh" <<EOF
+source $( pwd -P )/conf/module-setup.sh.inc
+source $( pwd -P )/conf/modules.nems
+EOF
+        cat > "$2.csh" <<EOF
+source $( pwd -P )/conf/module-setup.csh.inc
+source $( pwd -P )/conf/modules.nems
+EOF
+    else
+        cat > "$2.sh" <<EOF
 source $( pwd -P )/conf/module-setup.sh.inc
 module use $( pwd -P )/conf
 module load modules.nems
 EOF
-    cat > "$2.csh" <<EOF
+        cat > "$2.csh" <<EOF
 source $( pwd -P )/conf/module-setup.csh.inc
 module use $( pwd -P )/conf
 module load modules.nems
 EOF
+    fi
 }
 
 case "$CONF_OPTION" in

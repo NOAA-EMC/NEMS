@@ -641,9 +641,9 @@ contains
     use mpi
     use iso_c_binding
     implicit none
+    integer, intent(in) :: namelen ! length of input buffer
     character(len=namelen), intent(in) :: name
     integer, intent(inout) :: ierr
-    integer, intent(in) :: namelen ! length of input buffer
     integer, intent(in) :: rank_world ! used only for mpi_comm_split key
     integer, intent(in) :: commin ! global communicator
     integer, intent(inout) :: comm_name ! host-specific communicator
