@@ -2,16 +2,30 @@
 
 set -m # enable job control
 
-if [[ "$#" != 4 && "$2" == resume_test ]] ; then
-    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform resume_test AppName /path/to/app" 1>&2
+if [[ "$#" != 5 && "$2" == resume_test ]] ; then
+    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.###" 1>&2
     echo "When resuming a test, you must specify which test to resume." 1>&2
 elif [[ "$#" != 3 && "$2" == master ]] ; then
     echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform master /path/to/file/with/commit/message" 1>&2
     echo "When resuming a test, you must specify which test to resume." 1>&2
 elif [[ "$#" != 2 && "$2" != master && "$2" != resume_test ]] ; then
-    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform stage" 1>&2
-    echo "    OR: cat apps.def commit.def | multi-app-test.sh platform resume_test /path/to/NEMS/tests" 1>&2
-    echo "    OR: cat apps.def commit.def | multi-app-test.sh platform master /path/to/file/with/commit/message" 1>&2
+    cat<<EOF 1>&2
+SYNTAX: cat apps.def commit.def | multi-app-test.sh platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.####
+    OR: cat apps.def commit.def | multi-app-test.sh platform master /path/to/file/with/commit/message
+    OR: cat apps.def commit.def | multi-app-test.sh platform stage
+STAGES:
+  make_branches - create a branch for this test in each app's repository
+                  abort if the branch already exists
+  delete_and_make_branches - same as make_branches, but delete the branch first
+  web_init - copy static files to website
+  checkout - check out all apps that will run on this platform
+  test - run in the role account to execute the tests
+  push - push the logs to the branch made in the make_branches step
+  deliver - deliver results to website
+  master - push changes to the master of NEMS and all apps.
+  dump - print parsed contents of the definition files (stdin)
+EOF
+    echo 
     exit 2
 fi
 
@@ -317,8 +331,34 @@ get_platform_specific_variables() {
     more_rt_sh_args=$( eval echo $( get_rt_sh_args ) )
     webuser=$( echo "$webpage" | awk 'BEGIN{FS=":"}{print $1}' )
     webbase=$( echo "$webpage" | awk 'BEGIN{FS=":"}{print $2}' )
+    if [[ Q == "Q$webbase" ]] ; then
+        webbase="$webuser"
+        webuser=''
+    fi
     email_from=$user@noaa.gov
     email_to=$user@noaa.gov
+}
+
+my_work_area() {
+    if ( is_in_user_account ) ; then
+        echo $workuser
+    else
+        echo $worknems
+    fi
+}
+
+is_in_user_account() {
+    if [[ "$USER" == "$user" ]] ; then
+        return 0
+    fi
+    return 1
+}
+
+is_in_role_account() {
+    if [[ "$USER" == "$role" ]] ; then
+        return 0
+    fi
+    return 1
 }
 
 ########################################################################
@@ -559,7 +599,7 @@ make_branch() {
     fi
     local app_starting_branch=$( get_app_starting_branch "$app" )
 
-    local workdir="$workuser/branch_${nems_branch}_$unique_id"
+    local workdir="$( my_work_area )/branch_${nems_branch}_$unique_id"
     mkdir_p_workaround "$workdir"
     cd $workdir
 
@@ -584,6 +624,7 @@ make_branch() {
     cd NEMS
     git fetch
     git checkout "$nems_branch"
+    repeatedly_try_to_run git submodule update --init --recursive
     cd ..
     git add NEMS
     git commit -m "Check out NEMS $nems_branch"
@@ -812,23 +853,27 @@ test_app() {
 
 resume_test() {
     set -x
-    local workarea="$1"
-    local app="$2"
+    local app="$1"
+    local NEMStests="$2"
+    local rtgen_dir="$3"
+
+    echo "resume_test $*"
+
     local test_name="${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
-    local app_url=$( get_app_url "$1" )
-    local set=$( get_app_test_set "$1" )
+    local app_url=$( get_app_url "$app" )
+    local set=$( get_app_test_set "$app" )
     if [[ "$?" != 0 ]] ; then
-        echo "CANNOT TEST UNKNOWN APP $1" 1>&2
+        echo "CANNOT TEST UNKNOWN APP $app" 1>&2
         return 1
     fi
     set="${set:--f}"
 
     set -e
-    test -d "$workarea"
-    cd "$workarea"
+    test -d "$NEMStests"
+    cd "$NEMStests"
     cd ../../
 
     rm -f rt-f.log
@@ -841,7 +886,7 @@ resume_test() {
     set -x
 
     ./NEMS/NEMSCompsetRun --multi-app-test-mode \
-        $set $more_rt_sh_args > rt-f.log 2>&1
+        $set $more_rt_sh_args --resume "$rtgen_dir" > rt-f.log 2>&1
 
     tail -20 rt-f.log
 
@@ -1058,8 +1103,8 @@ END {
 
     # Make the local version of the web directory:
 
-    local webdir_pre="$workuser/webdir.$test_name.$( date +%s )."
-    local webdir="$workuser/webdir.$test_name.$( date +%s ).$$"
+    local webdir_pre="$( my_work_area )/webdir.$test_name.$( date +%s )."
+    local webdir="$( my_work_area )/webdir.$test_name.$( date +%s ).$$"
     rm -rf "$webdir_pre"*
     mkdir_p_workaround "$webdir"
     cd "$webdir"
@@ -1120,19 +1165,23 @@ EOF
 
     # Copy to website
 
-    set +e
-    ssh $webuser mkdir -p "$webbase/$javascript_name"
-    set -e
-    
-    sleep 2
-    
-    rsync -arv -e ssh . "$webuser:$webbase/$javascript_name/."
-    
-    sleep 2
-    
-    if ( ! ssh $webuser chmod -R go=u-w "$webbase/$javascript_name/." ) ; then
+    if [[ "Q" == "Q$webuser" ]] ; then
+        mkdir -p "$webbase/$javascript_name"
+        rsync -arv . "$webbase/$javascript_name"/.
+        if ( ! chmod -R go=u-w "$webbase/$javascript_name" ) ; then
+            chmod -R go=u-w "$webbase/$javascript_name"
+        fi
+    else
+        set +e
+        ssh $webuser mkdir -p "$webbase/$javascript_name"
+        set -e
         sleep 2
-        ssh $webuser chmod -R go=u-w "$webbase/$javascript_name/."
+        rsync -arv -e ssh . "${webuser:+$webuser:}$webbase/$javascript_name/."
+        sleep 2
+        if ( ! ssh $webuser chmod -R go=u-w "$webbase/$javascript_name/." ) ; then
+            sleep 2
+            ssh $webuser chmod -R go=u-w "$webbase/$javascript_name/."
+        fi
     fi
 }
 
@@ -1141,11 +1190,17 @@ EOF
 copy_static_files_to_website() {
     local platform app
     set -xue
-    cd $( dirname "$0" )
-    cd web-top
+
+    local web_top_dir=$( dirname "$0" )/web-top
+    local dir_hash=$( generate_hash_for_test_name web_init "$$.$RANDOM" )
+    local work_dir=$( my_work_area )/$dir_hash
+
+    rm -rf "$work_dir"
+    mkdir -p "$work_dir"
+    cd "$work_dir"
+    rsync -arv "$web_top_dir"/. .
 
     local tempfile="temp-regtestlist.js.temp"
-
     local test_name='NEMS Nightly Regression Tests'
     if [[ "$nems_branch" != default ]] ; then
         test_name="Test of NEMS $nems_branch"
@@ -1186,9 +1241,13 @@ EOF
     set -x
     mv -f "$tempfile" regtestlist.js
 
-    ssh $webuser mkdir -p $webbase
-    rsync --exclude 'temp*temp' -arv . $webuser:$webbase/.
-
+    if [[ "Q$webuser" == Q ]] ; then
+        mkdir -p $webbase
+        rsync --exclude 'temp*temp' -arv . $webbase/.
+    else
+        ssh $webuser mkdir -p $webbase
+        rsync --exclude 'temp*temp' -arv . $webuser:$webbase/.
+    fi
 }
 
 ########################################################################
@@ -1312,8 +1371,9 @@ case "$stage" in
         ;;
     resume_test)
         app_argument="$3"
-        path_argument="$4"
-        resume_test "$path_argument" "$app_argument"
+        nems_tests_path="$4"
+        rtgen_dir_path="$5"
+        resume_test "$app_argument" "$nems_tests_path" "$rtgen_dir_path"
         ;;
     web_init)
         copy_static_files_to_website
@@ -1337,7 +1397,7 @@ case "$stage" in
         ;;
     deliver)
         forbid_terminals $stage
-        run_in_background_for_each_app "$workuser" deliver       \
+        run_in_background_for_each_app $( my_work_area ) deliver       \
             'deliver_test_to_web_server "$app"' platform_apps
         ;;
     master)
@@ -1360,6 +1420,7 @@ UNKNOWN STAGE $stage
   deliver - deliver results to website
   master - push changes to the master of NEMS and all apps.
   dump - print parsed contents of the definition files (stdin)
+  resume_test - resume a past failed test.
 
 ABORTING: unknown stage $stage
 EOF
