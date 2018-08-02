@@ -7,7 +7,7 @@ for loc in . ./tests ./NEMS/tests ../tests ../NEMS/tests ; do
         real_loc=$( pwd -P )
 
         # Ensure our produtil is first in $PYTHONPATH
-        export PYTHONPATH=$real_loc/produtil/ush${PYTHONPATH:+:$PYTHONPATH}
+        export PYTHONPATH=$real_loc/produtil/NCEPLIBS-pyprodutil${PYTHONPATH:+:$PYTHONPATH}
 
         # Run rtgen as "rt.sh" 
         exec $real_loc/rtgen --NEMSCompsetRun "$@"

@@ -6,9 +6,9 @@ import re, os, sys, time
 try:
     import produtil.setup
 except ImportError as ie:
-    altpath=os.path.join(os.path.dirname(os.path.realpath(__file__)),'produtil/ush')
+    altpath=os.path.join(os.path.dirname(os.path.realpath(__file__)),'produtil/NCEPLIBS-pyprodutil')
     if not os.path.isdir(altpath):
-        fail('%s is missing and produtil is not in PYTHONPATH.  Is your produtil external missing?'%(altpath,))
+        fail('%s is missing and produtil is not in PYTHONPATH.  Is your produtil/NCEPLIBS-pyprodutil external missing?'%(altpath,))
     sys.path.append(altpath)
     import produtil.setup
 
