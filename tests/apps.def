@@ -10,7 +10,6 @@ PLATFORM gaea           NAME GAEA C3
 
 # List of known apps and the compsets to run for each app.
 APP NEMSfv3gfs      COMPSETS -f
-APP GSM-MOM5-CICE5  COMPSETS -s
 APP NEMSGSM         COMPSETS -f
 APP WW3-FV3         COMPSETS -f
 APP WW3-ATM         COMPSETS -f
@@ -19,7 +18,6 @@ APP FV3-MOM6-CICE5  COMPSETS -f
 
 # URLs of each application's repository.  Default is gerrit:APPNAME
 APP NEMSfv3gfs      URL gerrit:NEMSfv3gfs
-APP GSM-MOM5-CICE5  URL gerrit:EMC_GSM-MOM5-CICE5
 APP NEMSGSM         URL gerrit:EMC_NEMSGSM
 APP WW3-FV3         URL gerrit:EMC_FV3-WW3
 APP WW3-ATM         URL gerrit:EMC_ATM-WW3
@@ -40,9 +38,9 @@ ON gaea             SCRUB $( ls -1d /lustre/f1/*/$username | head -1 )
 # List of apps to run on each platform.
 ON xjet             APPS NEMSfv3gfs
 ON svjet            APPS NEMSfv3gfs
-ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM GSM-MOM5-CICE5 FV3-MOM6-CICE5
+ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
 ON wcoss1           APPS NEMSfv3gfs NEMSGSM
-ON wcoss2           APPS NEMSfv3gfs WW3-FV3 WW3-ATM GSM-MOM5-CICE5
+ON wcoss2           APPS NEMSfv3gfs WW3-FV3 WW3-ATM
 ON wcoss_cray       APPS NEMSfv3gfs WW3-FV3
 #ON wcoss_dell_p3    APPS FIXME
 ON gaea             APPS NEMSfv3gfs

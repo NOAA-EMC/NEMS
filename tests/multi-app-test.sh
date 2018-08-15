@@ -58,7 +58,7 @@ fi
 ########################################################################
 
 nonsense() {
-    local which=$(( RANDOM % 12 ))
+    local which=$(( RANDOM % 17 ))
     case "$which" in
         0) echo "Script is aborting due to metaphysical dilemma." ;;
         1) echo "Rumination failure.  Check for false dichotomies." ;;
@@ -71,6 +71,11 @@ nonsense() {
         8) echo "No clam found in shell.  Try again?" ;;
         9) echo "Sanity lost.  Please find." ;;
         10) echo "Operator failed.  Please replace." ;;
+        11) echo "Debugger found cockroaches.  Call exterminator." ;; 
+        12) echo "Too much introspection leads to a self-referential system.  Has this happened?" ;;
+        13) echo "Too few GOTOs in code.  Please add more." ;;
+        14) echo "Machine $( hostname -f ) is on strike due to 24/7 work schedule with no pay." ;;
+        15) echo "This process is busy playing Tetris.  Please come back later." ;;
         *) echo "CPU elves are on a lunch break.  Check back later?" ;;
     esac
 }
@@ -627,7 +632,21 @@ make_branch() {
     repeatedly_try_to_run git submodule update --init --recursive
     cd ..
     git add NEMS
-    git commit -m "Check out NEMS $nems_branch"
+
+    set +e
+    git commit -m "Check out NEMS $nems_branch" 2>&1 | tee "$workdir"/commit-log
+    err=$?
+    set -e
+
+    if [[ "$?" -ne 0 ]] ; then
+        if ( grep -i 'nothing to commit' "$workdir"/commit-log ) ; then
+            echo "Nothing to commit.  Moving on."
+        else
+            echo "Failed git commit to update NEMS $nems_branch." 1>&2
+            exit 1
+        fi
+    fi
+
     repeatedly_try_to_push origin "$app_branch"
     git branch --set-upstream-to=origin/"$app_branch" "$app_branch" || \
         git branch --set-upstream "$app_branch" origin/"$app_branch"
@@ -1191,7 +1210,7 @@ copy_static_files_to_website() {
     local platform app
     set -xue
 
-    local web_top_dir=$( dirname "$0" )/web-top
+    local web_top_dir=$( realpath $( dirname "$0" )/web-top )
     local dir_hash=$( generate_hash_for_test_name web_init "$$.$RANDOM" )
     local work_dir=$( my_work_area )/$dir_hash
 
@@ -1243,10 +1262,12 @@ EOF
 
     if [[ "Q$webuser" == Q ]] ; then
         mkdir -p $webbase
-        rsync --exclude 'temp*temp' -arv . $webbase/.
+        rsync --exclude 'temp*temp' -arv "$web_top_dir/." "$webbase/."
+        cp -fp regtestlist.js "$webbase/."
     else
         ssh $webuser mkdir -p $webbase
-        rsync --exclude 'temp*temp' -arv . $webuser:$webbase/.
+        rsync --exclude 'temp*temp' -arv "$web_top_dir/." "$webuser:$webbase/."
+        rsync --include regtestlist.js --exclude '*' -a regtestlist.js "$webuser:$webbase/regtestlist.js"
     fi
 }
 

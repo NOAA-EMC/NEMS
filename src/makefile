@@ -310,6 +310,15 @@ ifneq (,$(findstring $(COMMA)wrfhydro$(COMMA),$(COMP)))
   DEP_SHRD_PATH := $(DEP_SHRD_PATH) $(addprefix -L, $(ESMF_DEP_SHRD_PATH)) $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
   DEP_SHRD_LIBS := $(DEP_SHRD_LIBS) $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
 endif
+ifneq (,$(findstring $(COMMA)gsdchem$(COMMA),$(COMP)))
+  include $(gsdchem_mk)
+  DEP_FRONTS    := $(DEP_FRONTS) -DFRONT_GSDCHEM=$(ESMF_DEP_FRONT)
+  DEP_INCS      := $(DEP_INCS) $(addprefix -I, $(ESMF_DEP_INCPATH))
+  DEP_CMPL_OBJS := $(DEP_CMPL_OBJS) $(ESMF_DEP_CMPL_OBJS)
+  DEP_LINK_OBJS := $(DEP_LINK_OBJS) $(ESMF_DEP_LINK_OBJS)
+  DEP_SHRD_PATH := $(DEP_SHRD_PATH) $(addprefix -L, $(ESMF_DEP_SHRD_PATH)) $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(ESMF_DEP_SHRD_PATH))
+  DEP_SHRD_LIBS := $(DEP_SHRD_LIBS) $(addprefix -l, $(ESMF_DEP_SHRD_LIBS))
+endif
 ################################################################################
 ##$(info $$DEP_LINK_OBJS is [${DEP_LINK_OBJS}])
 
@@ -441,7 +450,8 @@ all:
 	@echo "\"swav\", \"xwav\", \"ww3\";"
 	@echo "\"slnd\", \"xlnd\", \"noah\", \"noahmp\";"
 	@echo "\"sipm\", \"xipm\", \"ipe\";"
-	@echo "\"shyd\", \"xhyd\", \"wrfhydro\"."
+	@echo "\"shyd\", \"xhyd\", \"wrfhydro\";"
+	@echo "\"gsdchem\"."
 	@echo
 	@echo "E.g. \"gmake nmm_gsm COMP=satm,xatm,socn,xocn,mom5,hycom,sice,xice,cice,swav,xwav,slnd,xlnd,sipm,xipm,shyd,xhyd\"."
 	@echo

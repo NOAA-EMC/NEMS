@@ -83,3 +83,9 @@ dataipe_mk    = $(DATAIPE_DIR)/dataipe.mk
 shyd_mk       = $(SHYD_DIR)/shyd.mk
 xhyd_mk       = $(XHYD_DIR)/xhyd.mk
 wrfhydro_mk   = $(WRFHYDRO_DIR)/wrfhydro.mk
+
+################################################################################
+## CHM settings
+## NUOPC compliant models supply a standard makefile fragment
+
+gsdchem_mk    = $(GSDCHEM_DIR)/gsdchem.mk

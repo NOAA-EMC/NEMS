@@ -2547,8 +2547,7 @@ module module_MEDIATOR
         patchmap=is_local%wrap%RH_a2o_patch, &
         fcopymap=is_local%wrap%RH_a2o_fcopy, &
         nearestmap=is_local%wrap%RH_a2o_nearest, &
-!        srcMaskValue=1, &
-        srcMaskValue=0, &
+        srcMaskValue=1, &
         dstMaskValue=0, &
         fldlist1=FldsFrAtm, string='a2o_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2563,8 +2562,7 @@ module module_MEDIATOR
         patchmap=is_local%wrap%RH_a2i_patch, &
         fcopymap=is_local%wrap%RH_a2i_fcopy, &
         nearestmap=is_local%wrap%RH_a2i_nearest, &
-!        srcMaskValue=1, &
-        srcMaskValue=0, &
+        srcMaskValue=1, &
         dstMaskValue=0, &
         fldlist1=FldsFrAtm, string='a2i_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2604,8 +2602,7 @@ module module_MEDIATOR
         fcopymap=is_local%wrap%RH_o2a_fcopy, &
         nearestmap=is_local%wrap%RH_o2a_nearest, &
         srcMaskValue=0, &
-!        dstMaskValue=1, &
-        dstMaskValue=0, &
+        dstMaskValue=1, &
         fldlist1=FldsFrOcn, fldlist2=FldsAtmOcn, string='o2a_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
@@ -2633,8 +2630,7 @@ module module_MEDIATOR
         fcopymap=is_local%wrap%RH_i2a_fcopy, &
         nearestmap=is_local%wrap%RH_i2a_nearest, &
         srcMaskValue=0, &
-!        dstMaskValue=1, &
-        dstMaskValue=0, &
+        dstMaskValue=1, &
         fldlist1=FldsFrIce, string='i2a_weights', rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out

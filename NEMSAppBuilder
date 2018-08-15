@@ -14,7 +14,7 @@ PATH=$PATH:/scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin:/glade/p/work/theuri
 
 global_name='NEMSAppBuilder'
 global_version='version 1.1.0'
-global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP LegacyGSM LegacyNMM'
+global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP GSDCHEM LegacyGSM LegacyNMM'
 
 # determine whether dialog or whiptail is available
 read dialog <<< "$(which dialog 2> /dev/null)"
@@ -1099,6 +1099,35 @@ build_lis(){
   fi
 }
 
+build_gsdchem(){
+  # in: COMP, COMP_SRCDIR, COMP_BINDIR
+
+  if [[ "$1" == "clean" ]] ; then
+    echo "Cleaning $COMP..."
+    cd "$COMP_SRCDIR"
+    make distclean
+    echo "...done cleaning $COMP."
+  else
+    echo "Building $COMP..."
+    cd "$COMP_SRCDIR"
+    ./configure --prefix=$COMP_BINDIR --datarootdir=$COMP_BINDIR --libdir=$COMP_BINDIR
+    if [[ "$?" != "0" ]] ; then
+      echo "...failed to configure $COMP."
+      exit 1
+    fi
+    make
+    if [[ "$?" != "0" ]] ; then
+      echo "...failed compiling $COMP."
+      exit 1
+    fi
+    make install
+    if ([ ! -d "$COMP_BINDIR" ]); then
+      echo "...failed installing $COMP."
+    else
+      echo "...done building $COMP."
+    fi
+  fi
+}
 
 # MAIN #########################################################################
 
@@ -1263,6 +1292,7 @@ NEMS)
             SHYD="HYD: Stub Model"                                        \
             XHYD="HYD: Dead Model"                                        \
             WRFHYDRO="HYD: Hydraulics portion of WRF-Hydro Model"         \
+            GSDCHEM="CHM: GSD Version of GOCART Chemistry Model"         \
         2>> $LOGFILE
         if [[ "$tool" == autobuild ]] ; then
             break
@@ -1462,7 +1492,7 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
         elif [[ ${COMPOS[0]} == "MOM5" ]] ; then
             BUILD_FUNC=build_mom5
         elif [[ ${COMPOS[0]} == "MOM6" ]] ; then
-            BUILD_FUNC=build_mom6 
+            BUILD_FUNC=build_mom6
         elif [[ ${COMPOS[0]} == "CICE" ]] ; then
             BUILD_FUNC=build_cice
         elif [[ ${COMPOS[0]} == "IPE" ]] ; then
@@ -1475,6 +1505,8 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
             BUILD_FUNC=build_lis
         elif [[ ${COMPOS[0]} == "FV3" ]] ; then
             BUILD_FUNC=build_fv3
+        elif [[ ${COMPOS[0]} == "GSDCHEM" ]] ; then
+            BUILD_FUNC=build_gsdchem
         else
             BUILD_FUNC=build_std
         fi
@@ -1604,6 +1636,9 @@ for i in "${COMPONENTS[@]}" ; do
   elif [[ ${COMPOS[0]} == "LIS" ]] ; then
     COMP=$COMP",lis"
     COMPDIRS="$COMPDIRS LIS_DIR=$LIS_BINDIR"
+  elif [[ ${COMPOS[0]} == "GSDCHEM" ]] ; then
+    COMP=$COMP",gsdchem"
+    COMPDIRS="$COMPDIRS GSDCHEM_DIR=$GSDCHEM_BINDIR"
   fi
 done
 echo "COMP=$COMP,COMPDIRS=$COMPDIRS"
