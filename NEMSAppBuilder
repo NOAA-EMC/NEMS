@@ -14,7 +14,7 @@ PATH=$PATH:/scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin:/glade/p/work/theuri
 
 global_name='NEMSAppBuilder'
 global_version='version 1.1.0'
-global_capabilities='autobuild dialog whiptail FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP GSDCHEM LegacyGSM LegacyNMM'
+global_capabilities='autobuild dialog whiptail FMS FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP GSDCHEM LegacyGSM LegacyNMM'
 
 # determine whether dialog or whiptail is available
 read dialog <<< "$(which dialog 2> /dev/null)"
@@ -790,6 +790,33 @@ build_gsm(){
   fi
 }
 
+build_fms(){
+  #TODO: clean
+  #TODO: build either 32 bit or 64 bit
+  #
+  # in: COMP, COMP_SRCDIR, COMP_BINDIR
+  if [[ $1"" == "clean" ]] ; then
+    echo "Cleaning $COMP..."
+    cd "$COMP_SRCDIR/fv3gfs"
+    gmake clean
+
+    # A few things that "cleanall" doesn't clean:
+    cd ../..
+    rm -rf "$COMP_BINDIR"
+
+    echo "...done cleaning $COMP."
+  else
+    echo "Building $COMP..."
+    cd "$COMP_SRCDIR"/fv3gfs
+    gmake all
+    if ([ ! -d $COMP_BINDIR ]); then
+      echo "...failed building $COMP."
+    else
+      echo "...done building $COMP."
+    fi
+  fi
+}
+
 build_fv3(){
   #TODO: clean
   #TODO: build either 32 bit or 64 bit
@@ -804,7 +831,6 @@ build_fv3(){
     # A few things that "cleanall" doesn't clean:
     rm -rf FV3_INSTALL
     rm -rf nems_dir
-    find $COMP_SRCDIR/fms/ -name '*.o' -o -name '*.mod'
 
     echo "...done cleaning $COMP."
   else
@@ -917,28 +943,19 @@ build_mom5(){
 }
 
 build_mom6(){
-  #TODO: This component has a very non-standard way of building!!!!
-  #TODO: MOM6 and MOM_CAP should be merged into a single source tree, 
-  #TODO: and building the CICE component in NUOPC mode should be done 
-  #TODO: with standard target "nuopc". See HYCOM for an example.
-  #
   # in: COMP, COMP_SRCDIR, COMP_BINDIR
   if [[ $1"" == "clean" ]] ; then
     echo "Cleaning $COMP..."
-    echo "Only partially implemented!!!"
     cd $COMP_SRCDIR
-    rm -rf exec src/path_names_shared
+    rm -rf exec build mom6.mk.install
     find . -name '*.o' -o -name '*.mod' -o -name '*.a' | xargs rm -f
-    rm -f src/MOM6/config_src/nems_cap/mom5.mk.install
     cd ..
     echo "...done cleaning $COMP."
   else
     echo "Building $COMP..."
     cd $COMP_SRCDIR
-    ./compile.sh --platform $MACHINE_ID
-    cd $COMP_SRCDIR/src/MOM6/config_src/nems_cap
-    echo "make -f makefile.nuopc VERSION=mom6 USER_CFLAGS=-DMOM6_CAP NEMSMOMDIR=$COMP_SRCDIR/exec/$MACHINE_ID INSTALLDIR=$COMP_BINDIR install"
-    make -f makefile.nuopc VERSION=mom6 USER_CFLAGS=-DMOM6_CAP NEMSMOMDIR=$COMP_SRCDIR/exec/$MACHINE_ID INSTALLDIR=$COMP_BINDIR install
+    ./compile.sh --platform $MACHINE_ID --fms-dir "$FMS_BINDIR"
+    make -f makefile.nuopc "FMSDIR=$FMS_BINDIR" "NEMSMOMDIR=$COMP_SRCDIR/exec/$MACHINE_ID" "INSTALLDIR=$COMP_BINDIR" install
     if ([ ! -d "$COMP_BINDIR" ]); then
       echo "...failed building $COMP."
     else
@@ -1264,6 +1281,7 @@ NEMS)
             SATM="ATM: Stub Model"                                        \
             XATM="ATM: Dead Model"                                        \
             +GSM="ATM: Global Spectral Model"                             \
+            FMS="ATM: GFDL FMS framework library"                         \
             FV3="ATM: Global Finite volue 3"                              \
             NMMB="ATM: Nonhydrostatic Multiscale Model on B Grid"         \
             LegacyGSM="ATM: Un-capped GSM (deprecated)"                   \
@@ -1481,7 +1499,9 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
         fi
         # set the component specific build function
         
-        if [[ ${COMPOS[0]} == "GSM" ]] ; then
+        if [[ ${COMPOS[0]} == "FMS" ]] ; then
+            BUILD_FUNC=build_fms
+        elif [[ ${COMPOS[0]} == "GSM" ]] ; then
             BUILD_FUNC=build_gsm
         elif [[ ${COMPOS[0]} == "FV3" ]] ; then
             BUILD_FUNC=build_fv3
@@ -1503,8 +1523,6 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
             BUILD_FUNC=build_ww3
         elif [[ ${COMPOS[0]} == "LIS" ]] ; then
             BUILD_FUNC=build_lis
-        elif [[ ${COMPOS[0]} == "FV3" ]] ; then
-            BUILD_FUNC=build_fv3
         elif [[ ${COMPOS[0]} == "GSDCHEM" ]] ; then
             BUILD_FUNC=build_gsdchem
         else
@@ -1547,6 +1565,9 @@ for i in "${COMPONENTS[@]}" ; do
   elif [[ ${COMPOS[0]} == "LegacyNMMB" ]] ; then
     legacyNmmFlag="true"
  # - stub components
+  elif [[ ${COMPOS[0]} == "FMS" ]] ; then
+    COMP=$COMP",fms"
+    COMPDIRS="$COMPDIRS FMS_DIR=$FMS_BINDIR"
   elif [[ ${COMPOS[0]} == "GSM" ]] ; then
     COMP=$COMP",gsm"
     COMPDIRS="$COMPDIRS GSM_DIR=$GSM_BINDIR"
