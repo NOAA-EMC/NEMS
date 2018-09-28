@@ -14,7 +14,7 @@ PATH=$PATH:/scratch4/NCEPDEV/nems/save/Gerhard.Theurich/bin:/glade/p/work/theuri
 
 global_name='NEMSAppBuilder'
 global_version='version 1.1.0'
-global_capabilities='autobuild dialog whiptail FMS FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP GSDCHEM LegacyGSM LegacyNMM'
+global_capabilities='autobuild dialog whiptail FMS FV3 HYCOM MOM5 MOM6 CICE IPE WRFHYDRO WW3 LIS IMP GSM NMMB KISS NOAH NOAHMP GSDCHEM LegacyGSM LegacyNMM DATM'
 
 # determine whether dialog or whiptail is available
 read dialog <<< "$(which dialog 2> /dev/null)"
@@ -808,7 +808,7 @@ build_fms(){
   else
     echo "Building $COMP..."
     cd "$COMP_SRCDIR"/fv3gfs
-    gmake all
+    gmake ${COMPOS[@]:1} all
     if ([ ! -d $COMP_BINDIR ]); then
       echo "...failed building $COMP."
     else
@@ -1116,6 +1116,26 @@ build_lis(){
   fi
 }
 
+build_datm(){
+  # in: COMP, COMP_SRCDIR, COMP_BINDIR
+  if [[ "$1" == "clean" ]] ; then
+    echo "Cleaning $COMP..."
+    cd "$COMP_SRCDIR"
+    make clean
+    echo "...done cleaning $COMP."
+  else
+    echo "Building $COMP..."
+    cd $COMP_SRCDIR
+    make
+    make DESTDIR=/ "INSTDIR=$COMP_BINDIR" install
+    if ([ ! -d $COMP_BINDIR ]); then
+      echo "...failed building $COMP."
+    else
+      echo "...done building $COMP."
+    fi
+  fi
+}
+
 build_gsdchem(){
   # in: COMP, COMP_SRCDIR, COMP_BINDIR
 
@@ -1286,6 +1306,7 @@ NEMS)
             NMMB="ATM: Nonhydrostatic Multiscale Model on B Grid"         \
             LegacyGSM="ATM: Un-capped GSM (deprecated)"                   \
             LegacyNMM="ATM: Un-capped NMMB (deprecated)"                  \
+            DATM="ATM: Data Atmosphere"                                   \
             SICE="ICE: Stub Model"                                        \
             XICE="ICE: Dead Model"                                        \
             CICE="ICE: Los Alamos Sea Ice Model"                          \
@@ -1507,6 +1528,8 @@ if [[ "$APPLEVELUSE" == "true" ]] ; then
             BUILD_FUNC=build_fv3
         elif [[ ${COMPOS[0]} == "NMMB" ]] ; then
             BUILD_FUNC=build_nmmb
+        elif [[ ${COMPOS[0]} == "DATM" ]] ; then
+            BUILD_FUNC=build_datm
         elif [[ ${COMPOS[0]} == "HYCOM" ]] ; then
             BUILD_FUNC=build_hycom
         elif [[ ${COMPOS[0]} == "MOM5" ]] ; then
@@ -1646,6 +1669,9 @@ for i in "${COMPONENTS[@]}" ; do
   elif [[ ${COMPOS[0]} == "CICE" ]] ; then
     COMP=$COMP",cice"
     COMPDIRS="$COMPDIRS CICE_DIR=$CICE_BINDIR"
+  elif [[ ${COMPOS[0]} == "DATM" ]] ; then
+    COMP=$COMP",datm"
+    COMPDIRS="$COMPDIRS DATM_DIR=$DATM_BINDIR"
   # - actual ionosphere-plasmasphere model components
   elif [[ ${COMPOS[0]} == "IPE" ]] ; then
     COMP=$COMP",ipe"

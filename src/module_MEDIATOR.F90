@@ -689,6 +689,8 @@ module module_MEDIATOR
     call fld_list_add(fldsFrOcn,"mixed_layer_depth"       , "will provide","copy")
     call fld_list_add(fldsFrOcn,"sea_surface_slope_zonal" , "will provide","copy")
     call fld_list_add(fldsFrOcn,"sea_surface_slope_merid" , "will provide","copy")
+    call fld_list_add(fldsFrOcn,"accum_heat_frazil"       , "will provide","copy")
+    call fld_list_add(fldsFrOcn,"inst_melt_potential "    , "will provide","copy")
 
     ! Fields to ICE
     call fld_list_add(fldsToIce,"dummyfield"               , "cannot provide")
@@ -914,6 +916,8 @@ module module_MEDIATOR
     
     call ESMF_AttributeGet(gcomp, name="Verbosity", value=value, defaultValue="max", &
       convention="NUOPC", purpose="Instance", rc=rc)
+     call ESMF_LogWrite(trim(subname)//": Verbosity="//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)
+    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     dbug_flag = ESMF_UtilString2Int(value, &
@@ -924,7 +928,7 @@ module module_MEDIATOR
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
     if (dbug_flag > 5) then
-      call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
+     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
 
@@ -2067,7 +2071,6 @@ module module_MEDIATOR
           write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
           call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 #endif
-
           ! clean up
 
           call ESMF_GridDestroy(gridAtmCoord,rc=rc)
@@ -3753,21 +3756,15 @@ module module_MEDIATOR
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     if (statewrite_flag) then
+    ! write the fields exported to atm to file
+#ifdef FRONT_FV3
       regridwriteAtmExp_timeslice = regridwriteAtmExp_timeslice + 1
       call ESMFPP_RegridWriteFB(is_local%wrap%FBforAtm, "med_to_atm_export_", regridwriteAtmExp_timeslice, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-    endif
-
-    if (dbug_flag > 1) then
-      call state_diagnose(NState_AtmExp, trim(subname)//' AtmExp_final ', rc=rc)
-    endif
-
-    if (statewrite_flag) then
-      ! write the fields exported to atm to file
-#ifndef FRONT_FV3
+#else
       call NUOPC_Write(NState_AtmExp, &
         fldsToAtm%shortname(1:fldsToAtm%num), &
         "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
@@ -3776,7 +3773,11 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
     endif
-    
+
+    if (dbug_flag > 1) then
+     call state_diagnose(NState_AtmExp, trim(subname)//' AtmExp_final ', rc=rc)
+    endif
+
     !---------------------------------------
     !--- clean up
     !---------------------------------------
@@ -7075,14 +7076,15 @@ endif
     character(len=*),parameter :: subname='(module_MEDIATOR:Fieldbundle_Regrid)'
 
     rc = ESMF_SUCCESS
-    if (dbug_flag > 5) then
-      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
 
     if (present(string)) then
       lstring = trim(string)
     else
       lstring = " "
+    endif
+
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
     if (.not.present(rc)) then
@@ -7243,14 +7245,15 @@ endif
     character(len=*),parameter :: subname='(module_MEDIATOR:Fieldbundle_Regrid2)'
 
     rc = ESMF_SUCCESS
-    if (dbug_flag > 5) then
-      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
 
     if (present(string)) then
       lstring = trim(string)
     else
       lstring = " "
+    endif
+
+    if (dbug_flag > 5) then
+      call ESMF_LogWrite(trim(subname)//trim(lstring)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
     if (.not.present(rc)) then

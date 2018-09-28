@@ -68,6 +68,9 @@
 #ifdef FRONT_FV3
       use FRONT_FV3,        only: FV3_SS   => SetServices
 #endif
+#ifdef FRONT_DATM
+      use FRONT_DATM,       only: DATM_SS  => SetServices
+#endif
   ! - Handle build time OCN options:
 #ifdef FRONT_SOCN
       use FRONT_SOCN,       only: SOCN_SS   => SetServices
@@ -908,6 +911,29 @@
         "freezing_melting_potential")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="freezing_melting_potential", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      ! following two added for export from MOM6
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "accum_heat_frazil")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="accum_heat_frazil", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "inst_melt_potential")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_melt_potential", &
           canonicalUnits="W m-2", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3228,6 +3254,19 @@
               file=__FILE__, rcToReturn=rc)
             return  ! bail out
 #endif
+          elseif (trim(model) == "datm") then
+#ifdef FRONT_DATM
+            call NUOPC_DriverAddComp(driver, trim(prefix), DATM_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
           elseif (trim(model) == "socn") then
 #ifdef FRONT_SOCN
             call NUOPC_DriverAddComp(driver, trim(prefix), SOCN_SS, &
@@ -3641,6 +3680,14 @@
     integer                         :: connectorCount, j
     type(ESMF_CplComp)              :: conn
 
+    character(len=ESMF_MAXSTR) :: msgString
+    character(len=10)          :: value
+
+    !can set to 'max' to recover intro/extro CurrGarbInfo for 
+    !all connectors 
+    character(len=10)          :: defaultVerbosity = "0"
+    !character(len=10)          :: defaultVerbosity = "max"
+
     rc = ESMF_SUCCESS
     
     ! query the Component for info
@@ -3661,6 +3708,8 @@
     if (trim(mode)=="setServicesConnectors") then
       allocate(connectorInstance(lineCount))  ! max number of connectors
       connectorCount = 0 ! reset
+    write(msgString,'(a,i6)')'max number of connectors ',lineCount
+    call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
     endif
     
     ! reset config to beginning of runSeq:: block
@@ -3712,13 +3761,18 @@
               ! this is a new Connector instance
               connectorCount = j
               connectorInstance(j) = trim(line(1))//trim(line(2))//trim(line(3))
+              write(msgString,'(a,i4,a,i4,4a)')'Connector j = ',j,&
+                                                ' line number ', i,&
+                                                '  ',trim(connectorInstance(j)),&
+                                                ' Verbosity = ',trim(defaultVerbosity)
+              call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
               ! SetServices for new Connector instance
               call NUOPC_DriverAddComp(driver, &
                 srcCompLabel=trim(line(1)), dstCompLabel=trim(line(3)), &
                 compSetServicesRoutine=conSS, comp=conn, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail
-              call NUOPC_CompAttributeSet(conn, name="Verbosity", value="max", &
+              call NUOPC_CompAttributeSet(conn, name="Verbosity", value=defaultVerbosity, &
                 rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail
@@ -3792,7 +3846,7 @@
               slot = slotHWM + 1
               slotHWM = slotHWM + 1
               read(tempString(2:len(tempString)), *) seconds
-              print *, "found time step indicator: ", seconds
+              !print *, "found time step indicator: ", seconds
               call ESMF_TimeIntervalSet(timeStep, s_r8=seconds, rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, &
