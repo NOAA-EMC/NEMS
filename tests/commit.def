@@ -1,26 +1,29 @@
 # Directory to receive the webpage with regression test results
-ON xjet           WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON svjet          WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON theia          WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON wcoss1         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON wcoss2         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON wcoss_cray     WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON wcoss_dell_p3  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
-ON gaea           WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/FixFreezeMeltDatm/
+ON xjet           WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON svjet          WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON tujet          WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON theia          WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON wcoss1         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON wcoss2         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON wcoss_cray     WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON wcoss_dell_p3  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
+ON gaea           WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/build-env-mk/
 
 USER ACCOUNT IS Samuel.Trahan
 ROLE ACCOUNT IS emc.nemspara
 
 # nems branch - branch of NEMS that is being tested.  Set to "default"
 # to test the app's own NEMS
-NEMS   BRANCH IS FixFreezeMeltDatm
+NEMS   BRANCH IS build-env-mk
 
 # app branch - branch to use for committing logs to each 
-APP    BRANCH IS FixFreezeMeltDatm-commit
+APP    BRANCH IS build-env-mk-commit
 
 # If relevant, the starting branch that we copy to make the app
 # branch.  Default is the master branch.
-#  APP NEMSfv3gfs       CHECKOUT some-branch
+APP NEMSfv3gfs       CHECKOUT build-env-mk
+APP WW3-FV3          CHECKOUT build-env-mk
+APP FV3-MOM6-CICE5   CHECKOUT build-env-mk
 
 # master branch - name of the git "master" branch.  Do not change.
 MASTER BRANCH IS master

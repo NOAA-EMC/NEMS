@@ -1,5 +1,15 @@
 #include "./ESMFVersionDefine.h"
 
+#if ESMF_VERSION_MAJOR >= 8
+! Do things for ESMF 8 and later
+#else
+#ifndef ESMF_VERSION_MAJOR
+#error ESMF_VERSION_MAJOR is unset or empty; I do not know what version of ESMF you are using.
+#else
+! Do things for ESMF versions before 8
+#endif
+#endif
+
 !-----------------------------------------------------------------------
 !
       PROGRAM MAIN_NEMS

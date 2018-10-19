@@ -1,4 +1,4 @@
-include ../conf/configure.nems
+-include ../conf/configure.nems
 
 MAKEFILE = makefile
 
@@ -32,7 +32,6 @@ MODULES_STUB = ENS_CplComp_ESMFMod_STUB.o
 
 DEPEND_FILES = ${OBJS:.o=.f90} ${OBJS_90:.o=.f90}
 
-
 all default: depend
 	@gmake -f $(MAKEFILE) $(LIBRARY)
 
@@ -50,7 +49,6 @@ stub: $(MODULES_STUB)
 
 $(MODULES_STUB): %.o: %.f90
 	$(FC) $(FFLAGS) -c $*.f90
-
 
 clean:
 	$(RM) -f $(LIBRARY) *.f90 *.o *.mod *.lst lm map depend
@@ -119,6 +117,11 @@ Cal_Sto_Coef.o: Cal_Sto_Coef.f90
 
 MKDEPENDS = ../../exe/mkDepends.pl
 
-include ../conf/make.rules
+-include ../conf/make.rules
 
-include depend
+ifneq ($(wildcard depend),)
+  # An "ifneq" is needed to avoid running "make depend" as a result of
+  # the "include depend."  Prepending "include" with a "-" will not
+  # prevent the problem.
+  include depend
+endif

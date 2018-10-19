@@ -79,6 +79,11 @@ nonsense() {
         *) echo "CPU elves are on a lunch break.  Check back later?" ;;
     esac
 }
+########################################################################
+
+realpath() {
+    echo $( cd $( dirname "$1" ) ; pwd -P )/$( basename "$1" )
+}
 
 ########################################################################
 
@@ -1213,6 +1218,11 @@ copy_static_files_to_website() {
     local web_top_dir=$( realpath $( dirname "$0" )/web-top )
     local dir_hash=$( generate_hash_for_test_name web_init "$$.$RANDOM" )
     local work_dir=$( my_work_area )/$dir_hash
+
+    if [[ "Q$work_dir" == Q ]] ; then
+        echo "Refusing to rsync  /"
+        exit 1
+    fi
 
     rm -rf "$work_dir"
     mkdir -p "$work_dir"
