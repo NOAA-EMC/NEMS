@@ -37,8 +37,6 @@ $(fv3_mk): $(fms_mk) configure
 	       "$(FV3_SRCDIR)"/conf/configure.fv3
 	cp -fp $(NEMSDIR)/src/conf/modules.nems   \
 	       "$(FV3_SRCDIR)"/conf/modules.fv3
-	+$(MODULE_LOGIC) ; cd $(FV3_SRCDIR) ; \
-	  exec $(MAKE) $(FV3_FULL_OPTS) clean
 	$(info Compiling $(FV3_MAKEOPT) into $(FV3_BINDIR) on $(MACHINE_ID))
 	+$(MODULE_LOGIC) ; cd $(FV3_SRCDIR) ; \
 	  exec $(MAKE) $(FV3_FULL_OPTS) nemsinstall

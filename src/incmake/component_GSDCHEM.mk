@@ -38,7 +38,7 @@ $(gsdchem_mk): configure
 # Rule for cleaning the SRCDIR and BINDIR:
 
 clean_GSDCHEM:
-	+cd $(GSDCHEM_SRCDIR) ; exec $(MAKE) -k distclean
+        +cd $(GSDCHEM_SRCDIR) ; test -f Makefile && exec $(MAKE) -k distclean || echo "Nothing to clean up"
 
 distclean_GSDCHEM: clean_GSDCHEM
 	rm -rf $(GSDCHEM_BINDIR) $(gsdchem_mk)

@@ -1,6 +1,9 @@
-# List of valid platforms and the human-readable names of each:
-PLATFORM xjet           NAME xJet
-PLATFORM svjet          NAME sJet and vJet
+# JET NOTE: We only list one jet generation (the oldest) because it
+# takes too long to test all three generations.
+
+# List of valid platforms and the human-readable names of each.
+#PLATFORM xjet           NAME xJet
+#PLATFORM svjet          NAME sJet and vJet
 PLATFORM tujet          NAME uJet and tJet
 PLATFORM theia          NAME Theia
 PLATFORM wcoss1         NAME WCOSS Phase 1
@@ -27,8 +30,8 @@ APP FV3-MOM6-CICE5  URL gerrit:EMC_FV3-MOM6-CICE5
 
 # Shell expressions that generate scrub space for a given $username
 # on each platform.
-ON xjet             SCRUB /lfs3/projects/hfv3gfs/$username/scrub/xjet
-ON svjet            SCRUB /lfs3/projects/hfv3gfs/$username/scrub/svjet
+#ON xjet             SCRUB /lfs3/projects/hfv3gfs/$username/scrub/xjet
+#ON svjet            SCRUB /lfs3/projects/hfv3gfs/$username/scrub/svjet
 ON tujet            SCRUB /lfs3/projects/hfv3gfs/$username/scrub/tujet
 ON theia            SCRUB /scratch4/NCEPDEV/nems/scrub/$username
 ON wcoss1           SCRUB /ptmpp1/$username
@@ -38,8 +41,8 @@ ON wcoss_cray       SCRUB /gpfs/hps2/ptmp/$username
 ON gaea             SCRUB $( ls -1d /lustre/f1/*/$username | head -1 )
 
 # List of apps to run on each platform.
-ON xjet             APPS NEMSfv3gfs
-ON svjet            APPS NEMSfv3gfs
+#ON xjet             APPS NEMSfv3gfs
+#ON svjet            APPS NEMSfv3gfs
 ON tujet            APPS NEMSfv3gfs
 ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
 ON wcoss1           APPS NEMSfv3gfs NEMSGSM
@@ -49,7 +52,7 @@ ON wcoss_cray       APPS NEMSfv3gfs WW3-FV3
 ON gaea             APPS NEMSfv3gfs
 
 # Extra arguments to rt.sh for each platform
-ON xjet             EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/xjet --project hfv3gfs --platform xjet
-ON svjet            EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/svjet --project hfv3gfs --platform svjet
+#ON xjet             EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/xjet --project hfv3gfs --platform xjet
+#ON svjet            EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/svjet --project hfv3gfs --platform svjet
 ON tujet            EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/tujet --project hfv3gfs --platform tujet
 ON gaea             EXTRA_ARGS --platform gaea.c3

@@ -44,11 +44,9 @@ $(CONFDIR)/modules.nems.csh: $(CONFDIR)/modules.nems
 else
 # Generate scripts that source the module files.
 $(CONFDIR)/modules.nems.sh: $(CONFDIR)/modules.nems
-	( echo 'source $(CONFDIR)/module-setup.sh.inc' ; \
-	echo 'source $(CONFDIR)/modules.nems' ) > "$@"
+	( echo 'source $(CONFDIR)/modules.nems' ) > "$@"
 $(CONFDIR)/modules.nems.csh: $(CONFDIR)/modules.nems
-	( echo 'source $(CONFDIR)/module-setup.csh.inc' ; \
-	echo 'source $(CONFDIR)/modules.nems' ) > "$@"
+	( echo 'source $(CONFDIR)/modules.nems' ) > "$@"
 endif
 
 ########################################################################

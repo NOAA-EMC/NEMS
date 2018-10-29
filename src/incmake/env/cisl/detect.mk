@@ -5,7 +5,6 @@
 ########################################################################
 
 ifneq (,$(wildcard /glade))
-  $(call add_build_env,cheyenne.intel,env/cisl/cheyenne.intel.mk)
-  $(call add_build_env,cheyenne.pgi,env/cisl/cheyenne.pgi.mk)
-  $(call add_build_env,cheyenne.gnu,env/cisl/cheyenne.gnu.mk)
+  NEMS_COMPILER?=intel
+  $(call add_build_env,cheyenne.$(NEMS_COMPILER),env/cisl/cheyenne.$(NEMS_COMPILER).mk)
 endif

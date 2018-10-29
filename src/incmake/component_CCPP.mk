@@ -39,6 +39,7 @@ $(ccpp_mk): configure
 	cd $$PATH_CCPP                                                  ; \
 	./build_ccpp.sh ${BUILD_TARGET} "$$PATH_CCPP"                     \
 	  "$(CCPP_MAKEOPT)" NO NO                                       ; \
+	echo "ESMF_DEP_INCPATH=-I$(CCPP_BINDIR)/include" > $(ccpp_mk)   ; \
 	echo "ESMF_DEP_LINK_OBJS=-L$(CCPP_BINDIR)/lib -lccpp -lccppphys"  \
 	                                 > $(ccpp_mk)                   ; \
 	test -d "$(CCPP_BINDIR)"/include                                ; \

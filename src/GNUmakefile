@@ -234,10 +234,10 @@ clean:
 $(OBJS): %.o: %.tmp.f90
 	$(FC) $(FFLAGS) $(INCS) -c $*.tmp.f90
 	mv -v $*.tmp.o $*.o
-	$(RM) $*.tmp.f90
+
 %.tmp.f90: %.F90
 	$(CPP) $(CPPFLAGS) $< > $*.tmp.f90
 MAIN_NEMS.o: %.o: %.tmp.f90
 	$(FC) $(FFLAGS) $(INCS) -c $*.tmp.f90
 	mv -v $*.tmp.o $*.o
-	$(RM) $*.tmp.f90
+

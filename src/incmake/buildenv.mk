@@ -51,10 +51,9 @@ define ULIMIT_MODULE_LOGIC
   ulimit -S -s $$stack
 endef
 
-# $SCRIPT_MODULE_LOGIC
-# Generates a shell command that will "source" a shell script to
-# obtain the NEMS modules.
-SCRIPT_MODULE_LOGIC=source $(CONFDIR)/modules.nems
+define SOURCE_MODULE_LOGIC
+  source $(CONFDIR)/modules.nems
+endef
 
 # ----------------------------------------------------------------------
 
@@ -92,7 +91,6 @@ endif
 
 # Set reasonable default values:
 
-NEMS_COMPILER ?= intel
 PEX?=na
 
 # Defaults for MACHINE_ID and FULL_MACHINE_ID are each other:
