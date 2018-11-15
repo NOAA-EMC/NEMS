@@ -1,13 +1,19 @@
 
+$(CONFDIR)/test-results.mk:
+	+$(MAKE) -f $(NEMSDIR)/src/incmake/tests.mk    \
+	      MODULE_LOGIC="$(MODULE_LOGIC)"           \
+	      TARGET="$(CONFDIR)/test-results.mk" TEST
+	$(eval include $(CONFDIR)/test-results.mk)
+
 ########################################################################
 
 # Copy the configure.nems, externals.nems, and ESMFVersionDefine.h
 
-$(CONFDIR)/configure.nems:
+$(CONFDIR)/configure.nems: $(CONFIGURE_NEMS_FILE)
 	cp $(CONFIGURE_NEMS_FILE) $@
 
 ifneq ($(EXTERNALS_NEMS_FILE),)
-$(CONFDIR)/externals.nems:
+$(CONFDIR)/externals.nems: $(EXTERNALS_NEMS_FILE)
 	cp $(EXTERNALS_NEMS_FILE) $@
 else
 $(CONFDIR)/externals.nems:
@@ -24,7 +30,7 @@ $(NEMSDIR)/src/ESMFVersionDefine.h:
 # $(MODULE_LOGIC)
 
 ifneq ($(CHOSEN_MODULE),)
-$(CONFDIR)/modules.nems:
+$(CONFDIR)/modules.nems: $(MODULE_DIR)/$(CHOSEN_MODULE)
 	cp $(MODULE_DIR)/$(CHOSEN_MODULE) $@
 else
 $(CONFDIR)/modules.nems:
@@ -33,19 +39,19 @@ endif
 
 ifeq ($(USE_MODULES),YES)
 # Generate scripts to load modules via the "module" command.
-$(CONFDIR)/modules.nems.sh: $(CONFDIR)/modules.nems
-	( echo 'source $(CONFDIR)/module-setup.sh.inc' ; \
+$(CONFDIR)/modules.nems.sh:
+	( echo '. $(CONFDIR)/module-setup.sh.inc' ; \
 	echo 'module use $(CONFDIR)' ; \
 	echo 'module load modules.nems' ) > "$@"
-$(CONFDIR)/modules.nems.csh: $(CONFDIR)/modules.nems
+$(CONFDIR)/modules.nems.csh:
 	( echo 'source $(CONFDIR)/module-setup.csh.inc' ; \
 	echo 'module use $(CONFDIR)' ; \
 	echo 'module load modules.nems' ) > "$@"
 else
 # Generate scripts that source the module files.
-$(CONFDIR)/modules.nems.sh: $(CONFDIR)/modules.nems
-	( echo 'source $(CONFDIR)/modules.nems' ) > "$@"
-$(CONFDIR)/modules.nems.csh: $(CONFDIR)/modules.nems
+$(CONFDIR)/modules.nems.sh:
+	( echo '. $(CONFDIR)/modules.nems' ) > "$@"
+$(CONFDIR)/modules.nems.csh:
 	( echo 'source $(CONFDIR)/modules.nems' ) > "$@"
 endif
 

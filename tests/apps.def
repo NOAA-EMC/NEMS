@@ -9,7 +9,7 @@ PLATFORM theia          NAME Theia
 PLATFORM wcoss1         NAME WCOSS Phase 1
 PLATFORM wcoss2         NAME WCOSS Phase 2
 PLATFORM wcoss_cray     NAME WCOSS Cray
-#PLATFORM wcoss_dell_p3  NAME WCOSS Phase 3
+PLATFORM wcoss_dell_p3  NAME WCOSS Phase 3
 PLATFORM gaea           NAME GAEA C3
 
 # List of known apps and the compsets to run for each app.
@@ -37,7 +37,7 @@ ON theia            SCRUB /scratch4/NCEPDEV/nems/scrub/$username
 ON wcoss1           SCRUB /ptmpp1/$username
 ON wcoss2           SCRUB /ptmpd3/$username
 ON wcoss_cray       SCRUB /gpfs/hps2/ptmp/$username
-#ON wcoss_dell_p3    SCRUB /fixme/$username
+ON wcoss_dell_p3    SCRUB /gpfs/dell2/ptmp/$username
 ON gaea             SCRUB $( ls -1d /lustre/f1/*/$username | head -1 )
 
 # List of apps to run on each platform.
@@ -48,7 +48,7 @@ ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-M
 ON wcoss1           APPS NEMSfv3gfs NEMSGSM
 ON wcoss2           APPS NEMSfv3gfs WW3-FV3 WW3-ATM
 ON wcoss_cray       APPS NEMSfv3gfs WW3-FV3
-#ON wcoss_dell_p3    APPS FIXME
+ON wcoss_dell_p3    APPS NEMSfv3gfs
 ON gaea             APPS NEMSfv3gfs
 
 # Extra arguments to rt.sh for each platform

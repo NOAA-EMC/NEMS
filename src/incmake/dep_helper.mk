@@ -15,8 +15,7 @@ replace_component=$(eval override COMPONENTS=$(foreach comp,$(COMPONENTS),$(if $
 COMPONENTS: $(TARGET)
 
 $(TARGET): $(COMPONENTS)
-	echo '# Chosen components as of the last run of GNUmakefile at' $$(date) > "$@"
-	echo 'override COMPONENTS := $(call uniq,$(COMPONENTS))' >> "$@"
+	echo '$(call uniq,$(COMPONENTS))' > "$@"
 
 ########################################################################
 

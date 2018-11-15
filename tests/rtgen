@@ -747,8 +747,8 @@ def decide_project_gaea():
 # WCOSS project detection
 
 def decide_project_wcoss():
-    """!Placeholder for future development; returns "GFS-T2O" """
-    return 'GFS-T2O'
+    """!Placeholder for future development; returns "FV3GFS-T2O" """
+    return 'FV3GFS-T2O'
 
 def decide_tmp_wcoss(pex):
     """!Placeholder for future development; returns "/ptmpp/$USER"
@@ -768,6 +768,14 @@ def decide_tmp_wcoss(pex):
         ptmps=[ [ '/ptmpd3', '-j', 'ptmp-d3', 'gpfs-'+tg+'d3'],
                 [ '/ptmpp2', '-j', 'ptmp-p2', 'gpfs-'+tg+'p2'] ]
         max_area='/ptmpp2' # default on failure
+    elif pex==3:
+        ptmps=[ [ '/gpfs/dell1/ptmp', '-j', 'dell1-ptmp', 'gpfs-dell1'],
+                [ '/gpfs/dell2/ptmp', '-j', 'dell2-ptmp', 'gpfs-dell2'],
+                [ '/gpfs/dell3/ptmp', '-j', 'dell3-ptmp', 'gpfs-dell3'],
+                [ '/gpfs/dell1/stmp', '-j', 'dell1-stmp', 'gpfs-dell1'],
+                [ '/gpfs/dell2/stmp', '-j', 'dell2-stmp', 'gpfs-dell2'],
+                [ '/gpfs/dell3/stmp', '-j', 'dell3-stmp', 'gpfs-dell3'] ]
+        max_area='/gpfs/dell2/ptmp' # default on failure
     else: # assume cray (pex=0)
         ptmps=[ [ '/gpfs/hps/ptmp', '-j', 'hps-ptmp', 'hps'],
                 [ '/gpfs/hps/stmp', '-j', 'hps-stmp', 'hps'],
@@ -912,6 +920,10 @@ class RTGen(TestGen):
             out.write('module load rocoto/1.2.4-RC3\n')
             out.write('module use /gpfs/hps3/emc/hwrf/noscrub/soft/modulefiles\n')
             out.write('module load emc-utils ; have_qoutql=YES\n')
+        elif here.name in [ 'mars', 'venus' ]:
+            out.write('module use /usrx/local/dev/emc_rocoto/modulefiles/\n')
+            out.write('module load ruby/2.5.1 lsf/10.1 rocoto/complete\n')
+            out.write('module load emc-utils/1.0.0 ; export have_qoutql=YES\n')
         elif 'jet' in here.name:
             out.write('module load hpss rocoto\n')
             out.write('module use /lfs3/projects/hwrf-vd/soft/modulefiles\n')
@@ -1321,7 +1333,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
     if project is None:
         if produtil.cluster.name() == 'theia':
             project=decide_project_theia()
-        elif produtil.cluster.name() in ['gyre','tide','luna','surge']:
+        elif produtil.cluster.name() in ['gyre','tide','luna','surge','venus','mars']:
             project=decide_project_wcoss()
         elif produtil.cluster.name() == 'jet':
             project=decide_project_jet()
@@ -1330,7 +1342,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
         elif produtil.cluster.name() == 'gaea':
             project=decide_project_gaea()
         else:
-            fail('Unknown system.  Only Theia, Jet, WCOSS, and GAEA are supported.')
+            fail('Unknown system "'+produtil.cluster.name()+'".  Only Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen project for job submission is %s'%(
                 repr(project),))
     else:
@@ -1341,7 +1353,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
     if temp is None:
         if produtil.cluster.name() == 'theia':
             scratch_dir=decide_tmp_theia()
-        elif produtil.cluster.name() in ['gyre','tide','luna','surge']:
+        elif produtil.cluster.name() in ['gyre','tide','luna','surge','mars','venus']:
             scratch_dir=decide_tmp_wcoss(produtil.cluster.where().wcoss_phase)
         elif produtil.cluster.name() == 'gaea':
             scratch_dir=decide_tmp_gaea()
@@ -1353,7 +1365,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
             assert('nceplibs' not in scratch_dir)
             assert('hwrfdata' not in scratch_dir)
         else:
-            fail('Unknown system.  Only Theia, Jet, WCOSS, and GAEA are supported.')
+            fail('Unknown system "'+produtil.cluster.name()+'".  Only Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen ptmp is %s'%(repr(scratch_dir),))
     else:
         scratch_dir=temp

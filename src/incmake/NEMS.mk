@@ -44,13 +44,13 @@ $(NEMS_EXE): $(all_component_mk_files) configure \
 # Rules for cleaning NEMS:
 
 clean_NEMS:
-	if [[ ! -f $(CONFDIR)/configure.nems.NUOPC ]] ; then      \
+	if ! test -f $(CONFDIR)/configure.nems.NUOPC ; then       \
 	  cat /dev/null > $(CONFDIR)/configure.nems.NUOPC       ; \
 	  delete_nuopc=yes                                      ; \
 	fi                                                      ; \
 	cd $(NEMSDIR)/src ; $(MAKE) "COMPONENTS=$(COMPONENTS)"    \
 	  INCLUDES_ARE_OPTIONAL=YES clean                       ; \
-	if [[ "$$delete_nuopc" == yes ]] ; then                   \
+	if [ "$$delete_nuopc" = yes ] ; then                      \
 	  rm -f $(CONFDIR)/configure.nems.NUOPC                 ; \
 	fi
 

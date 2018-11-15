@@ -20,7 +20,7 @@ FMS:
 
 FV3_DEPS=FMS
 
-ifneq (,$(findstring CCPP,$(COMPONENTS)))
+ifneq (,$(findstring CCPP=Y,$(COMPONENTS)))
   FV3_DEPS += CCPP
 endif
 

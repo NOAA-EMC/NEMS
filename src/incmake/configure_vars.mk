@@ -6,7 +6,8 @@ NEMS_CONF_FILES=\
   $(CONFDIR)/modules.nems \
   $(NEMSDIR)/src/ESMFVersionDefine.h \
   $(CONFDIR)/modules.nems.sh \
-  $(CONFDIR)/modules.nems.csh
+  $(CONFDIR)/modules.nems.csh \
+  $(CONFDIR)/test-results.mk
 
 ########################################################################
 

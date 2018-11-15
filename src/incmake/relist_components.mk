@@ -44,30 +44,16 @@ override COMPONENTS:=$(unpercented)
 
 # Handle depedencies between components
 
-# We'll make this file which will contain the new components:
-new_components_file=$(NEMSDIR)/src/conf/components.mk
+# Recurse into dependencies.mk to generate the new component list:
+override_components := \
+    $(shell $(MAKE) -f $(NEMSDIR)/src/incmake/dependencies.mk    \
+    COMPONENTS="$(COMPONENTS)" TARGET="$(new_components_file)"   \
+    COMPONENTS 1>&2                                            ; \
+    cat "$(new_components_file)"                               ; \
+    rm -f "$(new_components_file)" )
 
-# First, delete the file:
-$(and $(shell rm -f $(new_components_file)),)
-
-# Now recurse into dependencies.mk to generate the new component list:
-$(and $(shell $(MAKE) -f $(NEMSDIR)/src/incmake/dependencies.mk COMPONENTS="$(COMPONENTS)" TARGET="$(new_components_file)" COMPONENTS),)
-
-# If the file does not exist, then the components are invalid, or none
-# were specified:
-ifeq (,$(wildcard $(new_components_file)))
-  $(error Invalid or missing COMPONENTS)
-endif
-
-# Get the new component list:
-include $(new_components_file)
-
-.INTERMEDIATE: $(new_components_file)
-
-# If the resulting COMPONENTS variable is empty, then something els3e when wrong.
-ifeq ($(COMPONENTS),)
-  $(error Invalid or missing COMPONENTS)
-endif
+# Update the COMPONENTS variable with the corrected value:
+override COMPONENTS := $(override_components)
 
 ########################################################################
 

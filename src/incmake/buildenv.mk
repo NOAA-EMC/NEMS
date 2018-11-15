@@ -42,7 +42,7 @@ build_env_include=$(call get,detected_build_env,$(1))
 #   3. Load the nems modules.
 #   4. Restore the stack soft limit.
 define ULIMIT_MODULE_LOGIC
-  source $(CONFDIR)/module-setup.sh.inc ; \
+  . $(CONFDIR)/module-setup.sh.inc ; \
   stack=`ulimit -S -s`                  ; \
   ulimit -S -s $(1)                     ; \
   module use $(CONFDIR)                 ; \

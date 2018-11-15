@@ -65,7 +65,7 @@ export FULL_MACHINE_ID_DOT='\''$(FULL_MACHINE_ID_DOT)'\''
 export FULL_MACHINE_ID_UNDER='\''$(FULL_MACHINE_ID_UNDER)'\''
 source $(app_builder_file) > /dev/null
 
-if [[ $(VERBOSE_MAKE) == YES ]] ; then
+if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
   echo 1>&2
   echo \# NON-COMPONENT-SPECIFIC VARS: 1>&2
   echo 1>&2
@@ -81,13 +81,13 @@ for var in $${VARS} ; do
   value=$$( eval echo '\''$${'\''"$${var}"'\''[@]}'\'' )
   if [[ "Q$${value}" != Q ]] ; then
     echo $$var \?= $$value
-    if [[ $(VERBOSE_MAKE) == YES ]] ; then
+    if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
       echo $$var \?= \"$$value\" 1>&2
     fi
   fi
-done >> $(app_builder_makefile)
+done >> "$(app_builder_makefile)"
 
-if [[ $(VERBOSE_MAKE) == YES ]] ; then
+if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
   echo 1>&2
   echo \# COMPONENT-SPECIFIC VARS FOR: \[ $${COMPONENTS[@]} \] 1>&2
 fi
@@ -100,14 +100,14 @@ for component in $${COMPONENTS[@]} ; do
     value=$$( eval echo '\''$${'\''"$${var}"'\''[@]}'\'' )
     if [[ "$${value}Q" != Q ]] ; then
       echo $$var \?= $$value
-      if [[ $(VERBOSE_MAKE) == YES ]] ; then
+      if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
         echo $$var \?= \"$$value\" 1>&2
       fi
     fi
   done
 done >> $(app_builder_makefile)
 
-if [[ $(VERBOSE_MAKE) == YES ]] ; then
+if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
   echo 1>&2
   echo ------------------------------------------------------------------------ 1>&2
   echo 1>&2

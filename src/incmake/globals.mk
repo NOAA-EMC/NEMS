@@ -19,6 +19,9 @@ CONFDIR=$(NEMSDIR)/src/conf
 # Path to NEMS.x is not configurable yet:
 NEMS_EXE=$(NEMSDIR)/exe/NEMS.x
 
+# We'll make this temporary file which will contain the new components:
+new_components_file=$(NEMSDIR)/src/conf/components.mk
+
 # Two more aliases for special characters.  Do not change.  These are
 # last in this file because they can confuse syntax highlighters:
 override singlequote='

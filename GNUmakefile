@@ -53,13 +53,6 @@ include $(NEMSDIR)/src/incmake/relist_components.mk
 include $(NEMSDIR)/src/incmake/configure_vars.mk
 include $(NEMSDIR)/src/incmake/derived_vars.mk
 
-# Run some basic tests of machine and ESMF capabilities, and get the
-# test results:
-$(and $(shell rm -f $(CONFDIR)/test-results.mk),)
-$(and $(shell $(MAKE) -f $(NEMSDIR)/src/incmake/tests.mk \
-  MODULE_LOGIC="$(MODULE_LOGIC)" TARGET="$(CONFDIR)/test-results.mk" TEST),)
--include $(CONFDIR)/test-results.mk
-
 ########################################################################
 
 # The default build rule just dumps the build information and tells
@@ -145,12 +138,14 @@ clean: $(CLEAN_RULES) clean_NEMS
 # The "distclean" target also deletes targets and configuration files.
 # Only src/conf/components.mk remains:
 distclean: $(DISTCLEAN_RULES) distclean_NEMS unconfigure
+	-rm -f $(CONFDIR)/components.mk
+	-rm -f $(CONFDIR)/test_results.mk
 
 # The "build" target builds all components and the NEMS executable:
 build: $(BUILD_RULES) build_NEMS
 
 # The special "FORCE" rule can be used as a dependency to ensure
-# a rule is always run regardless of whetehr its target is up to date.
+# a rule is always run regardless of whether its target is up to date.
 .PHONY: FORCE
 FORCE:
 
