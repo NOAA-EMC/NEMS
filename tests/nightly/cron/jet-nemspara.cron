@@ -1,0 +1,6 @@
+5 6 * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/email-rt.pl -e Samuel.Trahan@noaa.gov,Mark.Iredell@noaa.gov,Bin.Li@noaa.gov,Jessica.Meixner@noaa.gov,Jun.Wang@noaa.gov /lfs3/projects/hfv3gfs/emc.nemspara/web/rt/*/*/*.txt > /lfs3/projects/hfv3gfs/emc.nemspara/scrub/nightly-test-email-selective.log
+
+5 18 * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/email-rt.pl -a -e Samuel.Trahan@noaa.gov /lfs3/projects/hfv3gfs/emc.nemspara/web/rt/*/*/*.txt > /lfs3/projects/hfv3gfs/emc.nemspara/scrub/nightly-test-email-always.log
+
+1 20  * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/run-from-jet-nemspara.sh tujet test > /lfs3/projects/hfv3gfs/emc.nemspara/scrub/tujet-nightly-test.log 2>&1
+47 * * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/run-from-jet-nemspara.sh tujet deliver > /lfs3/projects/hfv3gfs/emc.nemspara/scrub/tujet-nightly-deliver.log 2>&1

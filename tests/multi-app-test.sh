@@ -57,6 +57,7 @@ fi
 
 ########################################################################
 
+# Additional feedback and advice sent to the user upon an abort:
 nonsense() {
     local which=$(( RANDOM % 17 ))
     case "$which" in
@@ -81,12 +82,18 @@ nonsense() {
 }
 ########################################################################
 
+# Acts like the POSIX realpath() C function.  Given a path, expand any
+# symbolic links.  There is a "realpath" program installed on some
+# Linux machines.  It is not a standard program, so we re-implement it
+# here.
 realpath() {
     echo $( cd $( dirname "$1" ) ; pwd -P )/$( basename "$1" )
 }
 
 ########################################################################
 
+# Refuse to run if the stdout or stderr are a terminal.  This is
+# needed to work around bugs in some programs.
 forbid_terminals() {
     local stage="$1"
     if ( test -t 1 -o -t 2 ) ; then
@@ -141,6 +148,9 @@ get_global_or_default() {
 
 ########################################################################
 
+# Parses the STDIN input which comes from files like apps.def.  This
+# sets the various global variables accessible from the get_*
+# functions throughout this script.
 parse_control_file() {
     local context key command value
     local check_platform check_apps
@@ -160,62 +170,117 @@ parse_control_file() {
     master_branch=master
     more_rt_sh_args=
 
+    # Loop over all STDIN lines:
     while [[ $eof == 0 ]] ; do
         lineno=$(( lineno+1 ))
         read context key command value
         eof=$?
+
+        # Flags for enabling certain error checks on the line we just
+        # read in:
         check_platform_in_key=NO
         check_apps_in_value=NO
         check_app_in_key=NO
+
+        # Figure out what kind of line this is, and extract the relevant information.
         if [[ -z "$context" ]] ; then
             continue # blank line
         elif [[ "${context:0:1}" == '#' ]] ; then
+            # Comment lines begin with a #
             #echo "line $lineno: comment: $context $key $command $value" 1>&2
             continue
         elif [[ -z "$value" ]] ; then
             result=1
             echo "line $lineno: invalid line; no value: $context $key $command $value" 1>&2
         elif [[ "$context" == PLATFORM && "$command" == NAME ]] ; then
+            # Specify the internal and human-readable names for a platform.
+            # PLATFORM tujet          NAME uJet and tJet
             #echo "Platform $key has name $value"
             platforms="$platforms $key"
             set_global "platform_${key}_name" "$value"
         elif [[ "$context" == APP && "$command" == COMPSETS ]] ; then
+            # The arguments to send to NEMSCompsetRun to select compsets for this app.
+            # APP NEMSfv3gfs      COMPSETS -f
             #echo "App $key shall run compsets specified by: $value"
             set_global "compsets_for_$key" "$value"
             all_apps="$all_apps $key"
             check_app_in_key=YES
         elif [[ "$context" == APP && "$command" == URL ]] ; then
+            # The URL of the git repository for this app.
+            # APP NEMSfv3gfs      URL gerrit:NEMSfv3gfs
             #echo "App $key URL is: $value"
             set_global "app_url_$key" "$value"
             check_app_in_key=YES
         elif [[ "$context" == APP && "$command" == CHECKOUT ]] ; then
+            # The name of the base branch to use for a given app, when
+            # testing NEMS changes against it.  Often NEMS changes
+            # will require changing apps and components.  This
+            # funcionality lets you place such changes in an app
+            # branch.  When the NEMS commit is made, this script will
+            # push the app branch changes back to the app master.
+            # APP NEMSfv3gfs       CHECKOUT dell-produtil
             echo "App $key starting branch is: $value"
             set_global "starting_branch_for_$key" "$value"
             check_app_in_key=YES
         elif [[ "$context" == ON && "$command" == EXTRA_ARGS ]] ; then
+            # On some platforms, the NEMSCompsetRun needs extra
+            # arguments to do such things as selecting a partition, or
+            # setting the scratch space.
+            # ON tujet EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/tujet --project hfv3gfs --platform tujet
             #echo "Platform $key uses extra args to NEMSCompsetRun: $value" 1>&2
             set_global "rt_sh_args_for_$key" "$value"
             check_platform_in_key=YES
         elif [[ "$context" == ON && "$command" == SCRUB ]] ; then
+            # Specifies the directory to use for this scripts work
+            # space.  Use the string "$username" in place of the user
+            # name.
+            # ON theia SCRUB /scratch4/NCEPDEV/nems/scrub/$username
             #echo "Platform $key uses scrub space $value"
             set_global "scrub_space_for_$key" "$value"
             check_platform_in_key=YES
         elif [[ "$context" == ON && "$command" == APPS ]] ; then
+            # Specifies which apps should be tested on each platform.
+            # ON theia APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
             #echo "Platform $key will run apps $value"
             set_global "app_list_for_$key" "$value"
             check_platform_in_key=YES
             check_apps_in_value=YES
+
+        # The test suite is split between two users: a user account
+        # that refers to an actual human (this is for repo work) and a
+        # role account to run the tests (for execution and web
+        # management).  This is used primarily to set directory paths.
         elif [[ "$context $key $command" == "USER ACCOUNT IS" ]] ; then
+            # This option sets the "actual human" account, as described above.
+            # USER ACCOUNT IS Samuel.Trahan
             user="$value"
         elif [[ "$context $key $command" == "ROLE ACCOUNT IS" ]] ; then
+            # This option sets the role account, as described above.
+            # ROLE ACCOUNT IS emc.nemspara
             role="$value"
         elif [[ "$context $key $command" == "NEMS BRANCH IS" ]] ; then
+            # Name of the branch of NEMS from which to base this test.
+            # NEMS   BRANCH IS dell-produtil
             nems_branch="$value"
         elif [[ "$context $key $command" == "APP BRANCH IS" ]] ; then
+            # Name of a temporary branch to make in each app.  This
+            # branch will be used for testing.  It is copied from
+            # another branch, named in either the APP...CHECKOUT
+            # statement or the MASTER BRNACH statement.
+            # APP    BRANCH IS dell-produtil-commit
             app_branch="$value"
         elif [[ "$context $key $command" == "MASTER BRANCH IS" ]] ; then
+            # Set the name of the special git "master" branch.
+            # Generally, you should never change it.  This is here
+            # just to test the commit-related functions of this
+            # script, without committing to the actual master.
+            # MASTER BRANCH IS master
             master_branch="$value"
         elif [[ "$context" == ON && "$command" == WEBPAGE ]] ; then
+            # Specifies the directory (local or remote) to receive the webpage that has test results.
+            #ON tujet WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/dell-produtil/
+            #ON theia WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/dell-produtil/
+
             #echo "Platform $key sends to webpage $value"
             set_global "webpage_for_$key" "$value"
             check_platform=YES
@@ -226,18 +291,24 @@ parse_control_file() {
         fi
 
         if [[ "$check_platform_in_key" == YES ]] ; then
+            # A platform was specified on this line, so let's make
+            # sure the platform is actually defined:
             if ( ! have_global "platform_${key}_name" ) ; then
                 echo "line $lineno: unknown platform $key (no PLATFORM...NAME block for this)" 1>&2
                 result=1
             fi
         fi
         if [[ "$check_app_in_key" == YES ]] ; then
+            # The line mentioned an app name, so we'll check to see if
+            # the app exists.
             if ( ! have_global "compsets_for_$key" ) ; then
                 echo "line $lineno: unknown app $key (no APP...COMPSETS line for this app)" 1>&2
                 result=1
             fi
         fi
         if [[ "$check_apps_in_value" == YES ]] ; then
+            # A list of app names were mentioned, so we'll loop over
+            # them and make sure all apps are defined.
             for app in $value ; do
                 if ( ! have_global "compsets_for_$app" ) ; then
                     echo "line $lineno: unknown app $app (no APP...COMPSETS line for this app)" 1>&2
@@ -246,6 +317,9 @@ parse_control_file() {
             done
         fi
     done
+
+    # Abort if certain things are not specified
+
     if [[ "$user" == MISSING ]] ; then
         echo "user: missing \"USER ACCOUNT IS\" line in stdin" 1>&2
         result=1
@@ -258,7 +332,11 @@ parse_control_file() {
         echo "role: when a nems branch is specified, the app branch must also be specified.  Missing \"APP BRANCH IS\" line in stdin." 1>&2
         result=1
     fi
+
     if [[ "$master_branch" != master ]] ; then
+        # It is not an error for the master branch to be something
+        # other than "master," but it will cause problems unless it is
+        # really what the user is planning to do.
         cat<<EOF 1>&2
 WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING!
 
@@ -269,17 +347,23 @@ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING!
 WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING!
 EOF
     fi
+
+    # Immediate abort if there are no platforms:
     if [[ -z "$platforms" ]] ; then
         nonsense 1>&2
         echo "No platforms defined!" 1>&2
         echo "Send the control file into stdin!" 1>&2
         exit 1
     fi
+
+    # Otherwise, abort if there were any other errors:
     if [[ "$result" != 0 ]] ; then
         nonsense 1>&2
         echo "ABORT: Errors in control file." 1>&2
         exit 1
     fi
+
+    # Make sure this platform exists:
     if ( ! have_global "platform_${platform}_name" ) ; then
         nonsense 1>&2
         echo "ERROR: Unknown platform \"$platform\" selected on command line." 1>&2
@@ -292,47 +376,67 @@ EOF
 
 # Accessors of data from the control file
 
+# What is the URL of the repository for this app?
 get_app_url() {
     local app="$1"
     get_global_or_default "app_url_$app" "gerrit:$app"
 }
 
+# What arguments do we send to NEMSCompsetRun to specify the list of
+# compsets for this app?
 get_app_test_set() {
     local app="$1"
     get_global "compsets_for_$app"
 }
 
+# For this platform, get the human-readable name used for websites and the like:
 get_human_readable_name_for_platform() {
     local plat="${1:-$platform}"
     get_global "platform_${plat}_name"
 }
 
+# What directory should be used for scrub space for this script?
+# Takes the username of the role or personal account as an argument.
 get_scrub_for_user() {
     local username="$1"
     local expr=$( get_global "scrub_space_for_$platform" )
     eval "echo $expr"
 }
 
+# Which apps should be run on this platform?  Takes a list of app
+# names as an argument.  This is the app name from the "APP app_name
+# URL url" line, which may be different from the repository name.  The
+# argument is the platform name from the "PLATFORM name NAME
+# human_name" line.
 get_app_list_for_platform() {
     local plat="${1:-$platform}"
     get_global "app_list_for_$plat"
 }
 
+# Get the local or remote directory path for the website result of
+# this platform's tests.
 get_webpage_for_platform() {
     local plat="${1:-$platform}"
     get_global_or_default "webpage_for_$plat" "none"
 }
 
+# Figure out the arguments to send to rt.sh (AKA NEMSCompsetRun) for a
+# given platform.  This does NOT include the arguments that select the
+# app compsets.
 get_rt_sh_args() {
     local plat="${1:-$platform}"
     get_global_or_default "rt_sh_args_for_$plat" " "
 }
 
+# Get the name of the app branch from which this test should be run:
 get_app_starting_branch() {
     local app="$1"
     get_global_or_default "starting_branch_for_$app" "$master_branch"
 }
 
+# Get the arguments to NEMSCompsetRun needed to configure tests on
+# this platform.  This comes from the: ON platform_name EXTRA_ARGS
+# --whatever --more-args ... stuff ...
 get_platform_specific_variables() {
     webpage=$( get_webpage_for_platform )
     workuser=$( get_scrub_for_user "$user" )
@@ -349,6 +453,10 @@ get_platform_specific_variables() {
     email_to=$user@noaa.gov
 }
 
+# Get the directory in which to put scratch space files.  This is
+# decided automatically from the effective username.  It comes from
+# the global variables $workuser (personal account) or $worknems (role
+# account).
 my_work_area() {
     if ( is_in_user_account ) ; then
         echo $workuser
@@ -357,6 +465,7 @@ my_work_area() {
     fi
 }
 
+# Figure out if we're in the user (personal) account.
 is_in_user_account() {
     if [[ "$USER" == "$user" ]] ; then
         return 0
@@ -364,6 +473,7 @@ is_in_user_account() {
     return 1
 }
 
+# Figure out if we're in the role account.
 is_in_role_account() {
     if [[ "$USER" == "$role" ]] ; then
         return 0
@@ -373,6 +483,8 @@ is_in_role_account() {
 
 ########################################################################
 
+# Utility function to dump the contents of the control file to the
+# terminal.  This is just for debuggng purposes.
 dump_control_file() {
     local url tests starting_branch
     get_platform_specific_variables
@@ -427,7 +539,9 @@ dump_control_file() {
 
 mkdir_p_workaround() {
     # If multiple threads "mkdir -p" a directory at the same time,
-    # then all but one thread will fail.
+    # then all but one thread will fail.  This is a design flaw in the
+    # POSIX mkdir command.  This workaround will retry the mkdir -p a
+    # few times.
     local dir="$1"
     local x
     for x in $( seq 1 10 ) ; do
@@ -443,6 +557,7 @@ mkdir_p_workaround() {
 
 ########################################################################
 
+# Abort if the NEMS branch name is unspecified.
 require_a_nems_branch() {
     if [[ "$nems_branch" == default ]] ; then
         nonsense 1>&2
@@ -454,6 +569,23 @@ require_a_nems_branch() {
 
 ########################################################################
 
+# Loops over each app name, running some command in the background.
+# $1 = $workdir = directory in which to run
+# $2 = $log_name = part of the log file name relevant to the action performed
+# $3 = $command_template = shell expression to evaluate to generate the 
+#      command to execute.  This has access to local variables.
+# $4 = $app_list = all_apps for ALL known apps, or anything else to get the
+#      list of apps that are supported on this platform (from the 
+#      "ON platform_name APPS app1 app2 app3 ... line)
+#
+# These variables are available to the $command_template expression:
+#
+# $app = name of the app for this iteration of the command
+# $status_file = path to the flag file to report that this
+#      operation was completed.  The exit status is sent to this file.
+#      All apps' results are sent to this file.
+# $log = path to the log file for the command.  The stdout and stderr
+#      are sent here.
 run_in_background_for_each_app() {
     local workdir="$1"
     local log_name="$2"
@@ -516,6 +648,12 @@ run_in_background_for_each_app() {
 
 ########################################################################
 
+# Workaround for filename length issues.  Instead of using a long,
+# descriptive, filename that is automatically generated, that string
+# is sent into a hash function to generate an eight-character
+# hexadecimal name.  Takes two arguments:
+#   $1 = $purpose = name of the action being performed
+#   $2 = $name = the target of the action (app, file, etc.)
 generate_hash_for_test_name() {
     local purpose="$1"
     local name="$2"
@@ -524,6 +662,11 @@ generate_hash_for_test_name() {
 
 ########################################################################
 
+# Attempt to execute some operation a few times until it returns zero
+# exit status or we give up.  The number of tries is hard-coded within
+# this function in the $max_tries local variable.  The arguments to
+# this function are the command and its arguments.  They are executed
+# verbatim.
 repeatedly_try_to_run() {
     local tries scale naptime success
     local max_tries=7
@@ -554,6 +697,8 @@ repeatedly_try_to_run() {
 
 ########################################################################
 
+# Attempts to run "git push" up to $max_tries (seven) times until it
+# returns 0 exit status.  Arguments are sent verbatim to "git push"
 repeatedly_try_to_push() {
     # Pull and push until we succeed in pushing:
     local tries scale naptime success
@@ -591,6 +736,12 @@ repeatedly_try_to_push() {
 
 ########################################################################
 
+# Generates the temporary work branch for an app.
+# $1 = $app = name of the app
+# $2 = $unique_id = a unique string identifier of this action
+#       (arbitrary text that should never be repeated in other actions or
+#       later tests.)
+# $3 = $delete = if the branch already exists, do we delete it first?
 make_branch() {
     require_a_nems_branch
     echo "MAKE BRANCH $*"
@@ -661,6 +812,11 @@ make_branch() {
 
 ########################################################################
 
+# Deletes the temporary work branch for an app.
+# $1 = $app = name of the app
+# $2 = $unique_id = a unique string identifier of this action
+#       (arbitrary text that should never be repeated in other actions or
+#       later tests.)
 delete_branch() {
     require_a_nems_branch
     echo "DELETE BRANCH $*"
@@ -695,6 +851,11 @@ delete_branch() {
 
 ########################################################################
 
+# Checks out the temporary test branch for an app.
+# $1 = $app = name of the app
+# $2 = $unique_id = a unique string identifier of this action
+#       (arbitrary text that should never be repeated in other actions or
+#       later tests.)
 checkout_app() {
     # Checks out an app under the user and makes a flag file so the
     # nemsuser knows where the checkout resides.
@@ -746,6 +907,22 @@ checkout_app() {
 }
 
 ########################################################################
+
+# Runs the compsets for one app on one platform.  This is executed in
+# the role account, and will figure out where the user account checked
+# out the branch in the checkout_app function.
+# $1 = $app = name of the app
+#
+# Prints out this critical text:
+# WILL RUN NEMSCompsetRun FOR SET \"$set\""
+#    IN DIR $( pwd -P )"
+#    LOGGING TO $( pwd )/rt-f.log"
+#    REPO INFO AT $repo_info_file"
+# This may take a while..."
+ 
+# The path to rt-f.log contains the output of NEMSComspetRun which
+# tells you the locations of log files for each test, and anything
+# that went wrong with the initialization of the test process.
 
 test_app() {
     # Obtains the repo checked out by the user, and runs it.  Creates
@@ -875,6 +1052,23 @@ test_app() {
 
 ########################################################################
 
+# Resumes a failed test.  Should be run in the role account.
+# $1 = $app = name of the app
+
+# $2 = $NEMStests = path to the NEMS/tests directory in the role
+#      account's copy of the app checkout.  This can be found in
+#      rt-f.log or in the log of the test_app call.
+
+# $3 = rttgen_dir = path to the rtgen.### directory that was created
+#      by NEMSCompsetRun.  This can be found in the rt-f.log file.
+#      The log file from test_app contains the path to that file in
+#      some text like this:
+#
+# WILL RUN NEMSCompsetRun FOR SET \"$set\""
+#    IN DIR $( pwd -P )"
+#    LOGGING TO $( pwd )/rt-f.log"
+#    REPO INFO AT $repo_info_file"
+# This may take a while..."
 resume_test() {
     set -x
     local app="$1"
@@ -922,6 +1116,13 @@ resume_test() {
 
 ########################################################################
 
+# Reads the result of a test executed by the role account.  Sends an
+# email about the results of the test based on the regtests.txt files
+# from each app.
+#
+# $1 = $test_name = "${app}_on_${platform}" which is the internal
+#      test_name variable value in test_app and retest_app.  This is
+#      used to find the test results.
 generate_regtest_txt_and_send_email() {
     set -x
     local test_name="$1"
@@ -998,6 +1199,12 @@ generate_regtest_txt_and_send_email() {
 
 ########################################################################
 
+# Copies the role account's app log files to the personal account's
+# checkout of that app.  Commits and pushes the log files to the
+# temporary test branch.  Attempts to deal with conflicts, but may
+# fail if conflicts exist.  Run this in the personal account.
+#
+# $1 = $app = name of the app whose logs should be pushed
 push_logs_to_branch() {
     set -x
     local app="$1"
@@ -1052,6 +1259,12 @@ push_logs_to_branch() {
 
 ########################################################################
 
+# Find the app output and copy the result to the website.  Can be run
+# in either the role account or personal account, whoever owns the
+# website directory.  Originating user may be different on different
+# machines.
+#
+# $1 = $app = name of the app whose results are being delivered
 deliver_test_to_web_server() {
     # Finds the nemsuser's test and copies the result to the website.
     set -x
@@ -1211,6 +1424,13 @@ EOF
 
 ########################################################################
 
+# Initializes the website directory with the javascript, html, and css
+# files needed to display test results.  Will also try to create the
+# website directory if it doesn't exist.  Run this as either the role
+# account or personal account, whoever owns the directory.  This is
+# only run once for the entire test; it does not need to be redone for
+# other plaforms or apps.  It must be done before any calls to
+# deliver_test_to_web_serve()
 copy_static_files_to_website() {
     local platform app
     set -xue
@@ -1283,6 +1503,8 @@ EOF
 
 ########################################################################
 
+# Utility function run "git commit -F".  Parses the output of the
+# command to intelligently figure out whether it succeeded.
 commit_if_needed() {
     local commit_file="$1"
     local result
@@ -1300,6 +1522,9 @@ commit_if_needed() {
 
 ########################################################################
 
+# Push the app and NEMS temporary branches to the respective masters.
+# Should be run by the personal account.
+# $1 = $commit_file = file with the commit message.
 push_to_master() {
     require_a_nems_branch
     set -xue
@@ -1368,76 +1593,137 @@ push_to_master() {
 
 ########################################################################
 
+# MAIN PROGRAM
+
+########################################################################
+
+# Read the control files from stdin:
 parse_control_file
+
+# Figure out the global variables by reading the data structures that
+# parse_control_file created:
 get_platform_specific_variables
 
+# Figure out what we're supposed to do.
 case "$stage" in
+
     dump)
+        # User wants us to dump the control file to stdout.
         dump_control_file
         exit $?
         ;;
+
     make_branches)
+        # User wants us to make the temporary test branches from the
+        # NEMS and app base branches.  Refuse to allow terminals for
+        # stdout and stderr in this command, to work around issues in
+        # git.  This must be run in the personal account.
         forbid_terminals $stage
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" make_branches \
             'make_branch "$app" "$global_unique_id"' all_apps
         ;;
     checkout_all_apps)
+        # User wants us to checkout the temporary test branches from
+        # the NEMS and app base branches.  Refuse to allow terminals
+        # for stdout and stderr in this command, to work around issues
+        # in git.  This must be run in the personal account.
         forbid_terminals $stage
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" checkout      \
             'checkout_app "$app" "$global_unique_id"' all_apps
         ;;
     delete_branches)
+        # User wants us to delete the temporary test branches from the
+        # NEMS and app base branches.  Refuse to allow terminals for
+        # stdout and stderr in this command, to work around issues in
+        # git.  This must be run in the personal account.
         forbid_terminals $stage
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" delete_branches \
             'delete_branch "$app" "$global_unique_id"' all_apps
         ;;
+
     delete_and_make_branches)
+        # User wants us to make the temporary test branches from the
+        # NEMS and app base branches.  If a branch already exists, the
+        # user wants us to DELETE it first.  Refuse to allow terminals
+        # for stdout and stderr in this command, to work around issues
+        # in git.  This must be run in the personal account.
         forbid_terminals $stage
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" make_branches \
             'make_branch "$app" "$global_unique_id" DELETE' all_apps
         ;;
+
     resume_test)
+        # User wants us to resume a failed test.  Should be run in the
+        # role account.  See the resume_test function for details;
+        # command arguments 3-5 are sent as arguments 1-3 of
+        # resume_test().
         app_argument="$3"
         nems_tests_path="$4"
         rtgen_dir_path="$5"
         resume_test "$app_argument" "$nems_tests_path" "$rtgen_dir_path"
         ;;
+
     web_init)
+        # User wants us to set up the remote web directory and copy
+        # the javascript, html, and css files.  Can be run in the user
+        # or role account; whoever owns the website.
         copy_static_files_to_website
         exit $?
         ;;
+
     checkout)
+        # User wants us to check out the temporary test branches on
+        # disk.  This should be run in the personal account.  The
+        # directory used is placed in a status file so that a later
+        # call with stage=test will find it and run the test in the
+        # role account.
         forbid_terminals $stage
         global_unique_id=$$.$RANDOM
         run_in_background_for_each_app "$workuser" checkout      \
             'checkout_app "$app" "$global_unique_id"' platform_apps
         ;;
+
     test)
+        # Role account runs the tests.  It finds the checkout from the
+        # "stage=checkout" that the personal account ran.  Copies the
+        # directory, runs the test, and makes a status file containing
+        # the path to the tests (for later delivery scripts).
         run_in_background_for_each_app "$worknems" test          \
             'test_app "$app"' platform_apps
         ;;
+
     push)
+        # Pushes the log files from the test to the remote test
+        # branch.  This should be run in the personal account.  It
+        # finds the status file generated by stage=test to get the
+        # path to the log files.
         forbid_terminals $stage
         require_a_nems_branch
         run_in_background_for_each_app "$workuser" push          \
             'push_logs_to_branch "$app"' platform_apps
         ;;
+
     deliver)
+        # Delivers the test results to the website.  Can be run by the
+        # personal or role account, whoever owns the website.
         forbid_terminals $stage
         run_in_background_for_each_app $( my_work_area ) deliver       \
             'deliver_test_to_web_server "$app"' platform_apps
         ;;
+
     master)
-        #forbid_terminals $stage # do not need this because we are not backgrounding
+        # Pushes test branch contents to app and NEMS master branches.
         require_a_nems_branch
         set -x
         push_to_master "$3"
         ;;
+
     *)
+        # Invalid stage specified.  Complain and exit.
         nonsense 1>&2
         cat<<EOF 1>&2
 UNKNOWN STAGE $stage

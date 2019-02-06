@@ -1,0 +1,3 @@
+3 0 * * * mkdir -p /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan
+
+49 16 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-user.sh theia checkout > /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan/nightly-checkout.log 2>&1

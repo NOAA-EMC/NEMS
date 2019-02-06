@@ -1,0 +1,4 @@
+3 0 * * * mkdir -p /scratch4/NCEPDEV/nems/scrub/emc.nemspara
+
+5 19 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-nemspara.sh theia test > /scratch4/NCEPDEV/nems/scrub/emc.nemspara/nightly-test.log 2>&1
+47 * * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-nemspara.sh theia deliver > /scratch4/NCEPDEV/nems/scrub/emc.nemspara/nightly-deliver.log 2>&1
