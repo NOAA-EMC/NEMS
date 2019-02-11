@@ -2,17 +2,19 @@
 
 set -m # enable job control
 
-if [[ "$#" != 5 && "$2" == resume_test ]] ; then
-    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.###" 1>&2
+if [[ "$#" != 6 && "$3" == resume_test ]] ; then
+    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh id platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.###" 1>&2
     echo "When resuming a test, you must specify which test to resume." 1>&2
-elif [[ "$#" != 3 && "$2" == master ]] ; then
-    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform master /path/to/file/with/commit/message" 1>&2
+    exit 2
+elif [[ "$#" != 4 && "$3" == master ]] ; then
+    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh id platform master /path/to/file/with/commit/message" 1>&2
     echo "When resuming a test, you must specify which test to resume." 1>&2
-elif [[ "$#" != 2 && "$2" != master && "$2" != resume_test ]] ; then
+    exit 2
+elif [[ "$#" != 3 && "$3" != master && "$3" != resume_test ]] ; then
     cat<<EOF 1>&2
-SYNTAX: cat apps.def commit.def | multi-app-test.sh platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.####
-    OR: cat apps.def commit.def | multi-app-test.sh platform master /path/to/file/with/commit/message
-    OR: cat apps.def commit.def | multi-app-test.sh platform stage
+SYNTAX: cat apps.def commit.def | multi-app-test.sh id platform resume_test AppName /path/to/NEMS/tests /path/to/rtgen.####
+    OR: cat apps.def commit.def | multi-app-test.sh id platform master /path/to/file/with/commit/message
+    OR: cat apps.def commit.def | multi-app-test.sh id platform stage
 STAGES:
   make_branches - create a branch for this test in each app's repository
                   abort if the branch already exists
@@ -31,7 +33,7 @@ fi
 
 if ( test -t 0 ) ; then
     echo "ERROR: stdin must not be a terminal." 1>&2
-    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh platform stage" 1>&2
+    echo "SYNTAX: cat apps.def commit.def | multi-app-test.sh id platform stage" 1>&2
     exit 2
 fi
 
@@ -47,8 +49,9 @@ prolicide() {
 trap 'result="$?" ; if [[ "$result" != 0 ]] ; then prolicide ; fi ; exit $result' EXIT
 trap 'prolicide ; exit 1' SIGINT SIGTERM SIGHUP SIGQUIT
 
-platform="$1"
-stage="$2"
+test_id="$1"
+platform="$2"
+stage="$3"
 
 # Jet CRON workaround:
 if [[ -x /apps/local/bin/account_params && -d /lfs3 ]] ; then
@@ -493,6 +496,7 @@ dump_control_file() {
     echo
     echo "Known platforms: $platforms"
     echo "Known apps: $all_apps"
+    echo "Test ID: $test_id"
     echo
     echo "PLATFORM $human_platform"
     echo "  - key = $platform"
@@ -603,7 +607,7 @@ run_in_background_for_each_app() {
     set -ue
 
     # Make a file that will hold exit statuses.
-    local status_file="${TMPDIR:-/tmp}/${log_name}_status.$$.$RANDOM.$RANDOM"
+    local status_file="${TMPDIR:-/tmp}/${log_name}_${test_id}_status.$$.$RANDOM.$RANDOM"
     echo 0 > "$status_file"
     chmod 600 "$status_file"
     echo 0 > "$status_file"
@@ -611,7 +615,7 @@ run_in_background_for_each_app() {
     mkdir_p_workaround "$workdir/log"
     cd "$workdir/log"
     for app in $app_list ; do
-        log="${app}_${platform}_${log_name}.log"
+        log="${test_id}_${app}_${platform}_${log_name}.log"
         if [[ "$nems_branch" != default ]] ; then
             log="$nems_branch-$log"
         fi
@@ -744,12 +748,12 @@ repeatedly_try_to_push() {
 # $3 = $delete = if the branch already exists, do we delete it first?
 make_branch() {
     require_a_nems_branch
-    echo "MAKE BRANCH $*"
+    echo "MAKE BRANCH $* FOR TEST $test_id"
     set -xe
     local app="$1"
     local unique_id="$2"
     local delete="$3"
-    local test_name="${app}_on_${platform}"
+    local test_name="${test_id}_${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
@@ -819,7 +823,7 @@ make_branch() {
 #       later tests.)
 delete_branch() {
     require_a_nems_branch
-    echo "DELETE BRANCH $*"
+    echo "DELETE BRANCH $* FOR TEST $test_id"
     set -xe
     local app="$1"
     local unique_id="$2"
@@ -834,7 +838,7 @@ delete_branch() {
     fi
     local app_starting_branch=$( get_app_starting_branch "$app" )
 
-    local workdir="$workuser/delete_${nems_branch}_$unique_id"
+    local workdir="$workuser/${test_id}_delete_${nems_branch}_$unique_id"
     mkdir_p_workaround "$workdir"
     cd $workdir
 
@@ -862,7 +866,7 @@ checkout_app() {
     set -xe
     local app="$1"
     local unique_id="$2"
-    local test_name="${app}_on_${platform}"
+    local test_name="${test_id}_${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
@@ -929,7 +933,7 @@ test_app() {
     # a flag file so the next stages know how to find the results.
     set -x
     local app="$1"
-    local test_name="${app}_on_${platform}"
+    local test_name="${test_id}_${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
@@ -1075,7 +1079,7 @@ resume_test() {
     local NEMStests="$2"
     local rtgen_dir="$3"
 
-    echo "resume_test $*"
+    echo "resume_test $* for test $test_id"
 
     local test_name="${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
@@ -1208,7 +1212,7 @@ generate_regtest_txt_and_send_email() {
 push_logs_to_branch() {
     set -x
     local app="$1"
-    local test_name="${app}_on_${platform}"
+    local test_name="${test_id}_${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
@@ -1269,7 +1273,7 @@ deliver_test_to_web_server() {
     # Finds the nemsuser's test and copies the result to the website.
     set -x
     local app="$1"
-    local test_name="${app}_on_${platform}"
+    local test_name="${test_id}_${app}_on_${platform}"
     if [[ "$nems_branch" != default ]] ; then
         test_name="$nems_branch-${test_name}"
     fi
@@ -1452,7 +1456,7 @@ copy_static_files_to_website() {
     local tempfile="temp-regtestlist.js.temp"
     local test_name='NEMS Nightly Regression Tests'
     if [[ "$nems_branch" != default ]] ; then
-        test_name="Test of NEMS $nems_branch"
+        test_name="Test ${test_id} of NEMS $nems_branch"
     fi
 
     set +x
@@ -1661,9 +1665,9 @@ case "$stage" in
         # role account.  See the resume_test function for details;
         # command arguments 3-5 are sent as arguments 1-3 of
         # resume_test().
-        app_argument="$3"
-        nems_tests_path="$4"
-        rtgen_dir_path="$5"
+        app_argument="$4"
+        nems_tests_path="$5"
+        rtgen_dir_path="$6"
         resume_test "$app_argument" "$nems_tests_path" "$rtgen_dir_path"
         ;;
 
@@ -1719,7 +1723,7 @@ case "$stage" in
         # Pushes test branch contents to app and NEMS master branches.
         require_a_nems_branch
         set -x
-        push_to_master "$3"
+        push_to_master "$4"
         ;;
 
     *)

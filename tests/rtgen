@@ -93,7 +93,7 @@ last_cycledone=-999
 last_lostdead=-999
 while [[ 1 == 1 ]] ; do
   log "check dependencies and submit jobs..."
-  rocotorun -w workflow.xml -d workflow.db
+  rocotorun --verbose 10 -w workflow.xml -d workflow.db
   verbose "check status..."
   cycledone=$( sqlite3 workflow.db 'SELECT id FROM cycles WHERE done>0' | wc -l )
   lostdead=$( sqlite3 workflow.db 'SELECT taskname FROM jobs WHERE state=="DEAD" OR state=="LOST"' |wc -l)
@@ -911,31 +911,38 @@ class RTGen(TestGen):
         if here.name in [ 'tide', 'gyre' ]:
             out.write('module load lsf\n')
             out.write('module use /hwrf/noscrub/soft/modulefiles\n')
-            out.write('module load rocoto/1.2.4-RC3\n')
+            out.write('module use /usrx/local/emc_rocoto/modulefiles\n')
+            out.write('module load rocoto/pre-release-20181212\n')
             out.write('module load ruby # workaround for libxml2 bug\n')
             out.write('module load emc-utils ; have_qoutql=YES\n')
         elif here.name in [ 'surge', 'luna' ]:
             out.write('module load xt-lsfhpc\n')
             out.write('module use /usrx/local/emc_rocoto/modulefiles\n')
-            out.write('module load rocoto/1.2.4-RC3\n')
+            out.write('module load rocoto/pre-release-20181212\n')
             out.write('module use /gpfs/hps3/emc/hwrf/noscrub/soft/modulefiles\n')
             out.write('module load emc-utils ; have_qoutql=YES\n')
         elif here.name in [ 'mars', 'venus' ]:
             out.write('module use /usrx/local/dev/emc_rocoto/modulefiles/\n')
-            out.write('module load ruby/2.5.1 lsf/10.1 rocoto/complete\n')
+            out.write('module load ruby/2.5.1 lsf/10.1 rocoto/pre-release-20181212\n')
             out.write('module load emc-utils/1.0.0 ; export have_qoutql=YES\n')
         elif 'jet' in here.name:
-            out.write('module load hpss rocoto\n')
+            out.write('module load hpss\n')
             out.write('module use /lfs3/projects/hwrf-vd/soft/modulefiles\n')
-            out.write('module load emc-utils\n')
+            out.write('module load rocoto/1.3.0rc2\n')
+            out.write('module use /misc/contrib/emc-utils/modulefiles\n')
+            out.write('module load emc-utils/1.1.0\n')
+            if produtil.fileop.find_exe('sbatch',raise_missing=False):
+                out.write('module load slurm\n')
             out.write('have_qoutql=YES\n')
         elif here.name == 'theia':
-            out.write('module load rocoto\n')
-            out.write('module use /scratch3/NCEPDEV/hwrf/save/Samuel.Trahan/emc-utils/modulefiles/\n')
-            out.write('module load hpss emc-utils ; have_qoutql=YES\n')
+            if produtil.fileop.find_exe('sbatch',raise_missing=False):
+                out.write('module load slurm\n')
+            out.write('module use /scratch4/NCEPDEV/nems/noscrub/emc.nemspara/soft/modulefiles/\n')
+            out.write('module load rocoto/1.3.0rc2\n')
+            out.write('module load hpss emc-utils/1.1.0 ; have_qoutql=YES\n')
         elif here.name == 'gaea':
             out.write('module use /lustre/f1/pdata/ncep_shared/emc.nemspara/soft/modulefiles\n')
-            out.write('module load rocoto/gaea-support-1.2.4 emc-utils ; have_qoutql=YES\n')
+            out.write('module load rocoto/pre-release-20181212 emc-utils ; have_qoutql=YES\n')
         else:
             out.write('have_qoutql=NO\n')
         out.write('work=%s/rocoto\n'%(bashify_string(self.outloc),))
@@ -1101,7 +1108,7 @@ def parse_rtsh_arguments():
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
                 'resume=','compset=', 'multi-app-test-mode',
-                'platform='])
+                'platform=','just-generate'])
     except getopt.GetoptError as ge:
         rtsh_usage(str(ge))
 
@@ -1111,6 +1118,7 @@ def parse_rtsh_arguments():
     temp=None
     baseline=False
     baseline_dir=None
+    just_generate=False
     inputfile=None
     project=None
     script_mode=False
@@ -1135,6 +1143,8 @@ def parse_rtsh_arguments():
             rtsh_full_usage()
         elif opt=='-f':
             sets='*'
+        elif opt=='--just-generate':
+            just_generate=True
         elif opt=='-s':
             sets='standard'
         elif opt in ['-b','--baseline']:
@@ -1236,7 +1246,7 @@ def parse_rtsh_arguments():
     if not arglist_nowhite and not resume:
         rtsh_usage('You must specify which tests to run')
 
-    return verbose,baseline_dir,dry_run,baseline,unique_id,temp, \
+    return just_generate,verbose,baseline_dir,dry_run,baseline,unique_id,temp, \
            inputfile,arglist_nowhite,project,script_mode,resume, \
            platform_name, run_dir
     
@@ -1248,7 +1258,7 @@ def parse_rtgen_arguments():
                 'project=', 'mode=', 'baseline-dir=', 'baseline',
                 'dry-run', 'verbose', 'unique-id=', 'temp-dir=', 
                 'resume=', 'help', 'input-file', 'multi-app-test-mode'
-                'platform=')
+                'platform=','just-generate')
     except getopt.GetoptError as ge:
         rtgen_usage(str(ge))
 
@@ -1262,6 +1272,7 @@ def parse_rtgen_arguments():
     project=None
     script_mode=False
     platform_name=None
+    just_generate=False
     for opt,val in optval:
         if opt in ['-v', '--verbose']:
             verbose+=1
@@ -1280,6 +1291,8 @@ def parse_rtgen_arguments():
             baseline=True
         elif opt in ['-n', '--baseline-dir']:
             baseline_dir=val
+        elif opt=='--just-generate':
+            just_generate=True
         elif opt in ['-u', '--unique-id']:
             unique_id=int(val,10)
         elif opt in ['-t', '--temp-dir']:
@@ -1297,7 +1310,7 @@ def parse_rtgen_arguments():
         if not re.match('(?sx) \A \s* \Z',arg):
             arglist_nowhite.append(arg)
     setup_produtil('rtgen',verbose)
-    return verbose,baseline_dir,dry_run,baseline,unique_id,temp, \
+    return just_generate,verbose,baseline_dir,dry_run,baseline,unique_id,temp, \
            inputfile,arglist_nowhite,project,script_mode,platform_name
 
 ########################################################################
@@ -1518,14 +1531,14 @@ def main_impl():
 
     global usage
     if called_as=='rtgen':
-        verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir, \
+        just_generate,verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir, \
             inputfile,arglist,project,script_mode,platform_name = \
             parse_rtgen_arguments()
         usage=rtgen_usage
         resume=False
         assert(False)
     else:
-        verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir, \
+        just_generate,verbose,baseline_dir,dry_run,baseline,unique_id,scratch_dir, \
             inputfile,arglist,project,script_mode,resume, \
             platform_name, run_dir = \
             parse_rtsh_arguments()
@@ -1570,6 +1583,11 @@ def main_impl():
         logger.error('%s: no such directory; rtgen failed or was never run'%(
                 run_dir))
         exit(1)
+
+    if just_generate:
+        print('Received --just-generate; exiting without running workflow.')
+        print('Workflow is here: '+run_dir)
+        exit(0)
 
     # Run the rtrun program to execute the workflow.
     # Note: verbose is hard-coded to true to ensure -v option

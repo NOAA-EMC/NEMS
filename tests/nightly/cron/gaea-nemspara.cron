@@ -1,2 +1,2 @@
-28 18 * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-nemspara.bash gaea test > /ncrc/home2/emc.nemspara/nightly-rt-test.log 2>&1
-47 * * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-nemspara.bash gaea deliver > /ncrc/home2/emc.nemspara/nightly-rt-deliver.log 2>&1
+28 18 * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-nemspara.bash ngt gaea test > /ncrc/home2/emc.nemspara/nightly-rt-test.log 2>&1
+47 * * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-nemspara.bash ngt gaea deliver > /ncrc/home2/emc.nemspara/nightly-rt-deliver.log 2>&1

@@ -1,1 +1,1 @@
-25 17 * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-user.tcsh gaea checkout > /ncrc/home1/Samuel.Trahan/checkout.log 2>&1
+25 17 * * * /lustre/f1/unswept/ncep/Samuel.Trahan/multi-app/tests/nightly/run-from-gaea-user.tcsh ngt gaea checkout > /ncrc/home1/Samuel.Trahan/checkout.log 2>&1

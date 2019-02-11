@@ -22,5 +22,5 @@ mkdir -p "$there"
     pwd                                         ;
     ls -l                                       ;
     cat apps.def nightly/nightly.def |          
-      ./multi-app-test.sh \"$1\" \"$2\""
+      ./multi-app-test.sh \"$1\" \"$2\" \"$3\""
 

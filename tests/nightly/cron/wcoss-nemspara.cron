@@ -4,14 +4,14 @@
 3 0 * * * mkdir -p /ptmpp1/emc.nemspara
 3 0 * * * mkdir -p /gpfs/hps3/ptmp/emc.nemspara
 
-47 * * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss1      deliver  > /ptmpp1/emc.nemspara/deliver-wcoss-phase1.log  2>&1
-26 16 * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss1      test > /ptmpp1/emc.nemspara/test-wcoss-phase1.log  2>&1
+47 * * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss1      deliver  > /ptmpp1/emc.nemspara/deliver-wcoss-phase1.log  2>&1
+26 16 * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss1      test > /ptmpp1/emc.nemspara/test-wcoss-phase1.log  2>&1
 
-47 * * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss2      deliver  > /ptmpp1/emc.nemspara/deliver-wcoss-phase2.log  2>&1
-26 16 * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss2      test > /ptmpp1/emc.nemspara/test-wcoss-phase2.log  2>&1
+47 * * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss2      deliver  > /ptmpp1/emc.nemspara/deliver-wcoss-phase2.log  2>&1
+26 16 * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss2      test > /ptmpp1/emc.nemspara/test-wcoss-phase2.log  2>&1
 
-47 * * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_cray  deliver  > /gpfs/hps3/ptmp/emc.nemspara/deliver-wcoss-cray.log  2>&1
-26 16 * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_cray  test > /gpfs/hps3/ptmp/emc.nemspara/test-wcoss-cray.log  2>&1
+47 * * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_cray  deliver  > /gpfs/hps3/ptmp/emc.nemspara/deliver-wcoss-cray.log  2>&1
+26 16 * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_cray  test > /gpfs/hps3/ptmp/emc.nemspara/test-wcoss-cray.log  2>&1
 
-47 * * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_dell_p3  deliver  > /gpfs/hps3/ptmp/emc.nemspara/deliver-wcoss-dell-p3.log  2>&1
-26 16 * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_dell_p3  test > /gpfs/hps3/ptmp/emc.nemspara/test-wcoss-dell-p3.log  2>&1
+47 * * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_dell_p3  deliver  > /gpfs/hps3/ptmp/emc.nemspara/deliver-wcoss-dell-p3.log  2>&1
+26 16 * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_dell_p3  test > /gpfs/hps3/ptmp/emc.nemspara/test-wcoss-dell-p3.log  2>&1

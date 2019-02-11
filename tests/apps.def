@@ -5,7 +5,10 @@
 #PLATFORM xjet           NAME xJet
 #PLATFORM svjet          NAME sJet and vJet
 PLATFORM tujet          NAME uJet and tJet
+PLATFORM ujet.slurm     NAME uJet SLURM Test
 PLATFORM theia          NAME Theia
+PLATFORM theia.intel    NAME Theia (Intel compiler)
+PLATFORM theia.slurm.intel NAME Theia (SLURM test)
 PLATFORM wcoss1         NAME WCOSS Phase 1
 PLATFORM wcoss2         NAME WCOSS Phase 2
 PLATFORM wcoss_cray     NAME WCOSS Cray
@@ -33,7 +36,10 @@ APP FV3-MOM6-CICE5  URL gerrit:EMC_FV3-MOM6-CICE5
 #ON xjet             SCRUB /lfs3/projects/hfv3gfs/$username/scrub/xjet
 #ON svjet            SCRUB /lfs3/projects/hfv3gfs/$username/scrub/svjet
 ON tujet            SCRUB /lfs3/projects/hfv3gfs/$username/scrub/tujet
+ON ujet.slurm       SCRUB /lfs3/projects/hfv3gfs/$username/scrub/ujet.slurm
 ON theia            SCRUB /scratch4/NCEPDEV/nems/scrub/$username
+ON theia.intel      SCRUB /scratch4/NCEPDEV/nems/scrub/$username
+ON theia.slurm.intel SCRUB /scratch4/NCEPDEV/nems/scrub/$username
 ON wcoss1           SCRUB /ptmpp1/$username
 ON wcoss2           SCRUB /ptmpd3/$username
 ON wcoss_cray       SCRUB /gpfs/hps2/ptmp/$username
@@ -44,7 +50,10 @@ ON gaea             SCRUB $( ls -1d /lustre/f1/*/$username | head -1 )
 #ON xjet             APPS NEMSfv3gfs
 #ON svjet            APPS NEMSfv3gfs
 ON tujet            APPS NEMSfv3gfs
-ON theia            APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
+ON ujet.slurm       APPS NEMSfv3gfs
+ON theia            APPS NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
+ON theia.intel      APPS NEMSfv3gfs
+ON theia.slurm.intel  APPS NEMSfv3gfs
 ON wcoss1           APPS NEMSfv3gfs NEMSGSM
 ON wcoss2           APPS NEMSfv3gfs WW3-FV3 WW3-ATM
 ON wcoss_cray       APPS NEMSfv3gfs WW3-FV3
@@ -54,5 +63,9 @@ ON gaea             APPS NEMSfv3gfs
 # Extra arguments to rt.sh for each platform
 #ON xjet             EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/xjet --project hfv3gfs --platform xjet
 #ON svjet            EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/svjet --project hfv3gfs --platform svjet
+ON ujet.slurm       EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/ujet.slurm --project hfv3gfs --platform ujet.slurm
 ON tujet            EXTRA_ARGS --temp-dir /lfs3/projects/hfv3gfs/$USER/scrub/tujet --project hfv3gfs --platform tujet
+ON theia            EXTRA_ARGS --platform theia
+ON theia.intel      EXTRA_ARGS --platform theia.intel
+ON theia.slurm.intel EXTRA_ARGS --platform theia.slurm.intel
 ON gaea             EXTRA_ARGS --platform gaea.c3

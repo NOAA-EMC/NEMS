@@ -1,3 +1,10 @@
 3 0 * * * mkdir -p /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan
 
-49 16 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-user.sh theia checkout > /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan/nightly-checkout.log 2>&1
+49 16 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-user.sh ngt theia checkout > /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan/nightly-checkout.log 2>&1
+49 16 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-user.sh ngt theia.intel checkout > /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan/intel-nightly-checkout.log 2>&1
+
+# Theia SLURM nightly test disabled for now because Theia SLURM thinks
+# there are only 12 cores per node, thus doubling the number of nodes
+# it takes to run the tests:
+#
+49 16 * * * /scratch4/NCEPDEV/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-theia-user.sh ngt theia.slurm.intel checkout > /scratch4/NCEPDEV/nems/scrub/Samuel.Trahan/slurm-nightly-checkout.log 2>&1

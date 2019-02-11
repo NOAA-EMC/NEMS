@@ -4,10 +4,10 @@
 3 0 * * * mkdir -p /ptmpp1/Samuel.Trahan
 3 0 * * * mkdir -p /gpfs/hps3/ptmp/Samuel.Trahan
 
-00 16 * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss1      checkout > /ptmpp1/Samuel.Trahan/checkout-wcoss-phase1.log  2>&1
+00 16 * * *           /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss1      checkout > /ptmpp1/Samuel.Trahan/checkout-wcoss-phase1.log  2>&1
 
-00 16 * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh              wcoss2      checkout > /ptmpp1/Samuel.Trahan/checkout-wcoss-phase2.log  2>&1
+00 16 * * * ssh g20a1 /nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt              wcoss2      checkout > /ptmpp1/Samuel.Trahan/checkout-wcoss-phase2.log  2>&1
 
-00 16 * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_cray  checkout > /gpfs/hps3/ptmp/Samuel.Trahan/checkout-wcoss-cray.log  2>&1
+00 16 * * * ssh surge /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_cray  checkout > /gpfs/hps3/ptmp/Samuel.Trahan/checkout-wcoss-cray.log  2>&1
 
-15 16 * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh wcoss_dell_p3  checkout > /gpfs/hps3/ptmp/Samuel.Trahan/checkout-wcoss-dell-p3.log  2>&1
+15 16 * * * ssh venus /gpfs/gd1/emc/nems/noscrub/Samuel.Trahan/multi-app/tests/nightly/run-from-wcoss.sh ngt wcoss_dell_p3  checkout > /gpfs/hps3/ptmp/Samuel.Trahan/checkout-wcoss-dell-p3.log  2>&1

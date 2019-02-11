@@ -34,10 +34,10 @@ $(fms_mk): configure
 
 # Rule for cleaning the SRCDIR and BINDIR:
 clean_FMS:
-	cat $(FMS_SRCDIR)/fv3gfs/makefile | sed 's,^include,-include,g'   \
+	cat $(FMS_SRCDIR)/fv3gfs/makefile | sed 's,^include,#include,g'   \
 	  > $(FMS_SRCDIR)/fv3gfs/makefile.temp.clean
-	+-$(MODULE_LOGIC) ; cd $(FMS_SRCDIR)/fv3gfs                     ; \
-	    exec $(MAKE) $(FMS_MAKEOPT) makefile.temp.clean clean
+	+-cd $(FMS_SRCDIR)/fv3gfs                                       ; \
+	    exec $(MAKE) $(FMS_MAKEOPT) -f makefile.temp.clean clean
 
 distclean_FMS: clean_FMS
-	rm -rf $(FMS_BINDIR) $(fms_mk)
+	rm -rf $(FMS_BINDIR) $(fms_mk) $(FMS_SRCDIR)/fv3gfs/makefile.temp.clean
