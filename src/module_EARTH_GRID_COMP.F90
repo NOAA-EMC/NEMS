@@ -1813,7 +1813,44 @@
           file=__FILE__)) &
           return  ! bail out
       endif
-      
+     
+      !Mass flux of liquid runoff
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "Foxx_rofl")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="Foxx_rofl", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      !Mass flux of frozen runoff
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "Foxx_rofi")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="Foxx_rofi", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      !Ocean surface boundary layer depth
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "So_bldepth")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="So_bldepth", &
+          canonicalUnits="m", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+ 
       ! Synonyms for HYCOM fields
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_downward_eastward_stress",&
@@ -3616,11 +3653,14 @@
           
         enddo
         
+#if ESMF_VERSION_MAJOR < 8
+!TODOgjt: REMOVE THIS BLOCK ONCE SHOWN TO WORK WITHOUT
         ! SetServices for Connectors
         call SetFromConfig(driver, mode="setServicesConnectors", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-          
+#endif
+
         ! clean-up
         deallocate(compLabels)
         
@@ -3634,6 +3674,10 @@
     
     ! local variables
     character(ESMF_MAXSTR)          :: name
+#if ESMF_VERSION_MAJOR >= 8
+    type(ESMF_Config)               :: config
+    type(NUOPC_FreeFormat)          :: runSeqFF
+#endif
 
     rc = ESMF_SUCCESS
 
@@ -3642,11 +3686,27 @@
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
+#if ESMF_VERSION_MAJOR >= 8
+    ! read free format run sequence from config
+    call ESMF_GridCompGet(driver, config=config, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    runSeqFF = NUOPC_FreeFormatCreate(config, label="runSeq::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+    ! ingest FreeFormat run sequence
+    call NUOPC_DriverIngestRunSequence(driver, runSeqFF, &
+      autoAddConnectors=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
     ! access runSeq in the config
     call SetFromConfig(driver, mode="setRunSequence", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
+#endif
+    
     ! Diagnostic output
     if(verbose_diagnostics()) then
        call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
@@ -3658,6 +3718,8 @@
     
   !-----------------------------------------------------------------------------
 
+#if ESMF_VERSION_MAJOR < 8
+!TODOgjt: REMOVE THIS BLOCK ONCE SHOWN TO WORK WITHOUT
   subroutine SetFromConfig(driver, mode, rc)
     type(ESMF_GridComp)   :: driver
     character(len=*)      :: mode
@@ -3930,7 +3992,7 @@
     endif
 
   end subroutine
-
+#endif
   !-----------------------------------------------------------------------------
 
   subroutine Finalize(driver, rc)

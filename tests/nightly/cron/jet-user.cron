@@ -1,4 +1,4 @@
-56 19 * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/run-from-jet-user.sh ngt tujet checkout > /lfs3/projects/hfv3gfs/Samuel.Trahan/scrub/tujet-nightly-checkout.log 2>&1
-56 19 * * * /lfs3/projects/hfv3gfs/Samuel.Trahan/multi-app/tests/nightly/run-from-jet-user.sh ngt ujet.slurm checkout > /lfs3/projects/hfv3gfs/Samuel.Trahan/scrub/ujet-slurm-nightly-checkout.log 2>&1
+03 00 * * * mkdir -p /lfs3/projects/hfv3gfs/Ratko.Vasic/scrub
 
-12 18 * * * rsync -arv /lfs3/projects/hfv3gfs/emc.nemspara/web/rt/. samuel.trahan@dmzgw.ncep.noaa.gov:/home/www/emc/htdocs/projects/rt/. > /lfs3/projects/hfv3gfs/Samuel.Trahan/scrub/nightly-rt-web-transfer.log 2>&1
+14 18 * * * /lfs3/projects/hfv3gfs/Ratko.Vasic/noscrub/multi-app-test/tests/nightly/run-from-jet-user.sh ngt tujet      checkout > /lfs3/projects/hfv3gfs/Ratko.Vasic/scrub/tujet-nightly-checkout.log 2>&1
+14 18 * * * /lfs3/projects/hfv3gfs/Ratko.Vasic/noscrub/multi-app-test/tests/nightly/run-from-jet-user.sh ngt ujet.slurm checkout > /lfs3/projects/hfv3gfs/Ratko.Vasic/scrub/ujet-slurm-nightly-checkout.log 2>&1

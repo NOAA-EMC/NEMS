@@ -3948,7 +3948,11 @@ module module_MEDIATOR
     ! validate all data by default
     !---------------------------
 
+#if ESMF_VERSION_MAJOR >= 8
+    call NUOPC_SetTimestamp(NState_AtmExp, clock, rc=rc)
+#else
     call NUOPC_UpdateTimestamp(NState_AtmExp, clock, rc=rc)
+#endif
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -3960,7 +3964,11 @@ module module_MEDIATOR
 
     if (coldstart) then
       if (is_local%wrap%fastcntr == 1) then
+#if ESMF_VERSION_MAJOR >= 8
+        call NUOPC_SetTimestamp(NState_AtmExp, clock_invalidTimeStamp, rc=rc)
+#else
         call NUOPC_UpdateTimestamp(NState_AtmExp, clock_invalidTimeStamp, rc=rc)
+#endif
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
       else
@@ -3977,7 +3985,11 @@ module module_MEDIATOR
           line=__LINE__, file=__FILE__)) return  ! bail out
         do n = 1, fieldCount
           if (trim(fieldNameList(n))=="sea_surface_temperature") then
+#if ESMF_VERSION_MAJOR >= 8
+             call NUOPC_SetTimestamp(fieldList(n), time_invalidTimeStamp, rc=rc)
+#else
              call NUOPCplus_UpdateTimestamp(fieldList(n), time_invalidTimeStamp, rc=rc)
+#endif
              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                line=__LINE__, file=__FILE__)) return  ! bail out
           endif

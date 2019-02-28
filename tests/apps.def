@@ -44,7 +44,7 @@ ON wcoss1           SCRUB /ptmpp1/$username
 ON wcoss2           SCRUB /ptmpd3/$username
 ON wcoss_cray       SCRUB /gpfs/hps2/ptmp/$username
 ON wcoss_dell_p3    SCRUB /gpfs/dell2/ptmp/$username
-ON gaea             SCRUB $( ls -1d /lustre/f1/*/$username | head -1 )
+ON gaea             SCRUB $( ls -1d /lustre/f2/scratch/*/$username /lustre/f2/scratch/$username | head -1 )
 
 # List of apps to run on each platform.
 #ON xjet             APPS NEMSfv3gfs

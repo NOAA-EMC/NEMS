@@ -12,7 +12,7 @@ ON wcoss_cray     WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nems
 ON wcoss_dell_p3  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON gaea           WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 
-USER ACCOUNT IS Samuel.Trahan
+USER ACCOUNT IS Ratko.Vasic
 ROLE ACCOUNT IS emc.nemspara
 
 # nems branch - branch of NEMS that is being tested.  Set to "default"
