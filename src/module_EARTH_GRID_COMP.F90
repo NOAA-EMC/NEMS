@@ -1725,6 +1725,17 @@
           return  ! bail out
       endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "sea_ice_surface_temperature")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="sea_ice_surface_temperature", &
+          canonicalUnits="K", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
         "sea_ice_temperature")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="sea_ice_temperature", &
@@ -2903,6 +2914,54 @@
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="inst_tracer_mass_frac", &
           canonicalUnits="kg kg-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_tracer_up_surface_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_tracer_up_surface_flx", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_tracer_down_surface_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_tracer_down_surface_flx", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_tracer_clmn_mass_dens")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_tracer_clmn_mass_dens", &
+          canonicalUnits="g m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_tracer_anth_biom_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_tracer_anth_biom_flx", &
+          canonicalUnits="ug m-2 s-1", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &

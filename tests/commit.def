@@ -1,28 +1,28 @@
 # Directory to receive the webpage with regression test results
-ON tujet          WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON ujet.slurm     WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON theia          WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON theia.intel    WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON theia.slurm.intel  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON wcoss1         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON wcoss2         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON wcoss_cray     WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON wcoss_dell_p3  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
-ON gaea           WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/gaea-f2/
+ON tujet          WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON ujet.slurm     WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON theia          WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON theia.intel    WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON theia.slurm.intel  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON wcoss1         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON wcoss2         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON wcoss_cray     WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON wcoss_dell_p3  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
+ON gaea           WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/chem_coupling/
 
 USER ACCOUNT IS Ratko.Vasic
 ROLE ACCOUNT IS emc.nemspara
 
 # nems branch - branch of NEMS that is being tested.  Set to "default"
 # to test the app's own NEMS
-NEMS   BRANCH IS gaea-f2
+NEMS   BRANCH IS chem_coupling
 
 # app branch - branch to use for committing logs to each 
-APP    BRANCH IS gaea-f2-commit
+APP    BRANCH IS chem_coupling-commit
 
 # If relevant, the starting branch that we copy to make the app
 # branch.  Default is the master branch.
-APP NEMSfv3gfs       CHECKOUT gaea-f2
+APP NEMSfv3gfs       CHECKOUT chem_coupling
 
 # master branch - name of the git "master" branch.  Do not change.
 MASTER BRANCH IS master

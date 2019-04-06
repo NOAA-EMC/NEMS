@@ -554,6 +554,7 @@ module module_MEDIATOR
     call fld_list_add(fldsToAtm,"liquid_water_content_of_soil_layer_4", "will provide")
     call fld_list_add(fldsToAtm,"mean_ice_volume"         , "will provide")
     call fld_list_add(fldsToAtm,"mean_snow_volume"        , "will provide")
+    call fld_list_add(fldsToAtm,"sea_ice_surface_temperature"        , "will provide")
 !    call fld_list_add(fldsFrHyd,"volume_fraction_of_total_water_in_soil", "will provide")
 !    call fld_list_add(fldsFrHyd,"surface_snow_thickness"                , "will provide")
 !    call fld_list_add(fldsFrHyd,"liquid_water_content_of_surface_snow"  , "will provide")
@@ -733,7 +734,7 @@ module module_MEDIATOR
     ! Fields from ICE
 !     call fld_list_add(fldsFrIce,"dummyfield"              , "cannot provide","bilinear")
     call fld_list_add(fldsFrIce,"ice_mask"                , "cannot provide","conservedst")
-    call fld_list_add(fldsFrIce,"sea_ice_temperature"     , "will provide","conservefrac")
+    call fld_list_add(fldsFrIce,"sea_ice_surface_temperature"     , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"inst_ice_ir_dir_albedo"  , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"inst_ice_ir_dif_albedo"  , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"inst_ice_vis_dir_albedo" , "will provide","conservefrac")
@@ -3691,12 +3692,6 @@ module module_MEDIATOR
 
     !--- merges
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'surface_temperature' , & 
-                                is_local%wrap%FBOcn_a   ,'sea_surface_temperature',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'sea_ice_temperature',icewgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx' , & 
                                 is_local%wrap%FBAtmOcn_a,'mean_sensi_heat_flx_atm_into_ocn',ocnwgt, &
                                 is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',icewgt, rc=rc)
@@ -3873,6 +3868,7 @@ module module_MEDIATOR
         ! http://www.earthsystemmodeling.org/esmf_releases/last_built/ESMF_refdoc/node5.html#SECTION050366000000000000000
         call ESMF_FieldRegridStore(inField, outField, regridMethod=regridMethod, &
              unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+             srcTermProcessing=srcTermProcessing_Value, &
              Routehandle=rh, &
              rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3880,7 +3876,8 @@ module module_MEDIATOR
              file=__FILE__)) &
              return  ! bail out
 
-        call ESMF_FieldRegrid(inField, outField, Routehandle=rh, rc=rc)
+        call ESMF_FieldRegrid(inField, outField, Routehandle=rh, &
+          termorderflag=ESMF_TERMORDER_SRCSEQ, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
              line=__LINE__, &
              file=__FILE__)) &
