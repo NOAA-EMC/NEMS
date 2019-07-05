@@ -103,9 +103,26 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
       source /etc/profile
       unset __ms_source_etc_profile
     fi
+elif [[ -d /lrz/sys ]] ; then
+    # We are on LRZ SuperMUC, nothing to do
+    echo "Platform: LRZ SuperMUC"
 elif [[ -d /Applications ]] ; then
     # We are on a MacOSX system, nothing to do
-    echo " "
+    echo "Platform: MacOSX"
+elif [[ -e /etc/redhat-release ]] ; then
+    if grep -iq centos "/etc/redhat-release" ; then
+        # We are on CentOS Linux, nothing to do
+        echo "Platform: CentOS Linux"
+    else
+        echo WARNING: UNKNOWN PLATFORM 1>&2
+    fi
+elif [[ -e /etc/issue ]] ; then
+    if grep -iq ubuntu "/etc/issue" ; then
+        # We are on Ubuntu Linux, nothing to do
+        echo "Platform: Ubuntu Linux"
+    else
+        echo WARNING: UNKNOWN PLATFORM 1>&2
+    fi
 else
     echo WARNING: UNKNOWN PLATFORM 1>&2
 fi

@@ -11,13 +11,27 @@ ifeq (,$(findstring FV3,$(COMPONENTS)))
   $(error CCPP requires FV3)
 else
   # Ensure the model is selected.
-  override CCPP_CONFOPT += --model=FV3v1
+  override CCPP_CONFOPT += --config=ccpp/config/ccpp_prebuild_config.py
   override CCPP_MAKEOPT ?= $(FV3_MAKEOPT)
   override CCPP_BUILDOPT ?= $(FV3_BUILDOPT)
 endif
 
 ifneq (,$(findstring DEBUG=Y,$(FV3_MAKEOPT)))
   override CCPP_CONFOPT += --debug
+endif
+
+# Process make options for static CCPP build
+ifneq (,$(findstring STATIC=Y,$(FV3_MAKEOPT)))
+  ifneq (,$(findstring SUITES=,$(FV3_MAKEOPT)))
+    # Extract name of suite definition file for static build using sed;
+    # Sam Trahan most likely knows a much better way for doing this!
+    # - remove everything leading up to the name of the suite definition file
+    # - remove everything following the name of the suite definition file
+    SUITES = $(shell echo $(FV3_MAKEOPT) | sed 's/.* SUITES=//' | sed 's/ .*//')
+    override CCPP_CONFOPT += --static --suites=$(SUITES)
+  else
+    $(error Option STATIC=Y requires suites argument as SUITES=xyz,abc,... (where suite xyz corresponds to file suite_xyz.xml))
+  endif
 endif
 
 # Make sure the expected directories exist and are non-empty:
@@ -32,16 +46,11 @@ $(ccpp_mk): configure
 	$(MODULE_LOGIC) ; \
 	set -xue                                                        ; \
 	export PATH_CCPP="$(CCPP_SRCDIR)"                               ; \
-	export NEMS_CCPP_CPPFLAGS="-DCCPP"                              ; \
-	export NEMS_CCPP_LDFLAGS="-L$(CCPP_SRCDIR)/lib -lccpp"          ; \
 	cd $(ROOTDIR)                                                   ; \
 	./ccpp/framework/scripts/ccpp_prebuild.py $(CCPP_CONFOPT)       ; \
 	cd $$PATH_CCPP                                                  ; \
-	./build_ccpp.sh ${BUILD_TARGET} "$$PATH_CCPP"                     \
+	./build_ccpp.sh ${BUILD_TARGET} "$$PATH_CCPP" $(ccpp_mk)          \
 	  "$(CCPP_MAKEOPT)" NO NO                                       ; \
-	echo "ESMF_DEP_INCPATH=-I$(CCPP_BINDIR)/include" > $(ccpp_mk)   ; \
-	echo "ESMF_DEP_LINK_OBJS=-L$(CCPP_BINDIR)/lib -lccpp -lccppphys"  \
-	                                 > $(ccpp_mk)                   ; \
 	test -d "$(CCPP_BINDIR)"/include                                ; \
 	test -d "$(CCPP_BINDIR)"/lib
 
@@ -49,13 +58,15 @@ $(ccpp_mk): configure
 
 # Rule for cleaning intermediate files
 distclean_CCPP: clean_CCPP
-	set -x                                             ; \
-	cd "$(CCPP_SRCDIR)"                                ; \
-	rm -rf "$(CCPP_SRCDIR)/lib"                        ; \
-	rm -rf "$(CCPP_SRCDIR)/include"                    ; \
+	set -x                                                          ; \
+	cd $(ROOTDIR)                                                   ; \
+	./ccpp/framework/scripts/ccpp_prebuild.py $(CCPP_CONFOPT) --clean ; \
+	cd "$(CCPP_SRCDIR)"                                             ; \
+	rm -rf "$(CCPP_SRCDIR)/lib"                                     ; \
+	rm -rf "$(CCPP_SRCDIR)/include"                                 ; \
 	rm -f $(ccpp_mk)
 
 clean_CCPP:
-	set -x                                             ; \
-	cd "$(CCPP_SRCDIR)"                                ; \
+	set -x                                                          ; \
+	cd "$(CCPP_SRCDIR)"                                             ; \
 	rm -rf "$(CCPP_SRCDIR)/build"

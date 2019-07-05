@@ -3,6 +3,7 @@ set __ms_shell=csh
 eval "if ( -d / ) set __ms_shell=tcsh"
 
 if ( { test -d /lfs3 } ) then 
+    # We are on NOAA Jet
     if ( ! { module help >& /dev/null } ) then
             source /apps/lmod/lmod/init/$__ms_shell
     endif
@@ -83,9 +84,28 @@ else if ( { test -d /lustre -a -d /ncrc } ) then
       source /etc/csh.login
       unset __ms_source_etc_csh_login
     endif
+else if ( { test -d /lrz/sys } ) then
+    # We are on LRZ SuperMUC, nothing to do
+    sh -c 'echo Platform: LRZ SuperMUC'
 else if ( { test -d /Applications } ) then
     # We are on a MacOSX system, nothing to do
-    echo " "
+    sh -c 'echo Platform: MacOSX'
+else if ( { test -e /etc/redhat-release } ) then
+    if ( { grep -iq centos "/etc/redhat-release" } ) then
+        # We are on CentOS Linux, nothing to do
+        sh -c 'echo Platform: CentOS Linux'
+    else
+        # Workaround for csh limitation.  Use sh to print to stderr.
+        sh -c 'echo WARNING: UNKNOWN PLATFORM 1>&2'
+    endif
+else if ( { test -e /etc/issue } ) then
+    if ( { grep -iq ubuntu "/etc/issue" } ) then
+        # We are on Ubuntu Linux, nothing to do
+        sh -c 'echo Platform: Ubuntu Linux'
+    else
+        # Workaround for csh limitation.  Use sh to print to stderr.
+        sh -c 'echo WARNING: UNKNOWN PLATFORM 1>&2'
+    endif
 else
     # Workaround for csh limitation.  Use sh to print to stderr.
     sh -c 'echo WARNING: UNKNOWN PLATFORM 1>&2'
