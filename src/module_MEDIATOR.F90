@@ -1521,7 +1521,8 @@ module module_MEDIATOR
       ! local variables
       type(ESMF_Field)              :: field
       type(ESMF_Grid)               :: grid
-      integer                       :: localDeCount
+      integer                       :: localDeCount, petCount
+      integer, allocatable          :: regDecomp(:), regDecompPTile(:,:)
 
       type(ESMF_DistGrid)           :: distgrid
       type(ESMF_DistGridConnection), allocatable :: connectionList(:)
@@ -1533,7 +1534,7 @@ module module_MEDIATOR
       character(ESMF_MAXSTR)        :: transferAction
       character(len=*),parameter :: subname='(module_MEDIATOR:realizeConnectedGrid)'
     
-      !NOTE: All fo the Fields that set their TransferOfferGeomObject Attribute
+      !NOTE: All of the Fields that set their TransferOfferGeomObject Attribute
       !NOTE: to "cannot provide" should now have the accepted Grid available.
       !NOTE: Go and pull out this Grid for one of a representative Field and 
       !NOTE: modify the decomposition and distribution of the Grid to match the
@@ -1546,6 +1547,10 @@ module module_MEDIATOR
         call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
       rc = ESMF_Success
+
+      call ESMF_GridCompGet(gcomp, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
 
       call ESMF_StateGet(State, itemCount=fieldCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1608,12 +1613,42 @@ module module_MEDIATOR
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
           
-          ! create the new DistGrid with the same minIndexPTile and
-          ! maxIndexPTile, but with default multi-tile regDecomp: 1DE/PET
-          distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
-            maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=__FILE__)) return  ! bail out
+#if ESMF_VERSION_MAJOR >= 8
+          if (petCount/tileCount * tileCount == petCount) then
+            ! petCount is a multiple of tileCount:
+            ! determine a "most square" factorization of the available petCount
+            ! for each tile in dimCount dims
+            allocate(regDecomp(dimCount))
+            call ESMF_DistGridRegDecompSetCubic(regDecomp, &
+              deCount=petCount/tileCount, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+            allocate(regDecompPTile(dimCount,tileCount))
+            do i=1, tileCount
+              regDecompPTile(:,i) = regDecomp(:)
+            enddo
+            ! create the new DistGrid with the same minIndexPTile and
+            ! maxIndexPTile, but with most square regDecompPTile for the
+            ! local petCount
+            distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+              maxIndexPTile=maxIndexPTile, connectionList=connectionList, &
+              regDecompPTile=regDecompPTile, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+            deallocate(regDecomp, regDecompPTile)
+          else
+#endif
+            ! petCount is NOT a multiple of tileCount:
+            ! create the new DistGrid with the same minIndexPTile and
+            ! maxIndexPTile, but with default multi-tile regDecomp: 1DE/PET
+            distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+              maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=__FILE__)) return  ! bail out
+#if ESMF_VERSION_MAJOR >= 8
+          endif
+#endif
+              
           if (dbug_flag > 1) then
             call ESMF_LogWrite(trim(subname)//trim(string)//': distgrid with connlist', ESMF_LOGMSG_INFO, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

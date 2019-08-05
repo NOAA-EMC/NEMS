@@ -4,13 +4,6 @@ set -xue
 cd $( dirname "$0" )
 cd ..
 
-if [[ "$1" == '-Mslurm' ]] ; then
-    shift
-    more_modules=slurm
-else
-    more_modules=
-fi
-
 ls
 there=/lfs3/projects/hfv3gfs/emc.nemspara/scrub/$1/
 mkdir -p "$there"
@@ -24,7 +17,7 @@ mkdir -p "$there"
     source /apps/lmod/lmod/init/bash            ;
     module use /apps/lmod/lmod/modulefiles/Core ;
     module use /apps/modules/modulefiles        ;
-    module load rocoto hpss $more_modules       ;
+    module load rocoto hpss                     ;
     which rocotorun                             ;
     which hsi                                   ;
     pwd                                         ;

@@ -4,7 +4,7 @@ all_component_mk_files+=$(ww3_mk)
 
 # Location of source code and installation
 WW3_SRCDIR?=$(ROOTDIR)/WW3/model
-WW3_BINDIR?=$(ROOTDIR)/WW3_INSTALL
+WW3_BINDIR?=$(ROOTDIR)/WW3/WW3_INSTALL
 
 # Make sure the source directory exists and is non-empty
 $(call require_dir,$(WW3_SRCDIR),WaveWatch3 source directory)
@@ -13,7 +13,7 @@ $(call require_dir,$(WW3_SRCDIR),WaveWatch3 source directory)
 build_WW3: $(ww3_mk)
 
 override STRLEN_WW3_SRCDIR=$(call strlen,$(WW3_SRCDIR))
-override MAX_LEN_WW3_SRCDIR=79
+override MAX_LEN_WW3_SRCDIR=400
 
 ifeq ($(true),$(call int_gt,$(call int_encode,$(STRLEN_WW3_SRCDIR)),$(call int_encode,$(MAX_LEN_WW3_SRCDIR))))
   $(warning WW3_SRCDIR path too long: $(WW3_SRCDIR))
@@ -22,11 +22,11 @@ endif
 
 WW3_CONFOPT ?= $(FULL_MACHINE_ID)
 
-override WW3_CONF_FILE = $(WW3_SRCDIR)/bin/comp.$(WW3_CONFOPT)
+override WW3_CONF_FILE = $(WW3_SRCDIR)/bin/comp.tmpl
 
 ifeq (,$(wildcard $(WW3_CONF_FILE)))
   $(warning $(WW3_CONF_FILE): no such file or directory)
-  $(error Select a different WW3 configuration via WW3_CONFOPT variable.  Configuration $(WW3_CONFOPT) does not exist.)
+  $(error WW3 config now uses cmplr.env and comp/link.tmpl. $(WW3_CONFOPT) not found, check the WW3 submodule.)
 endif
 
 WW3_ALL_OPTS= \

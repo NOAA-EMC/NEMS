@@ -4,16 +4,14 @@ all_component_mk_files+=$(gsdchem_mk)
 
 # Location of source code and installation
 GSDCHEM_SRCDIR?=$(ROOTDIR)/GSDCHEM
-GSDCHEM_BINDIR?=$(ROOTDIR)/GSDCHEM_INSTALL
+GSDCHEM_BINDIR?=$(ROOTDIR)/GSDCHEM/GSDCHEM_INSTALL
 
 # Make sure the expected directories exist and are non-empty:
 $(call require_dir,$(GSDCHEM_SRCDIR),GSDCHEM source directory)
 
-GSDCHEM_ALL_OPTS= \
-  COMP_SRCDIR="$(GSDCHEM_SRCDIR)" \
-  COMP_BINDIR="$(GSDCHEM_BINDIR)" \
-  FMS_BINDIR="$(FMS_BINDIR)" \
-  MACHINE_ID="$(MACHINE_ID)"
+ifneq (,$(findstring DEBUG=Y,$(GSDCHEM_MAKEOPT)))
+  override GSDCHEM_CONFOPT += --enable-debug
+endif
 
 ########################################################################
 
@@ -26,11 +24,10 @@ $(gsdchem_mk): configure
 	set -e                                                        ; \
 	cd $(GSDCHEM_SRCDIR)                                          ; \
 	./configure --prefix=$(GSDCHEM_BINDIR)                          \
-	  --datarootdir=$(GSDCHEM_BINDIR) --libdir=$(GSDCHEM_BINDIR)
-	+$(MODULE_LOGIC) ; cd $(GSDCHEM_SRCDIR) ; exec $(MAKE)             \
-	  $(GSDCHEM_ALL_OPTS)
-	+$(MODULE_LOGIC) ; cd $(GSDCHEM_SRCDIR) ; exec $(MAKE)             \
-	  $(GSDCHEM_ALL_OPTS) install
+	  --datarootdir=$(GSDCHEM_BINDIR) --libdir=$(GSDCHEM_BINDIR)    \
+          $(GSDCHEM_CONFOPT)
+	+$(MODULE_LOGIC) ; cd $(GSDCHEM_SRCDIR) ; exec $(MAKE)
+	+$(MODULE_LOGIC) ; cd $(GSDCHEM_SRCDIR) ; exec $(MAKE) install
 	test -d "$(GSDCHEM_BINDIR)"
 
 ########################################################################
