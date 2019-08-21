@@ -5534,6 +5534,16 @@ module module_MEDIATOR
 !      line=__LINE__, file=__FILE__)) return  ! bail out
 
     !-------------
+    ! field_for_ocn = field_from_ice * ice_fraction
+    !-------------
+
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_salt_rate', &
+                                is_local%wrap%FBIce_o , 'mean_salt_rate', icewgt, &
+                                rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    !-------------
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
