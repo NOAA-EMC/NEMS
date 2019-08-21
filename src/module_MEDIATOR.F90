@@ -922,7 +922,8 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     dbug_flag = ESMF_UtilString2Int(value, &
-      specialStringList=(/"min","max"/), specialValueList=(/0,255/), rc=rc)
+      specialStringList=(/"off","low","high","max"/), &
+      specialValueList=(/0,1,100,255/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     write(msgString,'(A,i6)') trim(subname)//' dbug_flag = ',dbug_flag
