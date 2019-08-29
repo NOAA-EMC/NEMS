@@ -1,6 +1,6 @@
 #include "./ESMFVersionDefine.h"
 
-#if ESMF_VERSION_MAJOR >= 8
+#ifdef ESMF_VERSION_MAJOR >= 8
 ! Do things for ESMF 8 and later
 #else
 #ifndef ESMF_VERSION_MAJOR
@@ -134,16 +134,16 @@
 !-----------------------------------------------------------------------
 ! 
       IF(PRINT_ESMF) THEN
-        CALL ESMF_Initialize(VM             =VM                         & !<-- The ESMF Virtual Machine
-                            ,defaultCalKind =ESMF_CALKIND_GREGORIAN     & !<-- Set up the default calendar.
-                            ,logkindflag    =ESMF_LOGKIND_MULTI         & !<-- Define multiple log error output files;
-                            ,rc             =RC)
+        CALL ESMF_Initialize(VM             = VM                        & !<-- The ESMF Virtual Machine
+                            ,defaultCalKind = ESMF_CALKIND_GREGORIAN    & !<-- Set up the default calendar.
+                            ,logkindflag    = ESMF_LOGKIND_MULTI        & !<-- Define multiple log error output files;
+                            ,rc             = RC)
         ESMF_ERR_ABORT(RC)
       ELSE
-        CALL ESMF_Initialize(VM             =VM                         & !<-- The ESMF Virtual Machine
-                            ,defaultCalKind =ESMF_CALKIND_GREGORIAN     & !<-- Set up the default calendar.
-                            ,logkindflag    =ESMF_LOGKIND_NONE          & !<-- Define no log error output files;
-                            ,rc             =RC)
+        CALL ESMF_Initialize(VM             = VM                        & !<-- The ESMF Virtual Machine
+                            ,defaultCalKind = ESMF_CALKIND_GREGORIAN    & !<-- Set up the default calendar.
+                            ,logkindflag    = ESMF_LOGKIND_NONE         & !<-- Define no log error output files;
+                            ,rc             = RC)
         ESMF_ERR_ABORT(RC)
       ENDIF
 !
@@ -163,9 +163,9 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_VMGet(vm      =VM                                       &  !<-- The ESMF Virtual Machine
-                     ,localpet=MYPE                                     &  !<-- The local MPI task ID
-                     ,rc      =RC)
+      CALL ESMF_VMGet(vm       = VM                                     &  !<-- The ESMF Virtual Machine
+                     ,localpet = MYPE                                   &  !<-- The local MPI task ID
+                     ,rc       = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -222,9 +222,9 @@
 !
       CF_MAIN=ESMF_ConfigCreate(rc=RC)
 !
-      CALL ESMF_ConfigLoadFile(config  =CF_MAIN                         &  !<-- The Configure object
-                              ,filename='model_configure'               &  !<-- The name of the configure file 
-                              ,rc      =RC)
+      CALL ESMF_ConfigLoadFile(config   = CF_MAIN                       &  !<-- The Configure object
+                              ,filename = 'model_configure'             &  !<-- The name of the configure file 
+                              ,rc       = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -239,9 +239,9 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      NEMS_GRID_COMP=ESMF_GridCompCreate(name        ='NEMS Grid Comp'  &  !<-- NEMS component name
-                                        ,configFile  ='model_configure' &  !<-- Link the user-created configure file.
-                                        ,rc          =RC)
+      NEMS_GRID_COMP=ESMF_GridCompCreate(name       = 'NEMS Grid Comp'  &  !<-- NEMS component name
+                                        ,configFile = 'model_configure' &  !<-- Link the user-created configure file.
+                                        ,rc         = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -270,20 +270,20 @@
 !***  value is used here.
 !-----------------------------------------------------------------------
 !
-      TIMESTEP_SEC_WHOLE      =1                                           !<-- Dummy timestep values
-      TIMESTEP_SEC_NUMERATOR  =0                                           !
-      TIMESTEP_SEC_DENOMINATOR=1                                           !<--
+      TIMESTEP_SEC_WHOLE       = 1                                         !<-- Dummy timestep values
+      TIMESTEP_SEC_NUMERATOR   = 0                                         !
+      TIMESTEP_SEC_DENOMINATOR = 1                                         !<--
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
       MESSAGE_CHECK="Set up Time Step Interval in Main Clock"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_TimeIntervalSet(timeinterval=TIMESTEP                   &  !<-- Main Clock's timestep
-                               ,s           =TIMESTEP_SEC_WHOLE         &  !<-- Whole part of timestep
-                               ,sn          =TIMESTEP_SEC_NUMERATOR     &  !<-- Numerator of fractional part
-                               ,sd          =TIMESTEP_SEC_DENOMINATOR   &  !<-- Denominator of fractional part
-                               ,rc          =RC)
+      CALL ESMF_TimeIntervalSet(timeinterval = TIMESTEP                 &  !<-- Main Clock's timestep
+                               ,s            = TIMESTEP_SEC_WHOLE       &  !<-- Whole part of timestep
+                               ,sn           = TIMESTEP_SEC_NUMERATOR   &  !<-- Numerator of fractional part
+                               ,sd           = TIMESTEP_SEC_DENOMINATOR &  !<-- Denominator of fractional part
+                               ,rc           = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -292,90 +292,90 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Year from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Year from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =YY                            &
-                                  ,label ='start_year:'                 &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = YY                          &
+                                  ,label  = 'start_year:'               &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Month from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Month from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =MM                            &
-                                  ,label ='start_month:'                &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = MM                          &
+                                  ,label  = 'start_month:'              &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Day from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Day from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =DD                            &
-                                  ,label ='start_day:'                  &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = DD                          &
+                                  ,label  = 'start_day:'                &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Hour from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Hour from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =HH                            &
-                                  ,label ='start_hour:'                 &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = HH                          &
+                                  ,label  = 'start_hour:'               &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Minute from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Minute from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =MNS                           &
-                                  ,label ='start_minute:'               &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = MNS                         &
+                                  ,label  = 'start_minute:'             &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Extract Starting Second from Config File"
+      MESSAGE_CHECK = "MAIN: Extract Starting Second from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =SEC                           &
-                                  ,label ='start_second:'               &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = SEC                         &
+                                  ,label  = 'start_second:'             &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="MAIN: Set the Forecast Start Time"
+      MESSAGE_CHECK = "MAIN: Set the Forecast Start Time"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_TimeSet(time=STARTTIME                                  &  !<-- The start time of the forecast (ESMF)
-                       ,yy  =YY                                         &  !<-- Year from config file
-                       ,mm  =MM                                         &  !<-- Month from config file
-                       ,dd  =DD                                         &  !<-- Day from config file
-                       ,h   =HH                                         &  !<-- Hour from config file
-                       ,m   =MNS                                        &  !<-- Minute from config file
-                       ,s   =SEC                                        &  !<-- Second from config file
-                       ,rc  =RC)
+      CALL ESMF_TimeSet(time = STARTTIME                                  &  !<-- The start time of the forecast (ESMF)
+                       ,yy   = YY                                         &  !<-- Year from config file
+                       ,mm   = MM                                         &  !<-- Month from config file
+                       ,dd   = DD                                         &  !<-- Day from config file
+                       ,h    = HH                                         &  !<-- Hour from config file
+                       ,m    = MNS                                        &  !<-- Minute from config file
+                       ,s    = SEC                                        &  !<-- Second from config file
+                       ,rc   = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -388,10 +388,10 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config=CF_MAIN                       &
-                                  ,value =NHOURS_FCST                   &
-                                  ,label ='nhours_fcst:'                &
-                                  ,rc    =RC)
+      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
+                                  ,value  = NHOURS_FCST                 &
+                                  ,label  = 'nhours_fcst:'              &
+                                  ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -404,9 +404,9 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_TimeIntervalSet(timeinterval=RUNDURATION                &  !<-- The forecast length (s) (ESMF)
-                               ,s           =NSECONDS_FCST              &
-                               ,rc          =RC)
+      CALL ESMF_TimeIntervalSet(timeinterval = RUNDURATION              &  !<-- The forecast length (s) (ESMF)
+                               ,s            = NSECONDS_FCST            &
+                               ,rc           = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -425,11 +425,11 @@
 
       TIMESTEP = RUNDURATION
 
-      CLOCK_MAIN=ESMF_ClockCreate(name       ='CLOCK_MAIN'              &  !<-- The top-level ESMF Clock
-                                 ,timeStep   =TIMESTEP                  &  !<-- Timestep needed by the Clock (ESMF)
-                                 ,startTime  =STARTTIME                 &  !<-- The integration start time (ESMF)
-                                 ,runDuration=RUNDURATION               &  !<-- The integration duration (ESMF)
-                                 ,rc         =RC)
+      CLOCK_MAIN=ESMF_ClockCreate(name        = 'CLOCK_MAIN'            &  !<-- The top-level ESMF Clock
+                                 ,timeStep    = TIMESTEP                &  !<-- Timestep needed by the Clock (ESMF)
+                                 ,startTime   = STARTTIME               &  !<-- The integration start time (ESMF)
+                                 ,runDuration = RUNDURATION             &  !<-- The integration duration (ESMF)
+                                 ,rc          = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -439,16 +439,14 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the NEMS Import/Export States"
+      MESSAGE_CHECK = "Create the NEMS Import/Export States"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      NEMS_IMP_STATE=ESMF_StateCreate(name='NEMS Import State'     &
-                                     ,rc       =RC)
+      NEMS_IMP_STATE = ESMF_StateCreate(name='NEMS Import State', rc=RC)
       ESMF_ERR_ABORT(RC)
 !
-      NEMS_EXP_STATE=ESMF_StateCreate(name='NEMS Export State'     &
-                                     ,rc       =RC)
+      NEMS_EXP_STATE=ESMF_StateCreate(name='NEMS Export State', rc=RC)
       ESMF_ERR_ABORT(RC)
 !      
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -465,13 +463,13 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompInitialize(gridcomp   =NEMS_GRID_COMP           &  !<-- The NEMS component
-                                  ,importState=NEMS_IMP_STATE           &  !<-- The NEMS import state
-                                  ,exportState=NEMS_EXP_STATE           &  !<-- The NEMS export state
-                                  ,clock      =CLOCK_MAIN               &  !<-- The ESMF clock
-                                  ,phase      =1                        &
-                                  ,userRc     =RC_USER                  &
-                                  ,rc         =RC)
+      CALL ESMF_GridCompInitialize(gridcomp    = NEMS_GRID_COMP         &  !<-- The NEMS component
+                                  ,importState = NEMS_IMP_STATE         &  !<-- The NEMS import state
+                                  ,exportState = NEMS_EXP_STATE         &  !<-- The NEMS export state
+                                  ,clock       = CLOCK_MAIN             &  !<-- The ESMF clock
+                                  ,phase       = 1                      &
+                                  ,userRc      = RC_USER                &
+                                  ,rc          = RC)
       ESMF_ERR_ABORT(RC)
       ESMF_ERR_ABORT(RC_USER)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -481,17 +479,17 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the NEMS Component Run Step"
+      MESSAGE_CHECK = "Execute the NEMS Component Run Step"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompRun(gridcomp   =NEMS_GRID_COMP                  &  !<-- The NEMS component
-                           ,importState=NEMS_IMP_STATE                  &  !<-- The NEMS import state
-                           ,exportState=NEMS_EXP_STATE                  &  !<-- The NEMS export state
-                           ,clock      =CLOCK_MAIN                      &  !<-- The ESMF clock
-                           ,phase      =1                               &
-                           ,userRc     =RC_USER                         &
-                           ,rc         =RC)
+      CALL ESMF_GridCompRun(gridcomp    = NEMS_GRID_COMP                &  !<-- The NEMS component
+                           ,importState = NEMS_IMP_STATE                &  !<-- The NEMS import state
+                           ,exportState = NEMS_EXP_STATE                &  !<-- The NEMS export state
+                           ,clock       = CLOCK_MAIN                    &  !<-- The ESMF clock
+                           ,phase       = 1                             &
+                           ,userRc      = RC_USER                       &
+                           ,rc          = RC)
       ESMF_ERR_ABORT(RC)
       ESMF_ERR_ABORT(RC_USER)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -502,7 +500,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Extract the RUN_CONTINUE flag from Config File"
+      MESSAGE_CHECK = "Extract the RUN_CONTINUE flag from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -521,7 +519,7 @@
       IF(RUN_CONTINUE) THEN
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Extract the Ensemble Clock Parameters from Config File"
+        MESSAGE_CHECK = "Extract the Ensemble Clock Parameters from Config File"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -541,7 +539,7 @@
         NHOURS_FCST = HH_FINAL - HH_START
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="MAIN: Re-set the clock after the ensemble run cycles."
+        MESSAGE_CHECK = "MAIN: Re-set the clock after the ensemble run cycles."
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -571,17 +569,17 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the NEMS Component Finalize Step"
+      MESSAGE_CHECK = "Execute the NEMS Component Finalize Step"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompFinalize(gridcomp   =NEMS_GRID_COMP             &  !<-- The NEMS component
-                                ,importState=NEMS_IMP_STATE             &  !<-- The NEMS component import state
-                                ,exportState=NEMS_EXP_STATE             &  !<-- The NEMS component export state
-                                ,clock      =CLOCK_MAIN                 &  !<-- The Main ESMF clock
-                                ,phase      =1                          &
-                                ,userRc     =RC_USER                    &
-                                ,rc         =RC)
+      CALL ESMF_GridCompFinalize(gridcomp    = NEMS_GRID_COMP           &  !<-- The NEMS component
+                                ,importState = NEMS_IMP_STATE           &  !<-- The NEMS component import state
+                                ,exportState = NEMS_EXP_STATE           &  !<-- The NEMS component export state
+                                ,clock       = CLOCK_MAIN               &  !<-- The Main ESMF clock
+                                ,phase       = 1                        &
+                                ,userRc      = RC_USER                  &
+                                ,rc          = RC)
       ESMF_ERR_ABORT(RC)
       ESMF_ERR_ABORT(RC_USER)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -591,12 +589,11 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Destroy the Main Clock"
-!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
+      MESSAGE_CHECK = "Destroy the Main Clock"
+!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO, rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ClockDestroy(clock=CLOCK_MAIN                           &
-                            ,rc   =RC)
+      CALL ESMF_ClockDestroy(clock=CLOCK_MAIN, rc=RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -605,12 +602,11 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Destroy the Main Configure Object"
+      MESSAGE_CHECK = "Destroy the Main Configure Object"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigDestroy(config=CF_MAIN                            &
-                             ,rc    =RC)
+      CALL ESMF_ConfigDestroy(config=CF_MAIN, rc=RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -619,12 +615,10 @@
 !      CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-      CALL ESMF_StateDestroy(state=NEMS_IMP_STATE                       &
-                            ,rc   =RC)
+      CALL ESMF_StateDestroy(state=NEMS_IMP_STATE, rc=RC)
       ESMF_ERR_ABORT(RC)
 !
-      CALL ESMF_StateDestroy(state=NEMS_EXP_STATE                       &
-                            ,rc   =RC)
+      CALL ESMF_StateDestroy(state=NEMS_EXP_STATE, rc=RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -633,16 +627,15 @@
 !      CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompDestroy(gridcomp=NEMS_GRID_COMP                 &
-                               ,rc      =RC)
+      CALL ESMF_GridCompDestroy(gridcomp=NEMS_GRID_COMP, rc=RC)
       ESMF_ERR_ABORT(RC)
 
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 ! Resource usage reporting.  We only do this if the rusage%start was
 ! successful.
-      if(rusage%is_valid()) then
+      if (rusage%is_valid()) then
          call rusage%stop(rc)
-         if(rc==0) call rusage%report(rc)
+         if (rc == 0) call rusage%report(rc)
       endif
 
 !-----------------------------------------------------------------------
@@ -653,7 +646,7 @@
 !
 !-----------------------------------------------------------------------
 !
-      if(mype==0)call w3tage('nems     ')
+      if (mype == 0) call w3tage('nems     ')
 !
 !-----------------------------------------------------------------------
 !

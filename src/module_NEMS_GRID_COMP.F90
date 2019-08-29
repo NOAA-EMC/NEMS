@@ -35,14 +35,14 @@
 !
       USE ESMF
 !
-      USE module_NEMS_INTERNAL_STATE,ONLY: NEMS_INTERNAL_STATE          &
-                                          ,WRAP_NEMS_INTERNAL_STATE
+      USE module_NEMS_INTERNAL_STATE,ONLY : NEMS_INTERNAL_STATE         &
+                                           ,WRAP_NEMS_INTERNAL_STATE
 !
-      USE ENS_CplComp_ESMFMod,ONLY: ENS_CplCompSetServices
+      USE ENS_CplComp_ESMFMod,       ONLY : ENS_CplCompSetServices
 !
       USE module_EARTH_GRID_COMP
 !
-      USE module_NEMS_UTILS,ONLY: ERR_MSG,MESSAGE_CHECK
+      USE module_NEMS_UTILS,         ONLY : ERR_MSG,MESSAGE_CHECK
 !
 !-----------------------------------------------------------------------
 !
@@ -56,15 +56,11 @@
 !
 !-----------------------------------------------------------------------
 !
-      INTEGER :: MEMBER_ID                                              &
-                ,TOTAL_MEMBER
+      INTEGER :: MEMBER_ID, TOTAL_MEMBER
 !
-      INTEGER :: HH_INCREASE                                            &
-                ,HH_START                                               &
-                ,HH_FINAL
+      INTEGER :: HH_INCREASE, HH_START, HH_FINAL
 !
-      INTEGER :: NUMBER_START                                           &
-                ,NUMBER_FINAL
+      INTEGER :: NUMBER_START, NUMBER_FINAL
 !
       INTEGER,DIMENSION(:),   ALLOCATABLE :: PE_MEMBER                     !<-- Tasks for each member
       INTEGER,DIMENSION(:, :),ALLOCATABLE :: PETLIST                       !<-- Task list for each member
@@ -128,7 +124,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Set Entry Point for NEMS Initialize"
+      MESSAGE_CHECK = "Set Entry Point for NEMS Initialize"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -143,7 +139,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Set Entry Point for NEMS Run"
+      MESSAGE_CHECK = "Set Entry Point for NEMS Run"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -158,7 +154,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Set Entry Point for NEMS Finalize"
+      MESSAGE_CHECK = "Set Entry Point for NEMS Finalize"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -176,11 +172,8 @@
 !#######################################################################
 !-----------------------------------------------------------------------
 !
-      SUBROUTINE NEMS_INITIALIZE(NEMS_GRID_COMP                         &
-                                ,IMP_STATE                              &
-                                ,EXP_STATE                              &
-                                ,CLOCK_MAIN                             &
-                                ,RC_INIT)
+      SUBROUTINE NEMS_INITIALIZE(NEMS_GRID_COMP, IMP_STATE, EXP_STATE,  &
+                                 CLOCK_MAIN    , RC_INIT)
 !
 !-----------------------------------------------------------------------
 !
@@ -190,10 +183,10 @@
 !
       TYPE(ESMF_GridComp) :: NEMS_GRID_COMP                                !<-- The NEMS component
 !
-      TYPE(ESMF_State) :: IMP_STATE                                     &  !<-- The NEMS import state
-                         ,EXP_STATE                                        !<-- The NEMS export state
+      TYPE(ESMF_State)    :: IMP_STATE                                  &  !<-- The NEMS import state
+                            ,EXP_STATE                                     !<-- The NEMS export state
 !
-      TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The main Clock
+      TYPE(ESMF_Clock)    :: CLOCK_MAIN                                    !<-- The main Clock
 !
       INTEGER,INTENT(OUT) :: RC_INIT                                       !<-- Error return code
 !
@@ -211,14 +204,10 @@
                                                         ,IMP_EARTH_NAME  &  !<-- Import state name of the EARTH components
                                                         ,EXP_EARTH_NAME     !<-- Export state name of the EARTH components
 !
-      INTEGER :: I,IJ,J,RC,RC_USER
+      INTEGER :: I, IJ, J, RC, RC_USER
 !
-      INTEGER :: MYPE_GLOBAL                                            &
-                ,NHOURS_FCST                                            &
-                ,NSECONDS_FCST                                          &
-                ,PE_MAX                                                 &
-                ,TASKS                                                  &
-                ,fhrot
+      INTEGER :: MYPE_GLOBAL, NHOURS_FCST, NSECONDS_FCST, PE_MAX,       &
+                 TASKS,       fhrot
 !
       INTEGER,DIMENSION(:,:),ALLOCATABLE :: PETLIST                        !<-- Task list for each ensemble member
 !
@@ -233,7 +222,7 @@
 !***  the NEMS component.
 !-----------------------------------------------------------------------
 !
-      CLOCK_NEMS=CLOCK_MAIN
+      CLOCK_NEMS = CLOCK_MAIN
 !
 !-----------------------------------------------------------------------
 !***  What is the start time on the NEMS clock?
@@ -244,9 +233,7 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-      CALL ESMF_ClockGet(clock     = CLOCK_NEMS                         &
-                        ,startTime = STARTTIME                          &
-                        ,rc = RC)
+      CALL ESMF_ClockGet(clock = CLOCK_NEMS, startTime = STARTTIME, rc = RC)
 
       ESMF_ERR_RETURN(RC,RC_INIT)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -257,7 +244,7 @@
 !-----------------------------------------------------------------------
 !
       ALLOCATE(NEMS_INT_STATE,stat=RC)
-      wrap%NEMS_INT_STATE=>NEMS_INT_STATE
+      wrap%NEMS_INT_STATE => NEMS_INT_STATE
 !
       CALL ESMF_GridCompSetInternalState(NEMS_GRID_COMP                 &  !<--The NEMS component
                                         ,WRAP                           &  !<-- Pointer to the NEMS internal state
@@ -269,9 +256,8 @@
 !***  Obtain the total task count and the local task ID.
 !-----------------------------------------------------------------------
 !
-      CALL ESMF_VMGetGlobal(vm = VM_GLOBAL                              &  !<-- The ESMF global Virtual Machine
-                           ,rc = RC)
-      ESMF_ERR_RETURN(RC,RC_INIT)
+      CALL ESMF_VMGetGlobal(vm = VM_GLOBAL, rc = RC)                       !<-- The ESMF global Virtual Machine
+      ESMF_ERR_RETURN(RC, RC_INIT)
 !
       CALL ESMF_VMGet(vm       = VM_GLOBAL                              &  !<-- The ESMF global Virtual Machine
                      ,pecount  = TASKS                                  &  !<-- Total # of MPI tasks
@@ -290,7 +276,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create/Load the NEMS Configure Object"
+      MESSAGE_CHECK = "Create/Load the NEMS Configure Object"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -305,7 +291,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Extract the Ensemble Stochastic Coupling Flag from Config File"
+      MESSAGE_CHECK = "Extract the Ensemble Stochastic Coupling Flag from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -328,31 +314,31 @@
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        CALL ESMF_ConfigGetAttribute(config=CF_NEMS                     &
-                                    ,value =NHOURS_FCST                 &
-                                    ,label ='nhours_fcst1:'             &
-                                    ,rc    =RC)
+        CALL ESMF_ConfigGetAttribute(config = CF_NEMS                   &
+                                    ,value  = NHOURS_FCST               &
+                                    ,label  = 'nhours_fcst1:'           &
+                                    ,rc     = RC)
         ESMF_ERR_RETURN(RC,RC_INIT)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        NSECONDS_FCST=NHOURS_FCST*3600                                     !<-- The forecast length (sec) (Integer)
+        NSECONDS_FCST = NHOURS_FCST*3600                                   !<-- The forecast length (sec) (Integer)
 !
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="NEMS: Set the Forecast Length"
+        MESSAGE_CHECK = "NEMS: Set the Forecast Length"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        CALL ESMF_TimeIntervalSet(timeinterval=RUNDURATION              &  !<-- The forecast length (s) (ESMF)
-                                 ,s           =NSECONDS_FCST            &  !<-- The forecast length (s) (Integer)
-                                 ,rc          =RC)
+        CALL ESMF_TimeIntervalSet(timeinterval = RUNDURATION            &  !<-- The forecast length (s) (ESMF)
+                                 ,s            = NSECONDS_FCST          &  !<-- The forecast length (s) (Integer)
+                                 ,rc           = RC)
         ESMF_ERR_RETURN(RC,RC_INIT)
 !
         CALL ESMF_ClockSet(clock       = CLOCK_NEMS                     &  !<-- The NEMS Clock
                           ,runDuration = RUNDURATION                    &  !<-- The forecast length (s) (ESMF)
                           ,rc          = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ESMF_ERR_RETURN(RC, RC_INIT)
 !
       END IF
 !
@@ -361,7 +347,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Extract the Total Number of the EARTH Members from Config File"
+      MESSAGE_CHECK = "Extract the Total Number of the EARTH Members from Config File"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -441,10 +427,10 @@
 !***  cycles from the config file.
 !-----------------------------------------------------------------------
 !
-      IF(ENS_SPS) THEN 
+      IF (ENS_SPS) THEN 
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Extract the Ensemble Clock Parameters from Config File"
+        MESSAGE_CHECK = "Extract the Ensemble Clock Parameters from Config File"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -479,7 +465,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create EARTH grid Components"
+      MESSAGE_CHECK = "Create EARTH grid Components"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -489,7 +475,7 @@
                             ,petlist      = PETLIST(1:PE_MEMBER(I), I)  &  !<-- Element I's PE list
                             ,config       = CF_NEMS                     &  !<-- Associate the NEMS config object with this element
                             ,rc           = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ESMF_ERR_RETURN(RC, RC_INIT)
       END DO
 !
 !-----------------------------------------------------------------------
@@ -498,9 +484,9 @@
 !-----------------------------------------------------------------------
 !
       IF(ENS_SPS) THEN
-        ENS_CPL_COMP=ESMF_CplCompCreate(name = "ENS Cpl component"      &  
-                                       ,rc   = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ENS_CPL_COMP = ESMF_CplCompCreate(name = "ENS Cpl component"    &
+                                         ,rc   = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
       END IF
 !
 !-----------------------------------------------------------------------
@@ -509,7 +495,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Register EARTH Init, Run, Finalize"
+      MESSAGE_CHECK = "Register EARTH Init, Run, Finalize"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -517,7 +503,7 @@
         CALL ESMF_GridCompSetServices(EARTH_GRID_COMP(I)                &  !<-- The EARTH gridded components
                                      ,EARTH_REGISTER                    &  !<-- User's name for the Register routine
                                      ,rc=RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ESMF_ERR_RETURN(RC, RC_INIT)
       END DO
 !
 !-----------------------------------------------------------------------
@@ -528,14 +514,14 @@
       IF(ENS_SPS) THEN
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Register Ensemble Coupler Init, Run, Finalize"
+        MESSAGE_CHECK = "Register Ensemble Coupler Init, Run, Finalize"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
         CALL ESMF_CplCompSetServices(ENS_CPL_COMP                       &
                                     ,ENS_CplCompSetServices             &  !<-- The user's name for the Register routine
                                     ,rc=RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ESMF_ERR_RETURN(RC, RC_INIT)
 !
       END IF
 !
@@ -544,31 +530,31 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the EARTH import states"
+      MESSAGE_CHECK = "Create the EARTH import states"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       DO I = 1,TOTAL_MEMBER
         EARTH_IMP_STATE(I) = ESMF_StateCreate(                          &
-                                         name = IMP_EARTH_NAME(I)  &
-                                        ,stateintent = ESMF_STATEINTENT_IMPORT  &
-                                        ,rc        = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+                                  name        = IMP_EARTH_NAME(I)       &
+                                 ,stateintent = ESMF_STATEINTENT_IMPORT &
+                                 ,rc          = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
       END DO
 !
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the EARTH export states"
+      MESSAGE_CHECK = "Create the EARTH export states"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       DO I = 1,TOTAL_MEMBER
-        EARTH_EXP_STATE(I) = ESMF_StateCreate(                                 &
-                                         name   = EXP_EARTH_NAME(I)       &
-                                        ,stateintent = ESMF_STATEINTENT_EXPORT &
-                                        ,rc          = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        EARTH_EXP_STATE(I) = ESMF_StateCreate(                          &
+                                  name        = EXP_EARTH_NAME(I)       &
+                                 ,stateintent = ESMF_STATEINTENT_EXPORT &
+                                 ,rc          = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
       END DO
 !
 !-----------------------------------------------------------------------
@@ -578,26 +564,26 @@
       IF(ENS_SPS) THEN
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Create the Ensemble Coupler import state"
+        MESSAGE_CHECK = "Create the Ensemble Coupler import state"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        ENS_CPL_IMP_STATE=ESMF_StateCreate(name   = "ENS_CPL_Import"         &
-                                          ,stateintent = ESMF_STATEINTENT_IMPORT  &
-                                          ,rc          = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ENS_CPL_IMP_STATE = ESMF_StateCreate(name        = "ENS_CPL_Import"        &
+                                            ,stateintent = ESMF_STATEINTENT_IMPORT &
+                                            ,rc          = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
 !
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Create the Ensemble Coupler export state"
+        MESSAGE_CHECK = "Create the Ensemble Coupler export state"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        ENS_CPL_EXP_STATE=ESMF_StateCreate(name = "ENS_CPL_Export"           &
-                                          ,stateintent = ESMF_STATEINTENT_EXPORT  &
-                                          ,rc        = RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        ENS_CPL_EXP_STATE = ESMF_StateCreate(name        = "ENS_CPL_Export"         &
+                                            ,stateintent = ESMF_STATEINTENT_EXPORT  &
+                                            ,rc        = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
 !
 !-----------------------------------------------------------------------
 !***  Nest the EARTH export/import states into the import/export states
@@ -605,16 +591,17 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK= "Add the EARTH states into the ENS_CPL states"
+        MESSAGE_CHECK = "Add the EARTH states into the ENS_CPL states"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 ! 
         DO I = 1, TOTAL_MEMBER
           IF(MEMBER_ID == I) THEN
-            CALL ESMF_StateAddReplace(ENS_CPL_IMP_STATE,(/EARTH_EXP_STATE(I)/), rc = RC)
-            ESMF_ERR_RETURN(RC,RC_INIT)
-            CALL ESMF_StateAddReplace(ENS_CPL_EXP_STATE,(/EARTH_IMP_STATE(I)/), rc = RC)
-            ESMF_ERR_RETURN(RC,RC_INIT)
+            CALL ESMF_StateAddReplace(ENS_CPL_IMP_STATE, (/EARTH_EXP_STATE(I)/), rc = RC)
+            ESMF_ERR_RETURN(RC, RC_INIT)
+
+            CALL ESMF_StateAddReplace(ENS_CPL_EXP_STATE, (/EARTH_IMP_STATE(I)/), rc = RC)
+            ESMF_ERR_RETURN(RC, RC_INIT)
           END IF
         END DO
 !
@@ -628,15 +615,15 @@
 !***  Restart-From-History.
 !-----------------------------------------------------------------------
 
-      CALL ESMF_ConfigGetAttribute(config = CF_NEMS &
-                                   ,value  = fhrot &
-                                   ,label  = 'fhrot:' &
+      CALL ESMF_ConfigGetAttribute(config   = CF_NEMS  &
+                                   ,value   = fhrot    &
+                                   ,label   = 'fhrot:' &
                                    ,default = 0 &
-                                   ,rc     = RC)
-      ESMF_ERR_RETURN(RC,RC_INIT)
+                                   ,rc      = RC)
+      ESMF_ERR_RETURN(RC, RC_INIT)
       if (fhrot > 0) then
-        CALL ESMF_TimeIntervalSet(restartOffset, h=fhrot,rc=RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
+        CALL ESMF_TimeIntervalSet(restartOffset, h=fhrot, rc=RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
         CURRTIME = STARTTIME + restartOffset
         call ESMF_ClockSet(CLOCK_NEMS, currTime=CURRTIME, rc=RC)
         ESMF_ERR_RETURN(RC,RC_INIT)
@@ -648,7 +635,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the Initialize step of the EARTH component"
+      MESSAGE_CHECK = "Execute the Initialize step of the EARTH component"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -662,8 +649,8 @@
                                       ,phase       = 1                   &
                                       ,userRc      = RC_USER             &
                                       ,rc          = RC)
-          ESMF_ERR_RETURN(RC,RC_INIT)
-          ESMF_ERR_RETURN(RC_USER,RC_INIT)
+          ESMF_ERR_RETURN(RC, RC_INIT)
+          ESMF_ERR_RETURN(RC_USER, RC_INIT)
         END IF
 !
       END DO
@@ -675,19 +662,19 @@
       IF(ENS_SPS) THEN
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Execute the Initialize step of the Ensemble Coupler component"
+        MESSAGE_CHECK = "Execute the Initialize step of the Ensemble Coupler component"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        CALL ESMF_CplCompInitialize(cplcomp    =ENS_CPL_COMP            &
-                                   ,importState=ENS_CPL_IMP_STATE       &
-                                   ,exportState=ENS_CPL_EXP_STATE       &
-                                   ,clock      =CLOCK_NEMS              &
-                                   ,phase      =1                       &
-                                   ,userRc     =RC_USER                 &
-                                   ,rc         =RC)
-        ESMF_ERR_RETURN(RC,RC_INIT)
-        ESMF_ERR_RETURN(RC_USER,RC_INIT)
+        CALL ESMF_CplCompInitialize(cplcomp     = ENS_CPL_COMP          &
+                                   ,importState = ENS_CPL_IMP_STATE     &
+                                   ,exportState = ENS_CPL_EXP_STATE     &
+                                   ,clock       = CLOCK_NEMS            &
+                                   ,phase       = 1                     &
+                                   ,userRc      = RC_USER               &
+                                   ,rc          = RC)
+        ESMF_ERR_RETURN(RC, RC_INIT)
+        ESMF_ERR_RETURN(RC_USER, RC_INIT)
 !
       END IF
 !
@@ -699,11 +686,8 @@
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !-----------------------------------------------------------------------
 !
-      SUBROUTINE NEMS_RUN(NEMS_GRID_COMP                                &
-                         ,IMP_STATE                                     &
-                         ,EXP_STATE                                     &
-                         ,CLOCK_MAIN                                    &
-                         ,RC_RUN)
+      SUBROUTINE NEMS_RUN(NEMS_GRID_COMP, IMP_STATE, EXP_STATE,         &
+                          CLOCK_MAIN,     RC_RUN)
 !
 !-----------------------------------------------------------------------
 !
@@ -713,10 +697,10 @@
 !
       TYPE(ESMF_GridComp) :: NEMS_GRID_COMP                                !<-- The NEMS component
 !
-      TYPE(ESMF_State) :: IMP_STATE                                     &  !<-- The NEMS import state
-                         ,EXP_STATE                                        !<-- The NEMS export state
+      TYPE(ESMF_State)    :: IMP_STATE                                  &  !<-- The NEMS import state
+                            ,EXP_STATE                                     !<-- The NEMS export state
 !
-      TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The main Clock
+      TYPE(ESMF_Clock)    :: CLOCK_MAIN                                    !<-- The main Clock
 !
       INTEGER,INTENT(OUT) :: RC_RUN                                        !<-- Error return code
 !
@@ -724,9 +708,9 @@
 !***  Local Variables
 !---------------------
 !
-      INTEGER :: HH,I,J,RC,RC_USER
+      INTEGER                 :: HH, I, J, RC, RC_USER
 !
-      TYPE(ESMF_Time) :: CURRTIME
+      TYPE(ESMF_Time)         :: CURRTIME
 !
       TYPE(ESMF_TimeInterval) :: RUNDURATION
 !
@@ -741,7 +725,7 @@
 !***  the NEMS component.
 !-----------------------------------------------------------------------
 !
-      CLOCK_NEMS=CLOCK_MAIN
+      CLOCK_NEMS = CLOCK_MAIN
 !
 !-----------------------------------------------------------------------
 !***  Execute the Run step of each element in the EARTH component
@@ -749,7 +733,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the Run step of the EARTH components"
+      MESSAGE_CHECK = "Execute the Run step of the EARTH components"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -763,8 +747,8 @@
                                ,phase       = 1                         &
                                ,userRc      = RC_USER                   &
                                ,rc          = RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
-          ESMF_ERR_RETURN(RC_USER,RC_RUN)
+          ESMF_ERR_RETURN(RC, RC_RUN)
+          ESMF_ERR_RETURN(RC_USER, RC_RUN)
         END IF
 !
       END DO
@@ -780,22 +764,22 @@
         DO I = NUMBER_START, NUMBER_FINAL
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-          MESSAGE_CHECK="Execute the Run step of the Ensemble Coupler component"
+          MESSAGE_CHECK = "Execute the Run step of the Ensemble Coupler component"
 !         CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-          CALL ESMF_CplCompRun(cplcomp    =ENS_CPL_COMP                 &
-                              ,importState=ENS_CPL_IMP_STATE            &
-                              ,exportState=ENS_CPL_EXP_STATE            &
-                              ,clock      =CLOCK_NEMS                   &
-                              ,phase      =1                            &
-                              ,userRc     =RC_USER                      &
-                              ,rc         =RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
-          ESMF_ERR_RETURN(RC_USER,RC_RUN)
+          CALL ESMF_CplCompRun(cplcomp     = ENS_CPL_COMP               &
+                              ,importState = ENS_CPL_IMP_STATE          &
+                              ,exportState = ENS_CPL_EXP_STATE          &
+                              ,clock       = CLOCK_NEMS                 &
+                              ,phase       = 1                          &
+                              ,userRc      = RC_USER                    &
+                              ,rc          = RC)
+          ESMF_ERR_RETURN(RC, RC_RUN)
+          ESMF_ERR_RETURN(RC_USER, RC_RUN)
 !
           CALL ESMF_VMBarrier(vm = VM_GLOBAL, rc = RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
+          ESMF_ERR_RETURN(RC, RC_RUN)
 !
 !-----------------------------------------------------------------------
 !***  Adjust the ESMF clock for the next run cycle.
@@ -826,19 +810,19 @@
           CALL ESMF_TimeIntervalGet(timeInterval = RUNDURATION          &
                                    ,h            = HH                   &
                                    ,rc           = RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
+          ESMF_ERR_RETURN(RC, RC_RUN)
 !
           HH = HH + HH_INCREASE
 !
           CALL ESMF_TimeIntervalSet(timeInterval = RUNDURATION          &
                                    ,h            = hh                   &
                                    ,rc           = RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
+          ESMF_ERR_RETURN(RC, RC_RUN)
 !
           CALL ESMF_ClockSet(clock       = CLOCK_NEMS                   &
                             ,runDuration = RUNDURATION                  &
                             ,rc = RC)
-          ESMF_ERR_RETURN(RC,RC_RUN)
+          ESMF_ERR_RETURN(RC, RC_RUN)
 !
 !-----------------------------------------------------------------------
 !***  Execute the Run step of each element in the EARTH component
@@ -846,7 +830,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-          MESSAGE_CHECK="Execute the Run step of the EARTH component"
+          MESSAGE_CHECK = "Execute the Run step of the EARTH component"
 !         CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -860,8 +844,8 @@
                                      ,phase       = 1                   &
                                      ,userRc      = RC_USER             &
                                      ,rc          = RC)
-                ESMF_ERR_RETURN(RC,RC_RUN)
-                ESMF_ERR_RETURN(RC_USER,RC_RUN)
+                ESMF_ERR_RETURN(RC, RC_RUN)
+                ESMF_ERR_RETURN(RC_USER, RC_RUN)
             END IF
 !
           END DO
@@ -876,7 +860,7 @@
          CALL ESMF_ClockGet(clock       = CLOCK_NEMS                    &
                            ,runDuration = RUNDURATION                   &
                            ,rc          = RC)
-         ESMF_ERR_RETURN(RC,RC_RUN)
+         ESMF_ERR_RETURN(RC, RC_RUN)
 !
 !-----------------------------------------------------------------------
 !
@@ -890,11 +874,8 @@
 !#######################################################################
 !-----------------------------------------------------------------------
 !
-      SUBROUTINE NEMS_FINALIZE(NEMS_GRID_COMP                           &
-                              ,IMP_STATE                                &
-                              ,EXP_STATE                                &
-                              ,CLOCK_MAIN                               &
-                              ,RC_FINALIZE)
+      SUBROUTINE NEMS_FINALIZE(NEMS_GRID_COMP, IMP_STATE, EXP_STATE,    &
+                               CLOCK_MAIN,     RC_FINALIZE)
 !
 !-----------------------------------------------------------------------
 !
@@ -904,10 +885,10 @@
 !
       TYPE(ESMF_GridComp) :: NEMS_GRID_COMP                                !<-- The NEMS component
 !
-      TYPE(ESMF_State) :: IMP_STATE                                     &  !<-- The NEMS import state
-                         ,EXP_STATE                                        !<-- The NEMS export state
+      TYPE(ESMF_State)    :: IMP_STATE                                  &  !<-- The NEMS import state
+                            ,EXP_STATE                                     !<-- The NEMS export state
 !
-      TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The main Clock
+      TYPE(ESMF_Clock)    :: CLOCK_MAIN                                    !<-- The main Clock
 !
       INTEGER,INTENT(OUT) :: RC_FINALIZE                                   !<-- Error return code
 !
@@ -915,7 +896,7 @@
 !***  Local Variables
 !---------------------
 !
-      INTEGER :: I,RC,RC_USER
+      INTEGER :: I, RC, RC_USER
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -929,7 +910,7 @@
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the Finalize step of the EARTH component"
+      MESSAGE_CHECK = "Execute the Finalize step of the EARTH component"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -943,8 +924,8 @@
                                     ,phase       = 1                    &
                                     ,userRc      = RC_USER              &
                                     ,rc          = RC)
-          ESMF_ERR_RETURN(RC,RC_FINALIZE)
-          ESMF_ERR_RETURN(RC_USER,RC_FINALIZE)
+          ESMF_ERR_RETURN(RC, RC_FINALIZE)
+          ESMF_ERR_RETURN(RC_USER, RC_FINALIZE)
         END IF
 !
       END DO
@@ -954,19 +935,19 @@
       IF(ENS_SPS) THEN
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Execute the Finalize step of the Ensemble Coupler component"
+        MESSAGE_CHECK = "Execute the Finalize step of the Ensemble Coupler component"
 !       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-        CALL ESMF_CplCompFinalize(cplcomp    =ENS_CPL_COMP              &
-                                 ,importState=ENS_CPL_IMP_STATE         &
-                                 ,exportState=ENS_CPL_EXP_STATE         &
-                                 ,clock      =CLOCK_NEMS                &
-                                 ,phase      =1                         &
-                                 ,userRc     =RC_USER                   &
-                                 ,rc         =RC)
-        ESMF_ERR_RETURN(RC,RC_FINALIZE)
-        ESMF_ERR_RETURN(RC_USER,RC_FINALIZE)
+        CALL ESMF_CplCompFinalize(cplcomp     = ENS_CPL_COMP            &
+                                 ,importState = ENS_CPL_IMP_STATE       &
+                                 ,exportState = ENS_CPL_EXP_STATE       &
+                                 ,clock       = CLOCK_NEMS              &
+                                 ,phase       = 1                       &
+                                 ,userRc      = RC_USER                 &
+                                 ,rc          = RC)
+        ESMF_ERR_RETURN(RC, RC_FINALIZE)
+        ESMF_ERR_RETURN(RC_USER, RC_FINALIZE)
 !
       END IF
 !

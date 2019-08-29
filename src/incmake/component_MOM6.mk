@@ -16,7 +16,7 @@ MOM6_ALL_OPTS=\
   COMP_SRCDIR="$(MOM6_SRCDIR)" \
   COMP_BINDIR="$(MOM6_BINDIR)" \
   FMS_BINDIR="$(FMS_BINDIR)" \
-  MACHINE_ID="$(MACHINE_ID)"
+  MACHINE_ID="$(FULL_MACHINE_ID)"
 
 # Workaround: if MOM6 is built twice, it fails because files in
 # $(MOM6_SRCDIR)/exec/ already exist.
@@ -26,11 +26,11 @@ $(mom6_mk): $(fms_mk) configure
 	$(MODULE_LOGIC) ; export $(MOM6_ALL_OPTS)                     ; \
 	set -e                                                        ; \
 	cd $(MOM6_SRCDIR)                                             ; \
-	./compile.sh --platform $(MACHINE_ID) --fms-dir "$(FMS_BINDIR)"
+	./compile.sh --platform $(FULL_MACHINE_ID) --fms-dir "$(FMS_BINDIR)"
 	+$(MODULE_LOGIC) ; cd $(MOM6_SRCDIR)                          ; \
 	  exec $(MAKE) -f makefile.nuopc $(MOM6_ALL_OPTS)               \
 	  "FMSDIR=$(FMS_BINDIR)"                                        \
-	  "NEMSMOMDIR=$(MOM6_SRCDIR)/exec/$(MACHINE_ID)"                \
+	  "NEMSMOMDIR=$(MOM6_SRCDIR)/exec/$(FULL_MACHINE_ID)"                \
 	  "INSTALLDIR=$(MOM6_BINDIR)" install
 	test -d "$(MOM6_BINDIR)"
 	test -s "$(mom6_mk)"
