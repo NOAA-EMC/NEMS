@@ -1560,7 +1560,7 @@ push_to_master() {
     done
 
     # Check out $master_branch of NEMS:
-    git clone gerrit:NEMS NEMS
+    git clone github:NEMS NEMS
     cd NEMS
     git checkout "$master_branch"
 
