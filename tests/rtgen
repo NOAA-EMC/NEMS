@@ -551,6 +551,63 @@ def decide_project_theia():
         logger.info('%10s : %6d %s'%(proj,projalloc[proj],chose))
     return projchoose
 
+# Hera project selection
+
+def decide_project_hera():
+#   """!Chooses which project to use when submitting jobs on Hera.
+
+#   Uses the saccount_params program to scan the available core-hours
+#   on Hera.  Chooses the project with the most available core-hours.
+#   If no projects have resources, or if some error happens, then
+#   the "nems" project is used."""
+#   logger=logging.getLogger('rtgen')
+#   try:
+#       account_params=produtil.run.runstr(
+#           batchexe('account_params'),logger=jlogger)
+#   except(EnvironmentError,ExitStatusException) as ee:
+#       logger.warning('Cannot run account_params: '+str(ee))
+#       logger.warning('Will use project "nems" for cpu hours.')
+        return 'nems'
+#   default_project='nems'
+#   projects=list()
+#   projalloc=dict()
+#   for line in account_params.splitlines():
+#       # Allocation: 6912 stmp      0.00      0.00        0.00
+#       m=re.match('^\s*Allocation:\s+(\d+)\s+(\S+)\s+([0-9.]+)',line)
+#       if not m:
+#           # skip other lines
+#           logger.debug('Skip line: '+line.rstrip())
+#           continue
+#       gid,name,alloc = m.groups()
+#       try:
+#           alloc=float(alloc)
+#           if name=='nems': alloc/=2
+#           if not projects:
+#               default_project=name
+#           projects.append(name)
+#           projalloc[name]=alloc
+#       except (ValueError,TypeError) as vte:
+#           logger.warning('Cannot parse: '+line.rstrip())
+#           continue
+#   if not projects:
+#       # Parse error or failure of account_params.
+#       logger.warning('Could not parse account_params output.  Will use default: '+default_project)
+#       return default_project
+#   projects.sort(lambda a,b: cmp(projalloc[a],projalloc[b]))
+#   projchoose=projects[-1]
+
+#   if projalloc[projchoose]<1.0:
+#       logger.warning('All projects passed core-hour limit; will use first project: '+default_project)
+#       return default_project
+
+#   for proj in projects:
+#       if proj==projchoose:
+#           chose='<== chosen'
+#       else:
+#           chose=''
+#       logger.info('%10s : %6d %s'%(proj,projalloc[proj],chose))
+#   return projchoose
+
 def decide_tmp_theia():
     """!Chooses a scratch space to use on Theia, based on how close
     each space is to its quota.
@@ -623,6 +680,82 @@ def decide_tmp_theia():
     logger.warning("Auto-detection of least used stmp failed.")
     logger.warning("%s: randomly chosen stmp"%(use_me,))
     return os.path.join(use_me,username())
+
+########################################################################
+
+def decide_tmp_hera():
+    """!Chooses a scratch space to use on Hera, based on how close
+    each space is to its quota.
+
+    Uses the pan_df program to check the quota of stmp1 through stmp4.
+    Returns the one that is farthest from quota based on percent
+    usage.  If this process fails, such as pan_df giving a non-zero
+    return status or unparseable output, then a random stmp is chosen.
+
+    @returns path to a temporary directory, which may not yet exist."""
+#   logger=logging.getLogger('rtgen')
+#   stmps=[ '/scratch1/NCEPDEV/stmp2',
+#           '/scratch1/NCEPDEV/stmp4',
+#           '/scratch2/NCEPDEV/stmp1',
+#           '/scratch2/NCEPDEV/stmp3' ]
+    return '/scratch1/NCEPDEV/stmp2/'+username()
+#   try:
+#       args=['-B', '1G', '--' ]
+#       args.extend(stmps)
+#       pan_df=produtil.run.runstr(batchexe('pan_df')[args])
+#       storage=dict()
+#       for m in re.finditer(r'''(?isx)
+#           (?:
+#                \s* (?P<device>  \S+ )
+#                [ \t\r\n]+ (?P<size>    \d+ )
+#                \s+ (?P<used>    \d+ )
+#                \s+ (?P<avail>   \d+ )
+#                \s+ (?P<percent> [0-9.]+ ) %
+#                \s+ (?P<mntpnt>  \S+ )
+#           |
+#                (?P<bad> [^\r\n]*[\r\n] | [^\r\n]*\Z ) )
+#           ''',pan_df):
+#           # Skip lines that do not have usage information (such as
+#           # the header line).
+#           if m.group('bad') or not m.group('mntpnt'):
+#               logger.debug('pan_df: ignoring %s'%(repr(m.group(0).strip()),))
+#               continue
+
+#           mntpnt=m.group('mntpnt')
+#           percent=m.group('percent')
+#           percent=int(percent,10)
+
+#           # Skip lines with invalid mount points:
+#           if not os.path.isdir(mntpnt):
+#               logger.warning(
+#                   'Ignoring invalid mount point from pan_df: %s'%(
+#                       mntpnt,))
+#               continue
+
+#           # Store all valid lines:
+#           logger.debug('pan_df: %s at %d%% usage'%(mntpnt,percent))
+#           storage[mntpnt]=percent
+
+#       # Return the least used stmp if available.
+#       if not storage:
+#           logger.error(
+#               'No valid lines seen in pan_df output.')
+#       else:
+#           by_usage=storage.keys()
+#           by_usage.sort(
+#               lambda a,b: cmp(storage[a],storage[b]))
+#           logger.info('%s: use this tmp (has lowest usage at %d%%)'%(
+#                   by_usage[0],storage[by_usage[0]]))
+#           return os.path.join(by_usage[0],username())
+
+#   except(EnvironmentError,ExitStatusException,KeyError,ValueError) as e:
+#       # Log all likely errors before emergency fallback option:
+#       logger.error(str(e),exc_info=True)
+
+#   use_me=random.choice(stmps)
+#   logger.warning("Auto-detection of least used stmp failed.")
+#   logger.warning("%s: randomly chosen stmp"%(use_me,))
+#   return os.path.join(use_me,username())
 
 ########################################################################
 
@@ -940,6 +1073,10 @@ class RTGen(TestGen):
             #    out.write('module load slurm\n')
             out.write('module use /scratch4/NCEPDEV/nems/noscrub/emc.nemspara/soft/modulefiles/\n')
             out.write('module load rocoto/1.3.0rc2\n')
+            out.write('module load hpss emc-utils/1.1.0 ; have_qoutql=YES\n')
+        elif here.name == 'hera':
+            out.write('module use /scratch1/NCEPDEV/nems/emc.nemspara/soft/modulefiles/\n')
+            out.write('module load rocoto/1.3.1\n')
             out.write('module load hpss emc-utils/1.1.0 ; have_qoutql=YES\n')
         elif here.name == 'gaea':
             out.write('module use /lustre/f2/pdata/ncep_shared/emc.nemspara/soft/modulefiles\n')
@@ -1347,6 +1484,8 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
     if project is None:
         if produtil.cluster.name() == 'theia':
             project=decide_project_theia()
+        elif produtil.cluster.name() == 'hera':
+            project=decide_project_hera()
         elif produtil.cluster.name() in ['gyre','tide','luna','surge','venus','mars']:
             project=decide_project_wcoss()
         elif produtil.cluster.name() == 'jet':
@@ -1356,7 +1495,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
         elif produtil.cluster.name() == 'gaea':
             project=decide_project_gaea()
         else:
-            fail('Unknown system "'+produtil.cluster.name()+'".  Only Theia, Jet, WCOSS, and GAEA are supported.')
+            fail('Unknown system "'+produtil.cluster.name()+'".  Only Hera, Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen project for job submission is %s'%(
                 repr(project),))
     else:
@@ -1367,6 +1506,8 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
     if temp is None:
         if produtil.cluster.name() == 'theia':
             scratch_dir=decide_tmp_theia()
+        elif produtil.cluster.name() == 'hera':
+            scratch_dir=decide_tmp_hera()
         elif produtil.cluster.name() in ['gyre','tide','luna','surge','mars','venus']:
             scratch_dir=decide_tmp_wcoss(produtil.cluster.where().wcoss_phase)
         elif produtil.cluster.name() == 'gaea':
@@ -1379,7 +1520,7 @@ def rtgen(verbose,baseline_dir,dry_run,baseline,unique_id,temp,
             assert('nceplibs' not in scratch_dir)
             assert('hwrfdata' not in scratch_dir)
         else:
-            fail('Unknown system "'+produtil.cluster.name()+'".  Only Theia, Jet, WCOSS, and GAEA are supported.')
+            fail('Unknown system "'+produtil.cluster.name()+'".  Only Hera, Theia, Jet, WCOSS, and GAEA are supported.')
         jlogger.info('Auto-chosen ptmp is %s'%(repr(scratch_dir),))
     else:
         scratch_dir=temp
