@@ -623,7 +623,6 @@ def decide_tmp_theia():
             '/scratch3/NCEPDEV/stmp2',
             '/scratch4/NCEPDEV/stmp3',
             '/scratch4/NCEPDEV/stmp4' ]
-    return '/scratch3/NCEPDEV/stmp1'
     try:
         args=['-B', '1G', '--' ]
         args.extend(stmps)
