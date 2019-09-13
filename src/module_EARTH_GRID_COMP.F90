@@ -587,6 +587,76 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+      !For MOM6 and WW3 variables to match:
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_partitioned_stokes_drift_1")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_partitioned_stokes_drift_1", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "northward_partitioned_stokes_drift_1")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="northward_partitioned_stokes_drift_1", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_partitioned_stokes_drift_2")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_partitioned_stokes_drift_2", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "northward_partitioned_stokes_drift_2")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="northward_partitioned_stokes_drift_2", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+     if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_partitioned_stokes_drift_3")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_partitioned_stokes_drift_3", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "northward_partitioned_stokes_drift_3")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="northward_partitioned_stokes_drift_3", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      ! end of MOM6 and WW3 variables to match
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "inst_temp_height_surface")) then
         call NUOPC_FieldDictionaryAddEntry( &
