@@ -1,8 +1,8 @@
 # List of valid platforms and the human-readable names of each.
 PLATFORM theia             NAME Theia
-PLATFORM theia.slurm.intel NAME Theia (SLURM test)
+PLATFORM theia.slurm.intel NAME Theia
 PLATFORM hera              NAME Hera
-PLATFORM hera.intel        NAME Hera (SLURM test)
+PLATFORM hera.intel        NAME Hera
 PLATFORM wcoss1            NAME WCOSS Phase 1
 PLATFORM wcoss2            NAME WCOSS Phase 2
 PLATFORM wcoss_cray        NAME WCOSS Cray
@@ -34,8 +34,9 @@ ON wcoss_dell_p3     SCRUB /gpfs/dell2/ptmp/$username
 # List of apps to run on each platform.
 ON theia              APPS FV3-MOM6-CICE5
 ON theia.slurm.intel  APPS NEMSfv3gfs WW3-FV3
-ON hera               APPS FV3-MOM6-CICE5
-ON hera.intel         APPS NEMSfv3gfs WW3-FV3
+#ON hera               APPS FV3-MOM6-CICE5
+#ON hera.intel         APPS NEMSfv3gfs WW3-FV3
+ON hera.intel         APPS NEMSfv3gfs
 ON wcoss1             APPS NEMSfv3gfs
 ON wcoss2             APPS NEMSfv3gfs WW3-FV3
 ON wcoss_cray         APPS NEMSfv3gfs FV3GFS-GSDCHEM
