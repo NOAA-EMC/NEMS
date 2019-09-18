@@ -216,8 +216,8 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
-!     integer, parameter       :: NumFields=251
-      integer, parameter       :: NumFields=250
+      integer, parameter       :: NumFields=251
+!     integer, parameter       :: NumFields=250
       character(60), parameter :: Field_Name_unit(2,NumFields) = (/                                                                   &
       "air_density_height_lowest                                   ", "kg m-3                                                      ", &
       "mean_zonal_moment_flx                                       ", "N m-2                                                       ", &
@@ -497,6 +497,7 @@
       "surface_cell_area                                           ", "m2                                                          ", &
       "inst_convective_rainfall_amount                             ", "kg m-2                                                      ", &
       "inst_exchange_coefficient_heat_levels                       ", "W m-2 K-1                                                   ", &
+      "inst_spec_humid_conv_tendency_levels                        ", "kg kg-1 s-1                                                 ", &
       "inst_friction_velocity                                      ", "s-1                                                         ", &
       "inst_rainfall_amount                                        ", "kg m-2                                                      ", &
       "inst_soil_moisture_content                                  ", "kg m-2                                                      ", &

@@ -930,9 +930,11 @@ module module_MEDIATOR
     call ESMF_LogWrite(trim(subname)//": Verbosity="//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    dbug_flag = ESMF_UtilString2Int(value, &
-                                    specialStringList=(/"min","max"/), specialValueList=(/0,255/), rc=rc)
+    dbug_flag = ESMF_UtilString2Int(value,                                          &
+                                    specialStringList=(/"off","low","high","max"/), &
+                                    specialValueList=(/0,1,100,255/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
     write(msgString,'(A,i6)') trim(subname)//' dbug_flag = ',dbug_flag
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
