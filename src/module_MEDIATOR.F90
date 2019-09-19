@@ -239,7 +239,7 @@ module module_MEDIATOR
   logical            :: atmocn_flux_from_atm = .true. ! where is atm/ocn flux computed
   logical            :: generate_landmask = .true.    ! landmask flag
   integer            :: dbrc
-  character(len=256) :: msgString
+  character(len=256) :: msgString, restart_dir
   logical            :: isPresent
   type(ESMF_Time)    :: time_invalidTimeStamp
   type(ESMF_Clock)   :: clock_invalidTimeStamp
@@ -924,6 +924,7 @@ module module_MEDIATOR
     character(len=NUOPC_PhaseMapStringLength) :: initPhases(6)
     character(len=*),parameter                :: subname='(module_MEDIATOR:InitializeP0)'
     character(len=10)                         :: value
+    character(len=256)                        :: cvalue
     
     call ESMF_AttributeGet(gcomp, name="Verbosity", value=value, defaultValue="max", &
                            convention="NUOPC", purpose="Instance", rc=rc)
@@ -957,6 +958,14 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     write(msgString,'(A,i6)') trim(subname)//' restart_interval = ',restart_interval
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
+    if (restart_interval > 0) then
+      restart_dir = ' '
+      call ESMF_AttributeGet(gcomp, name="restart_dir", value=cvalue, defaultValue=" ", &
+                             convention="NUOPC", purpose="Instance", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      restart_dir = trim(cvalue)
+    endif
 
     call ESMF_AttributeGet(gcomp, name="coldstart", value=value, defaultValue="false", &
                            convention="NUOPC", purpose="Instance", rc=rc)
@@ -5433,7 +5442,7 @@ module module_MEDIATOR
     ! ESMF_TimeInterval
     integer*8                  :: sec8
     integer                    :: yr,mon,day,hr,min,sec
-    character(len=128)         :: fname
+    character(len=256)         :: fname
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_write_restart)'
 
     if (dbug_flag > 5) then
@@ -5460,7 +5469,8 @@ module module_MEDIATOR
         call ESMF_TimeGet(currTime,yy=yr,mm=mon,dd=day,h=hr,m=min,s=sec,rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        write(fname,'(i4.4,2i2.2,a,3i2.2,a)') yr,mon,day,'-',hr,min,sec,'_mediator'
+        write(fname,'(a,i4.4,2i2.2,a,3i2.2,a)') restart_dir(1:lenstr(restart_dir)), &
+                                                yr, mon, day, '-', hr, min, sec, '_mediator'
         write(msgString,*) trim(subname)//' restart to '//trim(fname)
         call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=dbrc)
 
@@ -8880,5 +8890,26 @@ endif
   end subroutine NUOPCplus_UpdateTimestampF
 #endif 
   !-----------------------------------------------------------------------------
+!=======================================================================
+
+! Compute length of string by finding first non-blank character from the right.
+
+      integer function lenstr(label)
+
+      character*(*) label
+
+      ! local variables
+
+      integer  :: length, n
+
+      length = len(label)
+      do n=length,1,-1
+        if( label(n:n) /= ' ' ) exit
+      enddo
+      lenstr = n
+
+      end function lenstr
+
+!=======================================================================
 
 end module
