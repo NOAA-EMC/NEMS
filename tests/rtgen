@@ -698,7 +698,7 @@ def decide_tmp_hera():
 #           '/scratch1/NCEPDEV/stmp4',
 #           '/scratch2/NCEPDEV/stmp1',
 #           '/scratch2/NCEPDEV/stmp3' ]
-    return '/scratch1/NCEPDEV/stmp2/'+username()
+    return '/scratch1/NCEPDEV/stmp2/'+username()+'/scrub'
 #   try:
 #       args=['-B', '1G', '--' ]
 #       args.extend(stmps)
