@@ -4,22 +4,17 @@
 #
 ########################################################################
 
-ifneq (,$(and $(wildcard /scratch),$(wildcard /scratch3)))
+ifneq (,$(and $(wildcard /scratch1),$(wildcard /scratch2)))
   NEMS_COMPILER?=intel
-  $(call add_build_env,theia.$(NEMS_COMPILER),env/rdhpcs/theia.$(NEMS_COMPILER).mk)
+  $(call add_build_env,hera.$(NEMS_COMPILER),env/rdhpcs/hera.$(NEMS_COMPILER).mk)
 else
-  ifneq (,$(and $(wildcard /scratch1),$(wildcard /scratch2)))
+  ifneq (,$(and $(wildcard /lfs1),$(wildcard /lfs3)))
     NEMS_COMPILER?=intel
-    $(call add_build_env,hera.$(NEMS_COMPILER),env/rdhpcs/hera.$(NEMS_COMPILER).mk)
+    $(call add_build_env,jet.$(NEMS_COMPILER),env/rdhpcs/jet.$(NEMS_COMPILER).mk)
   else
-    ifneq (,$(and $(wildcard /lfs1),$(wildcard /lfs3)))
+    ifneq (,$(shell hostname | grep -i gaea))
       NEMS_COMPILER?=intel
-      $(call add_build_env,jet.$(NEMS_COMPILER),env/rdhpcs/jet.$(NEMS_COMPILER).mk)
-    else
-      ifneq (,$(shell hostname | grep -i gaea))
-        NEMS_COMPILER?=intel
-        $(call add_build_env,gaea.$(NEMS_COMPILER),env/rdhpcs/gaea.$(NEMS_COMPILER).mk)
-      endif
+      $(call add_build_env,gaea.$(NEMS_COMPILER),env/rdhpcs/gaea.$(NEMS_COMPILER).mk)
     endif
   endif
 endif
