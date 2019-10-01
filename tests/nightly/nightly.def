@@ -3,9 +3,7 @@ ON tujet             WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON ujet.slurm        WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON svjet             WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON xjet              WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/rt
-ON theia             WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
-ON theia.intel       WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
-ON theia.slurm.intel WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
+ON hera.intel        WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON wcoss1            WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON wcoss2            WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt
 ON wcoss_cray        WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/rt

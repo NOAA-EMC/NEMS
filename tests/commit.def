@@ -1,6 +1,4 @@
 # Directory to receive the webpage with regression test results
-ON theia              WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/NUOPC/
-ON theia.slurm.intel  WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/NUOPC/
 ON hera               WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/NUOPC/
 ON hera.intel         WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/NUOPC/
 ON wcoss1             WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/NUOPC/

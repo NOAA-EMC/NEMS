@@ -237,13 +237,11 @@ parse_control_file() {
             # Specifies the directory to use for this scripts work
             # space.  Use the string "$username" in place of the user
             # name.
-            # ON theia SCRUB /scratch4/NCEPDEV/nems/scrub/$username
             #echo "Platform $key uses scrub space $value"
             set_global "scrub_space_for_$key" "$value"
             check_platform_in_key=YES
         elif [[ "$context" == ON && "$command" == APPS ]] ; then
             # Specifies which apps should be tested on each platform.
-            # ON theia APPS NEMSfv3gfs NEMSGSM HYCOM-GSM-CICE WW3-FV3 WW3-ATM FV3-MOM6-CICE5
             #echo "Platform $key will run apps $value"
             set_global "app_list_for_$key" "$value"
             check_platform_in_key=YES
@@ -282,7 +280,6 @@ parse_control_file() {
         elif [[ "$context" == ON && "$command" == WEBPAGE ]] ; then
             # Specifies the directory (local or remote) to receive the webpage that has test results.
             #ON tujet WEBPAGE /lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/dell-produtil/
-            #ON theia WEBPAGE jetscp.rdhpcs.noaa.gov:/lfs3/projects/hfv3gfs/emc.nemspara/web/nems-commit/dell-produtil/
 
             #echo "Platform $key sends to webpage $value"
             set_global "webpage_for_$key" "$value"
