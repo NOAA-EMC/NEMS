@@ -1,6 +1,0 @@
-03 00 * * * mkdir -p /scratch4/NCEPDEV/meso/scrub/Ratko.Vasic
-
-28 18 * * * /scratch4/NCEPDEV/meso/noscrub/Ratko.Vasic/multi-app-test/tests/nightly/run-from-theia-user.sh ngt theia             checkout > /scratch4/NCEPDEV/meso/scrub/Ratko.Vasic/nightly-checkout.log 2>&1
-28 18 * * * /scratch4/NCEPDEV/meso/noscrub/Ratko.Vasic/multi-app-test/tests/nightly/run-from-theia-user.sh ngt theia.intel       checkout > /scratch4/NCEPDEV/meso/scrub/Ratko.Vasic/intel-nightly-checkout.log 2>&1
-28 18 * * * /scratch4/NCEPDEV/meso/noscrub/Ratko.Vasic/multi-app-test/tests/nightly/run-from-theia-user.sh ngt theia.slurm.intel checkout > /scratch4/NCEPDEV/meso/scrub/Ratko.Vasic/slurm-nightly-checkout.log 2>&1
-
