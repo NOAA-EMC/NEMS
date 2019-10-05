@@ -56,6 +56,9 @@
 #ifdef FRONT_XATM
       use FRONT_XATM,       only: XATM_SS   => SetServices
 #endif
+#ifdef FRONT_WAM
+      use FRONT_WAM,        only: WAM_SS    => SetServices
+#endif
 #ifdef FRONT_DATAWAM
       use FRONT_DATAWAM,    only: DATAWAM_SS=> SetServices
 #endif
@@ -152,6 +155,7 @@
   ! - Mediator
       use module_MEDIATOR,        only: MED_SS     => SetServices
       use module_MEDSpaceWeather, only: MEDSW_SS   => SetServices
+      use module_MED_SWPC,        only: MEDSWPC_SS => SetServices
 
       USE module_EARTH_INTERNAL_STATE,ONLY: EARTH_INTERNAL_STATE        &
                                            ,WRAP_EARTH_INTERNAL_STATE
@@ -3380,6 +3384,19 @@
               file=__FILE__, rcToReturn=rc)
             return  ! bail out
 #endif
+          elseif (trim(model) == "wam") then
+#ifdef FRONT_WAM
+            call NUOPC_DriverAddComp(driver, trim(prefix), WAM_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
           elseif (trim(model) == "datawam") then
 #ifdef FRONT_DATAWAM
             call NUOPC_DriverAddComp(driver, trim(prefix), DATAWAM_SS, &
@@ -3768,6 +3785,11 @@
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          elseif (trim(model) == "swpc") then
+            call NUOPC_DriverAddComp(driver, trim(prefix), MEDSWPC_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, file=trim(name)//":"//__FILE__)) return  !  bail out
           else
             ! Error condition: unknown model requested
             write (msg, *) "The requested model '", trim(model), &

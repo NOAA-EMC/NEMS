@@ -1,0 +1,6331 @@
+#define LEGACY
+module module_MED_SWPC_methods
+
+  !-----------------------------------------------------------------------------
+  ! Mediator Methods
+  !-----------------------------------------------------------------------------
+
+  use ESMF
+  use NUOPC
+  
+  implicit none
+  
+  type stateType
+    type(ESMF_State) :: parent
+    type(ESMF_State) :: self
+    character(len=ESMF_MAXSTR), dimension(:), pointer :: fieldNames   => null()
+    character(len=ESMF_MAXSTR), dimension(:), pointer :: fieldOptions => null()
+    character(len=ESMF_MAXSTR) :: trAction
+    character(len=1)           :: fieldSep
+    type(ESMF_Grid)            :: localGrid
+    type(ESMF_Mesh)            :: localMesh
+    type(ESMF_Field)           :: uvec(2)
+    type(ESMF_Field)           :: localField(2)
+    type(ESMF_Field)           :: localIntField(2)
+    type(ESMF_Field)           :: localCartField
+    type(ESMF_Array)           :: localLevels
+    type(ESMF_Array)           :: remoteLevels
+    integer                    :: ugDimLength
+    integer                    :: fieldMaxRank
+    logical                    :: doRotation
+    integer, dimension(:), pointer :: fieldDepMap => null()
+    type(stateType),   pointer :: next 
+  end type stateType
+
+  type compType
+    character(len=ESMF_MAXSTR) :: name
+    type(stateType),   pointer :: stateList => null()
+    type(compType),    pointer :: next      => null()
+  end type compType
+
+  type rhType
+    character(len=ESMF_MAXSTR) :: label
+    type(ESMF_RouteHandle)   :: rh
+    type(stateType), pointer :: srcState => null()
+    type(stateType), pointer :: dstState => null()
+    type(rhType),    pointer :: next
+  end type rhType
+
+  type (compType), pointer :: compList => null()
+  type (rhType),   pointer :: rhList   => null()
+
+  interface Interpolate
+    module procedure VerticalInterpolate1D
+    module procedure VerticalInterpolate2D
+  end interface Interpolate
+
+
+
+  private
+
+  public :: &
+    compType, &
+    rhType
+
+  public :: &
+    FieldGet,                          &
+    FieldPrintMinMax,                  &
+    FieldRegrid,                       &
+    GridAddNewCoord,                   &
+    initGrids,                         &
+    MeshGetBounds,                     &
+    NamespaceAdd,                      &
+    NamespaceAdjustFields,             &
+    NamespaceAdvertise,                &
+    NamespaceCheckConnectedFields,     &
+    NamespaceDestroy,                  &
+    NamespaceGet,                      &
+    NamespaceGetGrid,                  &
+    NamespaceGetLocal,                 &
+    NamespaceInitializeFields,         &
+    NamespacePrint,                    &
+    NamespaceRealizeFields,            &
+    NamespaceRemoveField,              &
+    NamespaceSetLocalGrid,             &
+    NamespaceSetLocalGridFromField,    &
+    NamespaceSetLocalMesh,             &
+    NamespaceSetRemoteLevelsFromField, &
+    NamespaceUpdateFields,             &
+    RouteHandleCreate,                 &
+    RouteHandleListGet,                &
+    RouteHandleListIsCreated,          &
+    RouteHandleListRelease,            &
+    RouteHandlePrint,                  &
+    StateFilterField,                  &
+    StateGetField,                     &
+    StateStoreField
+  
+contains
+
+  ! -- Namespace: Add(Create)/Remove objects/Destroy: begin definition --
+  
+  subroutine NamespaceAdd(name, state, fieldNames, trAction, ungriddedVerticalDim, &
+    fieldOptions, fieldSep, rc)
+    character(len=*),               intent(in) :: name
+    type(ESMF_State)                           :: state
+    character(len=*), dimension(:), intent(in) :: fieldNames
+    character(len=*),               intent(in) :: trAction
+    logical,             optional,  intent(in) :: ungriddedVerticalDim
+    character(len=*), dimension(:), optional, intent(in) :: fieldOptions
+    character(len=*),               optional, intent(in) :: fieldSep
+    integer,             optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p, q
+    type(stateType), pointer :: compState, s
+    integer :: localrc
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    nullify(compState, p, q, s)
+
+    p => compList
+    q => compList
+    do while (associated(p))
+      if (trim(p % name) == name) exit
+      q => p
+      p => p % next
+    end do
+
+    if (.not.associated(p)) then
+      allocate(p, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      p % name = name
+      nullify(p % next, p % stateList)
+      if (associated(q)) then
+        q % next => p
+      else
+        q => p
+        compList => p
+      end if
+    end if
+
+    call StateAdd(compState, state, fieldNames, trAction, &
+      ungriddedVerticalDim=ungriddedVerticalDim, &
+      fieldOptions=fieldOptions, fieldSep=fieldSep, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    if (associated(p % stateList)) then
+      s => p % stateList
+      do while (associated(s % next))
+        s => s % next
+      end do
+      s % next => compState
+    else
+      p % stateList => compState
+    end if
+
+    nullify(p, q, s, compState)
+     
+  end subroutine NamespaceAdd
+
+  subroutine StateAdd(s, state, fieldNames, trAction, ungriddedVerticalDim, fieldOptions, fieldSep,  rc)
+    type(stateType),                   pointer :: s
+    type(ESMF_State)                           :: state
+    character(len=*), dimension(:), intent(in) :: fieldNames
+    character(len=*),               intent(in) :: trAction
+    logical,             optional,  intent(in) :: ungriddedVerticalDim
+    character(len=*), dimension(:), optional, intent(in) :: fieldOptions
+    character(len=*),               optional, intent(in) :: fieldSep
+    integer,             optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: i, item, localCount, pairCount, pos
+    integer :: localrc, fieldCount, totalCount, ugDimLength, localMaxRank
+    integer,                    dimension(:), allocatable :: localDepMap, tmpMap
+    character(len=ESMF_MAXSTR), dimension(:), allocatable :: localNames, localOptions, tmp
+    character(len=1) :: localFieldSep
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ugDimLength = 0
+    if (present(ungriddedVerticalDim)) then
+      if (ungriddedVerticalDim) ugDimLength = -1
+    end if
+
+    ! -- if present, field options must be provided for each field entry
+    if (present(fieldOptions)) then
+      if (size(fieldNames) /= size(fieldOptions)) then
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="number of field options must match number of fields", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+          return ! bail out
+      end if
+    end if
+
+    ! -- set field separator string to identify field pairs
+    localFieldSep = ":"
+    if (present(fieldSep)) localFieldSep = fieldSep(1:1)
+
+    ! -- unpack field pairs to determine full field list
+    fieldCount = size(fieldNames)
+    pairCount  = count(scan(fieldNames, localFieldSep) /=0)
+    localCount = fieldCount + pairCount
+
+    allocate(localNames(localCount), localOptions(localCount), &
+      localDepMap(localCount), stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    localOptions = "none"
+    localDepMap  = 0
+    localMaxRank = 1
+
+    i = 0
+    do item = 1, fieldCount
+      pos = scan(fieldNames(item), localFieldSep)
+      i = i + 1
+      if (pos > 0) then
+        localNames(i)  = fieldNames(item)(1:pos-1)
+        localDepMap(i) = i + 1
+        i = i + 1
+        localNames(i)  = fieldNames(item)(pos+1:)
+        localDepMap(i) = -i - 1
+        if (present(fieldOptions)) then
+          localOptions(i-1:i) = fieldOptions(item)
+        end if
+        localMaxRank = 2
+      else
+        localNames(i) = fieldNames(item)
+        if (present(fieldOptions)) &
+          localOptions(i) = fieldOptions(item)
+      end if
+    end do
+
+    ! -- create state if it does not exist
+    if (.not.associated(s)) then
+      allocate(s, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      ! -- initialize state
+      nullify(s % fieldNames, s % fieldOptions, s % next)
+      s % trAction     = ""
+      s % ugDimLength  = 0
+      s % fieldMaxRank = 1
+    end if
+    if (associated(s % fieldNames)) then
+      if (trim(s % trAction) /= trAction) then
+        ! -- add fields to same nested state (only one value of trAction is allowed)
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="transferAction must match when adding fields to same state", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+          return ! bail out
+      end if 
+      if ((s % ugDimLength * ugDimLength == 0) .and. &
+          (s % ugDimLength /= ugDimLength)) then
+        ! -- add fields to same nested state (only one value of trAction is allowed)
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="field to be added must have ungridded dimension length", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+          return ! bail out
+      end if 
+      fieldCount = size(s % fieldNames)
+      totalCount = fieldCount + localCount
+      allocate(tmp(fieldCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      ! -- add field names
+      tmp(1:fieldCount) = s % fieldNames
+      deallocate(s % fieldNames, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      allocate(s % fieldNames(totalCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      s % fieldNames(1:fieldCount)      = tmp
+      s % fieldNames(fieldCount + 1:)   = localNames
+      ! -- add field options
+      tmp(1:fieldCount) = s % fieldOptions
+      deallocate(s % fieldOptions, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      allocate(s % fieldOptions(totalCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      s % fieldOptions(1:fieldCount)      = tmp
+      s % fieldOptions(fieldCount + 1:)   = localOptions
+      deallocate(tmp, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      ! -- add field depMap
+      allocate(tmpMap(fieldCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      tmpMap = s % fieldDepMap
+      deallocate(s % fieldDepMap, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      allocate(s % fieldDepMap(totalCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      s % fieldDepMap(1:fieldCount)      = tmpMap
+      s % fieldDepMap(fieldCount + 1:)   = localDepMap
+      deallocate(tmpMap, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      s % fieldMaxRank = max(s % fieldMaxRank, localMaxRank)
+    else
+      allocate(s % fieldNames(localCount), &
+               s % fieldOptions(localCount), &
+               s % fieldDepMap(localCount), stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      s % fieldNames    = localNames
+      s % ugDimLength   = ugDimLength
+      s % trAction      = trAction
+      s % fieldOptions  = localOptions
+      s % fieldSep      = localFieldSep
+      s % fieldDepMap   = localDepMap
+      s % fieldMaxRank  = localMaxRank
+      s % doRotation    = .false.
+    end if
+    s % parent = state
+    nullify(s % next)
+
+    deallocate(localNames, localOptions, localDepMap, stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+  end subroutine StateAdd
+
+  subroutine NamespaceRemoveField(name, state, fieldName, rc)
+
+    character(len=*), intent(in) :: name
+    type(ESMF_State)             :: state
+    character(len=*), intent(in) :: fieldName
+    integer,         intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    integer                  :: item, itemCount, itemFound, localrc
+    character(len=ESMF_MAXSTR), dimension(:), allocatable :: tmp
+      
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    itemFound = 0
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == name) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              itemCount = size(s % fieldNames)
+              do item = 1, itemCount
+                if (trim(s % fieldNames(item)) == fieldName) then
+                  itemFound = item
+                  exit
+                end if
+              end do
+              if (itemFound > 0) then
+                if (itemCount == 1) then
+                  deallocate(s % fieldNames, s % fieldOptions, stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  nullify(s % fieldNames)
+                  nullify(s % fieldOptions)
+                else
+                  itemCount = itemCount - 1
+                  allocate(tmp(itemCount), stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  tmp(1:itemFound-1) = s % fieldNames(1:itemFound-1)
+                  tmp(itemFound:) = s % fieldNames(itemFound+1:)
+                  deallocate(s % fieldNames, stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  allocate(s % fieldNames(itemCount), stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  s % fieldNames = tmp
+                  tmp(1:itemFound-1) = s % fieldOptions(1:itemFound-1)
+                  tmp(itemFound:) = s % fieldOptions(itemFound+1:)
+                  deallocate(s % fieldOptions, stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  allocate(s % fieldOptions(itemCount), stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                  s % fieldOptions = tmp
+                  deallocate(tmp, stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return
+                end if
+                call ESMF_StateRemove(s % self, (/ fieldName /), rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__, &
+                  file=__FILE__)) &
+                  return  ! bail out
+                return
+              end if
+            end if
+          end if
+          s => s % next
+        end do
+        exit
+      end if
+      p => p % next
+    end do
+
+  end subroutine NamespaceRemoveField
+
+  ! -- Namespace: Add(Create)/Remove objects/Destroy: end definition --
+
+  ! -- Namespace: coupling actions Advertise/Connect/Realize/Initialize: begin definition --
+
+  ! -- Private methods
+  subroutine AdjustFieldGeometry(state, fieldName, petCount, rc)
+
+      type(ESMF_State)              :: state
+      character(len=*), intent(in)  :: fieldName
+      integer,          intent(in)  :: petCount
+      integer,          intent(out) :: rc
+
+      ! -- local variables
+      type(ESMF_Field)           :: field
+      type(ESMF_DistGrid)        :: distgrid, eDistgrid
+      type(ESMF_Grid)            :: grid
+      type(ESMF_Mesh)            :: mesh, newMesh
+      type(ESMF_GeomType_flag)   :: geomtype
+      integer                    :: item, deCount, dimCount, tileCount, localrc
+      integer, dimension(:,:), allocatable :: minIndexPTile, maxIndexPTile
+      character(len=ESMF_MAXSTR) :: transferAction
+
+      integer                    :: i, j
+      integer, dimension(:,:), allocatable :: regDecompPTile
+      integer, dimension(:), allocatable :: deToTileMap
+      real(ESMF_KIND_R8), dimension(:,:), pointer :: p  !!!!!! TEST
+      ! -- begin
+      rc = ESMF_SUCCESS
+
+      call ESMF_StateGet(state, field=field, &
+        itemName=fieldName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      call NUOPC_GetAttribute(field, name="TransferActionGeomObject", &
+        value=transferAction, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      if (trim(transferAction)=="accept") then
+        ! the Connector instructed the Mediator to accept geom object
+        ! -> find out which type geom object the field holds
+        call ESMF_FieldGet(field, geomtype=geomtype, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+        if (geomtype == ESMF_GEOMTYPE_GRID) then
+
+          ! empty field holds a Grid with DistGrid
+          call ESMF_FieldGet(field, grid=grid, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          ! access the DistGrid
+          call ESMF_GridGet(grid, distgrid=distgrid, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+        else if (geomtype == ESMF_GEOMTYPE_MESH) then
+
+          ! empty field holds a Mesh with DistGrids
+          call ESMF_FieldGet(field, mesh=mesh, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          ! access the DistGrids (use nodal Distgrid in following code)
+          call ESMF_MeshGet(mesh, nodalDistgrid=distgrid, &
+            elementDistgrid=eDistgrid, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+        else
+
+          call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+            msg="Unsupported geom object found in "// fieldName, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)
+          return ! bail out
+
+        end if
+
+        ! get DE count
+        call ESMF_DistGridGet(distgrid, deCount=deCount, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+        if (deCount /= petCount) then
+          ! Create a custom DistGrid, based on the minIndex, maxIndex of the 
+          ! accepted DistGrid, but with a default regDecomp for the current VM
+          ! that leads to 1DE/PET.
+          ! get dimCount and tileCount
+          call ESMF_DistGridGet(distgrid, dimCount=dimCount, deCount=deCount, &
+            tileCount=tileCount, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          allocate(minIndexPTile(dimCount, tileCount), &
+            maxIndexPTile(dimCount, tileCount), stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+
+          ! get minIndex and maxIndex arrays
+          call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
+            maxIndexPTile=maxIndexPTile, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          ! create the new DistGrid with the same minIndexPTile and maxIndexPTile,
+          ! but with a default regDecompPTile
+          distgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+            maxIndexPTile=maxIndexPTile, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          if (geomtype == ESMF_GEOMTYPE_GRID) then
+
+            ! Destroy old Grid object
+            call ESMF_GridDestroy(grid, rc=rc)    
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            ! Create a new Grid on the new DistGrid and swap it in the Field
+            grid = ESMF_GridCreate(distgrid, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            call ESMF_FieldEmptySet(field, grid=grid, rc=rc)    
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+
+          else if (geomtype == ESMF_GEOMTYPE_MESH) then
+
+            ! nodal Distgrid available, create new element DIstgrid
+
+            ! get minIndex and maxIndex arrays
+            call ESMF_DistGridGet(eDistgrid, minIndexPTile=minIndexPTile, &
+              maxIndexPTile=maxIndexPTile, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+
+            ! create the new DistGrid with the same minIndexPTile and maxIndexPTile,
+            ! but with a default regDecompPTile
+            eDistgrid = ESMF_DistGridCreate(minIndexPTile=minIndexPTile, &
+              maxIndexPTile=maxIndexPTile, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+
+            ! Create a new Grid on the new DistGrid and swap it in the Field
+            newMesh = ESMF_MeshCreate(mesh, nodalDistgrid=distgrid, &
+              elementDistgrid=eDistgrid, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            call ESMF_FieldEmptySet(field, mesh=newMesh, rc=rc)    
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            ! destroy old Mesh object
+            call ESMF_MeshDestroy(mesh, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+
+          end if
+
+          ! local clean-up
+          deallocate(minIndexPTile, maxIndexPTile, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+
+        end if
+
+      end if
+
+  end subroutine AdjustFieldGeometry
+    
+  subroutine RealizeFieldGeometry(s, fieldName, rc)
+
+      type(stateType), intent(inout) :: s
+      character(len=*),   intent(in) :: fieldName
+      integer,           intent(out) :: rc
+
+      ! -- local variables
+      type(ESMF_Field)               :: field
+      type(ESMF_FieldStatus_flag)    :: fieldStatus
+      integer                        :: itemCount, localrc
+      integer, dimension(:), pointer :: ugLBound, ugUBound, gridToFieldMap
+
+      ! -- retrieve field object
+      call ESMF_StateGet(s % self, field=field, itemName=trim(fieldName), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      ! -- check field status
+      call ESMF_FieldGet(field, status=fieldStatus, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      if (fieldStatus == ESMF_FIELDSTATUS_GRIDSET) then
+        ! the Connector instructed the Mediator to accept geom object
+        ! the transferred geom object is already set, allocate memory 
+        ! for data by complete
+        nullify(ugLBound, ugUBound, gridToFieldMap)
+        ! deal with gridToFieldMap
+        call ESMF_AttributeGet(field, name="GridToFieldMap", &
+          convention="NUOPC", purpose="Instance", &
+          itemCount=itemCount, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        if (itemCount > 0) then
+          allocate(gridToFieldMap(itemCount), stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+          call ESMF_AttributeGet(field, name="GridToFieldMap", &
+            convention="NUOPC", purpose="Instance", &
+            valueList=gridToFieldMap, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        endif
+        ! deal with ungriddedLBound
+        call ESMF_AttributeGet(field, name="UngriddedLBound", &
+          convention="NUOPC", purpose="Instance", &
+          itemCount=itemCount, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        if (itemCount > 0) then
+          if (s % ugDimLength < 0 .and. itemCount > 1) then
+            call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+              msg="Field "//fieldName//" must have ONE ungridded dimension!", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+          if (s % ugDimLength == 0) then
+            call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+              msg="Field "//fieldName//" must have NO ungridded dimensions!", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+          allocate(ugLBound(itemCount), stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+          call ESMF_AttributeGet(field, name="UngriddedLBound", &
+            convention="NUOPC", purpose="Instance", &
+            valueList=ugLBound, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        end if
+        ! deal with ungriddedUBound
+        call ESMF_AttributeGet(field, name="UngriddedUBound", &
+          convention="NUOPC", purpose="Instance", &
+          itemCount=itemCount, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        if (itemCount > 0) then
+          if (s % ugDimLength < 0 .and. itemCount > 1) then
+            call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+              msg="Field "//fieldName//" must have ONE ungridded dimension!", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+          if (s % ugDimLength == 0) then
+            call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+              msg="Field "//fieldName//" must have NO ungridded dimensions!", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+          allocate(ugUBound(itemCount), stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+          call ESMF_AttributeGet(field, name="UngriddedUBound", &
+            convention="NUOPC", purpose="Instance", &
+            valueList=ugUBound, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          if (s % ugDimLength < 0) then
+            s % ugDimLength = ugUBound(1) - ugLBound(1) + 1
+          else if (s % ugDimLength /= ugUBound(1) - ugLBound(1) + 1) then
+            call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+              msg="Field "//fieldName//" ungridded dimension has wrong length.", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+        end if
+
+        if (associated(ugLBound) .and. associated(ugUBound)) then
+          if (associated(gridToFieldMap)) then
+            call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, &
+              ungriddedLBound=ugLBound, ungriddedUBound=ugUBound, &
+              gridToFieldMap=gridToFieldMap, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          else
+            call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, &
+              ungriddedLBound=ugLBound, ungriddedUBound=ugUBound, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          end if
+          deallocate(ugLBound, ugUBound, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+        else
+          if (associated(gridToFieldMap)) then
+            call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, &
+              gridToFieldMap=gridToFieldMap, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          else
+            call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          end if
+        end if
+
+        if (associated(ugLBound)) then
+          deallocate(ugLBound, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+        end if
+
+        if (associated(ugUBound)) then
+          deallocate(ugUBound, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+        end if
+
+        if (associated(gridToFieldMap)) then
+          deallocate(gridToFieldMap, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return
+        end if
+
+      end if
+      
+  end subroutine RealizeFieldGeometry
+
+  ! -- Public methods
+
+  subroutine NamespaceAdvertise(rc)
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    nullify(p, s)
+
+    p => compList
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        call NUOPC_AddNamespace(s % parent, namespace=trim(p % name), &
+          nestedState=s % self, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+        call NUOPC_Advertise(s % self, StandardNames=s % fieldNames, &
+          TransferOfferGeomObject=trim(s % trAction), rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+      
+  end subroutine NamespaceAdvertise
+
+  subroutine NamespaceCheckConnectedFields(rc)
+
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    type (ESMF_Field)          :: field
+    type (compType),  pointer  :: p
+    type (stateType), pointer  :: s
+    character(len=ESMF_MAXSTR) :: stateName
+    character(len=ESMF_MAXSTR) :: connectedValue, transferAction
+    integer :: item
+    
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    nullify(p, s)
+
+    p => compList
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        do item = 1, size(s % fieldNames)
+          call ESMF_StateGet(s % self, field=field, &
+            itemName=trim(s % fieldNames(item)), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          call NUOPC_GetAttribute(field, name="Connected", &
+            value=connectedValue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          if (trim(connectedValue) == "false") then
+            call ESMF_StateGet(s % self, name=stateName, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            call ESMF_LogSetError(ESMF_RC_NOT_FOUND, &
+              msg="Field "//trim(p % name)//"/"//trim(s % fieldNames(item)) &
+              //" in State "//trim(stateName)//" is not connected.", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return ! bail out
+          else
+            call NUOPC_GetAttribute(field, name="TransferActionGeomObject", &
+              value=transferAction, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            if (trim(transferAction)=="provide") then
+              ! the Connector instructed the Mediator to provide geom object
+              call ESMF_StateGet(s % self, name=stateName, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+              call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+                msg="Cannot fulfill request to provide geom object for "// &
+                trim(s % fieldNames(item))//" in State "//trim(stateName), &
+                line=__LINE__, &
+                file=__FILE__, &
+                rcToReturn=rc)
+              return ! bail out
+            end if
+          end if
+        end do
+        s => s % next
+      end do
+      p => p % next
+    end do
+    
+  end subroutine NamespaceCheckConnectedFields
+
+  subroutine NamespaceAdjustFields(gridComp, rc) 
+    type(ESMF_GridComp), optional              :: gridComp
+    integer,             optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    type(ESMF_VM)            :: vm
+    integer                  :: item, petCount
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! -- get number of PET for current gridded component, if present
+    if (present(gridComp)) then
+
+      ! -- get VM for gridded component
+      call ESMF_GridCompGet(gridComp, vm=vm, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      ! -- retrieve PET information
+      call ESMF_VMGet(vm, petCount=petCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+    else
+
+      petCount = -1
+
+    end if
+
+    p => compList
+    nullify(s)
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        do item = 1, size(s % fieldNames)
+          call AdjustFieldGeometry(s % self, trim(s % fieldNames(item)), &
+            petCount, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          print *,'MED: done adjusting with geom ',trim(s % fieldNames(item))
+        end do
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end subroutine NamespaceAdjustFields
+
+  subroutine NamespaceUpdateFields(name, state, grid, mesh, rc)
+    character(len=*),          intent(in)  :: name
+    type(ESMF_State),          intent(in)  :: state
+    type(ESMF_Grid), optional, intent(in)  :: grid
+    type(ESMF_Mesh), optional, intent(in)  :: mesh
+    integer,         optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    type(ESMF_Field)         :: field
+    logical                  :: isGeom
+    integer                  :: item, localrc
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    if (present(grid).or.present(mesh)) then
+      p => compList
+      nullify(s)
+      do while (associated(p))
+        if (trim(p % name) == name) then
+          s => p % stateList
+          do while (associated(s))
+            if (s % parent == state) then
+              do item = 1, size(s % fieldNames)
+                call ESMF_StateGet(s % self, field=field, &
+                  itemName=trim(s % fieldNames(item)), rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__, &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) &
+                  return  ! bail out
+                if (present(grid)) then
+                  call ESMF_FieldEmptySet(field, grid=grid, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) &
+                    return  ! bail out
+                else if (present(mesh)) then
+                  call ESMF_FieldEmptySet(field, mesh=mesh, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) &
+                    return  ! bail out
+                end if
+              end do
+            end if
+            s => s % next
+          end do
+        end if
+        p => p % next
+      end do
+    else
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="No Grid or Mesh object provided", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+  end subroutine NamespaceUpdateFields
+
+  subroutine NamespaceRealizeFields(rc)
+    integer, intent(out) :: rc
+
+    ! -- local variable
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    integer :: item
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    p => compList
+    nullify(s)
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        do item = 1, size(s % fieldNames)
+          call RealizeFieldGeometry(s, trim(s % fieldNames(item)), rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        end do
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end subroutine NamespaceRealizeFields
+
+  subroutine NamespaceInitializeFields(value, rc)
+
+    real(ESMF_KIND_R8), optional,  intent(in) :: value
+    integer,            optional, intent(out) :: rc
+    
+    ! -- local variables
+    integer                     :: localrc, item, rank
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+    real(ESMF_KIND_R8), pointer :: fptr1d(:), fptr2d(:,:), fptr3d(:,:,:)
+    real(ESMF_KIND_R8)          :: initValue
+    type(ESMF_Field)            :: field
+    type(ESMF_StateIntent_flag) :: stateIntent
+
+    real(ESMF_KIND_R8), parameter :: defaultInitValue = 0._ESMF_KIND_R8
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    initValue = defaultInitValue
+    if (present(value)) initValue = value
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+
+        call ESMF_StateGet(s % parent, stateintent=stateIntent, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+
+        do item = 1, size(s % fieldNames)
+
+          call ESMF_StateGet(s % self, field=field, &
+            itemName=trim(s % fieldNames(item)), rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+
+#if 0
+          call ESMF_FieldGet(field, rank=rank, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+
+          select case (rank)
+            case(1)
+              call ESMF_FieldGet(field, farrayPtr=fptr1d, rc=localrc)
+              if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__,  &
+                rcToReturn=rc)) &
+                return  ! bail out
+              fptr1d = initValue
+            case(2)
+              call ESMF_FieldGet(field, farrayPtr=fptr2d, rc=localrc)
+              if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__,  &
+                rcToReturn=rc)) &
+                return  ! bail out
+              fptr2d = initValue
+            case(3)
+              call ESMF_FieldGet(field, farrayPtr=fptr3d, rc=localrc)
+              if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__,  &
+                rcToReturn=rc)) &
+                return  ! bail out
+              fptr3d = initValue
+            case default
+              call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+                msg="Invalid dimensions for field "//trim(s % fieldNames(item)), &
+                line=__LINE__, &
+                file=__FILE__, &
+                rcToReturn=rc)
+                return ! bail out
+          end select
+
+#endif
+          ! --- mark as updated only if in export state??
+          if (stateIntent == ESMF_STATEINTENT_EXPORT) then
+            call NUOPC_SetAttribute(field, name="Updated", value="true", rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__,  &
+              file=__FILE__,  &
+              rcToReturn=rc)) &
+              return  ! bail out
+          end if
+
+        end do
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+    ! -- initialize internal structures for vector rotation
+    call NamespaceSetupRotation(rc)
+
+  end subroutine NamespaceInitializeFields
+  
+  subroutine NamespaceSetupRotation(rc)
+    integer, intent(out) :: rc
+
+    ! -- local variable
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    type(ESMF_Mesh)          :: mesh
+    type(ESMF_Field)         :: field
+    type(ESMF_GeomType_Flag) :: geomtype
+    integer                  :: item
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    p => compList
+    nullify(s)
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        if (s % fieldMaxRank > 1) then
+          if (ESMF_FieldIsCreated(s % localCartField)) then
+            s % doRotation = .true.
+          else
+            if (ESMF_GridIsCreated(s % localGrid)) then
+              ! -- do nothing for now
+            else if (ESMF_MeshIsCreated(s % localMesh)) then
+              s % doRotation = .true.
+            else
+              item = size(s % fieldNames)
+              if (item > 0) then
+                call ESMF_StateGet(s % self, itemName=trim(s % fieldNames(item)), &
+                  field=field, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__)) return  ! bail out
+                call ESMF_FieldGet(field, geomtype=geomtype, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__)) return  ! bail out
+                if (geomtype == ESMF_GEOMTYPE_MESH) then
+                  call ESMF_FieldGet(field, mesh=mesh, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__)) return  ! bail out
+                  s % localMesh = mesh
+                  s % doRotation = .true.
+                end if
+              end if
+            end if
+            if (s % doRotation) then
+              ! -- create localCartField on Mesh only for now
+              s % localCartField = ESMF_FieldCreate(s % localMesh, ESMF_TYPEKIND_R8, &
+                gridToFieldMap=(/2/), ungriddedLBound=(/1/), ungriddedUBound=(/3/), &
+                meshloc=ESMF_MESHLOC_NODE, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__)) return  ! bail out
+            end if
+          end if
+        end if
+        if (s % doRotation) then
+          call StateSetLocalVectors(s, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__)) return ! bail out
+        else
+          ! -- reset fields as scalars if no rotation is performed
+          s % fieldDepMap = 0
+        end if
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end subroutine NamespaceSetupRotation
+
+  subroutine NamespaceDestroy(nsList, rc)
+
+    type(compType), optional, pointer     :: nsList
+    integer,        optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p, q
+    type(stateType), pointer :: s, r
+    integer                  :: localrc
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    if (present(nsList)) then
+      p => nsList
+    else
+      p => compList
+    end if
+
+    ! -- connected components
+    do while (associated(p))
+      q => p
+      p => p % next
+      s => q % stateList
+      do while (associated(s))
+        r => s
+        s => s % next
+        if (associated(r % fieldNames)) then
+          deallocate(r % fieldNames, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return ! bail out
+          nullify(r % fieldNames)
+        end if
+        if (associated(r % fieldOptions)) then
+          deallocate(r % fieldOptions, stat=localrc)
+          if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__, &
+            rcToReturn=rc)) return ! bail out
+          nullify(r % fieldOptions)
+        end if
+        deallocate(r, stat=localrc)
+        if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return ! bail out
+        nullify(r)
+      end do
+      deallocate(q, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return ! bail out
+      nullify(q)
+    end do
+
+    if (present(nsList)) then
+      nullify(nsList)
+    else
+      nullify(compList)
+    end if
+    
+  end subroutine NamespaceDestroy
+
+  ! -- Namespace: coupling actions Advertise/Connect/Realize/Adjust/Initialize: end definition --
+
+  ! -- Namespace: Create/Get/Set methods: begin definition --
+
+  function NamespaceGetList(rc)
+    integer, optional, intent(out) :: rc
+    type(compType),        pointer :: NamespaceGetList
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    NamespaceGetList => compList
+
+  end function NamespaceGetList
+
+  subroutine NamespaceSetList(nsList, rc)
+    integer, optional, intent(out) :: rc
+    type(compType),        pointer :: nsList
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    compList => nsList
+
+  end subroutine NamespaceSetList
+
+  function NamespaceGetField(name, state, fieldName, rc)
+    ! -- input variables
+    character(len=*),   intent(in) :: name
+    type(ESMF_State),   intent(in) :: state
+    character(len=*),   intent(in) :: fieldName
+    integer, optional, intent(out) :: rc
+
+    ! -- output variables
+    type(ESMF_Field)               :: NamespaceGetField
+
+    ! -- local variables
+    integer                  :: item, localrc
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == trim(name)) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              do item = 1, size(s % fieldNames) 
+                if (trim(s % fieldNames(item)) == trim(fieldName)) then
+                  call ESMF_StateGet(s % self, itemName=trim(fieldName), &
+                    field=NamespaceGetField, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return  ! bail out
+                  if (present(rc)) rc = ESMF_SUCCESS
+                  return
+                end if
+              end do
+            end if
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end function NamespaceGetField
+
+  subroutine NamespaceGet(name, state, geomtype, grid, mesh, rc)
+    character(len=*),                    intent(in) :: name
+    type(ESMF_State),                    intent(in) :: state
+    type(ESMF_GeomType_Flag), optional, intent(out) :: geomtype
+    type(ESMF_Grid),          optional, intent(out) :: grid
+    type(ESMF_Mesh),          optional, intent(out) :: mesh
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer                     :: localrc
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+    type(ESMF_Field)            :: field
+    type(ESMF_Grid)             :: localGrid
+    type(ESMF_Mesh)             :: localMesh
+    type(ESMF_GeomType_Flag)    :: localGeomType
+    type(ESMF_FieldStatus_Flag) :: fieldStatus
+
+    ! -- begin
+    localrc = ESMF_RC_NOT_FOUND
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == trim(name)) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              if (size(s % fieldNames) > 0) then
+                call ESMF_StateGet(s % self, itemName=trim(s % fieldNames(1)), &
+                  field=field, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__, &
+                  file=__FILE__, &
+                  rcToReturn=rc)) return  ! bail out
+              end if
+            end if
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+    if (localrc == ESMF_RC_NOT_FOUND) then
+      call ESMF_LogSetError(localrc, &
+        msg="No field found in namespace "//trim(name), &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field is completed
+    call ESMF_FieldGet(field, status=fieldStatus, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (fieldStatus /= ESMF_FIELDSTATUS_COMPLETE .and. &
+        fieldStatus /= ESMF_FIELDSTATUS_GRIDSET) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Field has not been completely created.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field contains valid grid object
+    call ESMF_FieldGet(field, geomtype=localGeomType, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (present(geomtype)) geomtype = localGeomType
+
+    if (localGeomType == ESMF_GEOMTYPE_GRID) then
+      if (present(grid)) then
+        ! -- get grid from field
+        call ESMF_FieldGet(field, grid=grid, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+      end if
+    else if (localGeomType == ESMF_GEOMTYPE_MESH) then
+      if (present(mesh)) then
+        ! -- get mesh from field
+        call ESMF_FieldGet(field, mesh=mesh, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+      end if
+    end if
+
+    ! -- return grid object
+    if (present(rc)) rc = ESMF_SUCCESS
+    
+  end subroutine NamespaceGet
+
+  function NamespaceGetGrid(name, state, rc)
+    character(len=*),   intent(in) :: name
+    type(ESMF_State)               :: state
+    integer, optional, intent(out) :: rc
+
+    type(ESMF_Grid) :: NamespaceGetGrid
+
+    ! -- local variables
+    integer                     :: localrc
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+    type(ESMF_Field)            :: field
+    type(ESMF_Grid)             :: grid
+    type(ESMF_GeomType_Flag)    :: geomtype
+    type(ESMF_FieldStatus_Flag) :: fieldStatus
+
+    ! -- begin
+    localrc = ESMF_RC_NOT_FOUND
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == trim(name)) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              if (size(s % fieldNames) > 0) then
+                call ESMF_StateGet(s % self, itemName=trim(s % fieldNames(1)), &
+                  field=field, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__, &
+                  file=__FILE__, &
+                  rcToReturn=rc)) return  ! bail out
+              end if
+            end if
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+    if (localrc == ESMF_RC_NOT_FOUND) then
+      call ESMF_LogSetError(localrc, &
+        msg="Field not found.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field is completed
+    call ESMF_FieldGet(field, status=fieldStatus, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (fieldStatus /= ESMF_FIELDSTATUS_COMPLETE) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Field has not been completely created.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field contains valid grid object
+    call ESMF_FieldGet(field, geomtype=geomtype, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (geomtype /= ESMF_GEOMTYPE_GRID) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="No Grid object found in field ", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- get grid from field
+    call ESMF_FieldGet(field, grid=grid, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    ! -- return grid object
+    if (present(rc)) rc = ESMF_SUCCESS
+    NamespaceGetGrid = grid
+    
+  end function NamespaceGetGrid
+
+!------------------------------------------------------------------------------
+
+  function NamespaceGetMesh(name, state, rc)
+    character(len=*),   intent(in) :: name
+    type(ESMF_State)               :: state
+    integer, optional, intent(out) :: rc
+
+    type(ESMF_Mesh) :: NamespaceGetMesh
+
+    ! -- local variables
+    integer                     :: localrc
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+    type(ESMF_Field)            :: field
+    type(ESMF_Mesh)             :: mesh
+    type(ESMF_GeomType_Flag)    :: geomtype
+    type(ESMF_FieldStatus_Flag) :: fieldStatus
+
+    ! -- begin
+    localrc = ESMF_RC_NOT_FOUND
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == trim(name)) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              if (size(s % fieldNames) > 0) then
+                call ESMF_StateGet(s % self, itemName=trim(s % fieldNames(1)), &
+                  field=field, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__, &
+                  file=__FILE__, &
+                  rcToReturn=rc)) return  ! bail out
+              end if
+            end if
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+    if (localrc == ESMF_RC_NOT_FOUND) then
+      call ESMF_LogSetError(localrc, &
+        msg="Field not found.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field is completed
+    call ESMF_FieldGet(field, status=fieldStatus, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (fieldStatus /= ESMF_FIELDSTATUS_COMPLETE) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Field has not been completely created.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field contains valid mesh object
+    call ESMF_FieldGet(field, geomtype=geomtype, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (geomtype /= ESMF_GEOMTYPE_MESH) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="No Mesh object found in field ", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- get mesh from field
+    call ESMF_FieldGet(field, mesh=mesh, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    ! -- return mesh object
+    if (present(rc)) rc = ESMF_SUCCESS
+    NamespaceGetMesh = mesh
+    
+  end function NamespaceGetMesh
+
+!------------------------------------------------------------------------------
+
+  subroutine NamespaceGetLocal(name, geomtype, grid, mesh, rc)
+    character(len=*),          intent(in) :: name
+    type(ESMF_GeomType_Flag), intent(out) :: geomtype
+    type(ESMF_Grid),          intent(out) :: grid
+    type(ESMF_Mesh),          intent(out) :: mesh
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer                     :: localrc
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+
+    ! -- begin
+    localrc = ESMF_RC_NOT_FOUND
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    geomtype = ESMF_GEOMTYPE_UNINIT
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == trim(name)) then
+        s => p % stateList
+        do while (associated(s))
+          if (ESMF_GridIsCreated(s % localGrid)) then
+            grid = s % localGrid
+            geomtype = ESMF_GEOMTYPE_GRID
+            localrc  = ESMF_SUCCESS
+          else if (ESMF_MeshIsCreated(s % localMesh)) then
+            mesh = s % localMesh
+            geomtype = ESMF_GEOMTYPE_MESH
+            localrc  = ESMF_SUCCESS
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+    if (localrc == ESMF_RC_NOT_FOUND) then
+      call ESMF_LogSetError(localrc, &
+        msg="No Grid or Mesh object found in namespace "//trim(name), &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+    else
+      call ESMF_LogSetError(localrc, &
+        msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+    end if
+
+  end subroutine NamespaceGetLocal
+
+!------------------------------------------------------------------------------
+
+  function GridCreateFromGrid(grid, minIndex, maxIndex, rc)
+    ! -- input variables
+    type(ESMF_Grid),   intent(in) :: grid
+    integer, optional, intent(in) :: minIndex
+    integer,           intent(in) :: maxIndex
+
+    ! -- output variables
+    type(ESMF_Grid) :: GridCreateFromGrid
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc
+    integer :: connectionCount, deCount, dimCount, itemCount, tileCount
+    integer :: ldimCount, localDe, localDeCount, minIndx
+    integer :: item
+    integer :: tileIndexA, tileIndexB
+    integer, dimension(:),       pointer :: positionVector,    orientationVector
+    integer, dimension(:),       pointer :: newPositionVector, newOrientationVector
+    integer, dimension(:),   allocatable :: coordDimCount,    distgridToGridMap
+    integer, dimension(:),   allocatable :: newcoordDimCount, newdistgridToGridMap
+    integer, dimension(:,:), allocatable :: coordDimMap,    minIndexPTile,    maxIndexPTile
+    integer, dimension(:,:), allocatable :: newcoordDimMap, newminIndexPTile, newmaxIndexPTile
+    real(ESMF_KIND_R8), dimension(:),     pointer :: fptrIn1d, fptrOut1d
+    real(ESMF_KIND_R8), dimension(:,:),   pointer :: fptrIn2d, fptrOut2d
+    type(ESMF_DistGridConnection), dimension(:), allocatable :: connectionList, newconnectionList
+    type(ESMF_DistGrid)         :: distgrid, newdistgrid
+    type(ESMF_Grid)             :: newgrid
+    type(ESMF_GeomType_Flag)    :: geomtype
+    type(ESMF_Index_Flag)       :: indexflag
+    type(ESMF_CoordSys_Flag)    :: coordSys
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! -- check additional dimension bounds
+    minIndx = 1
+    if (present(minIndex)) then
+      minIndx = minIndex 
+    end if
+
+    if (maxIndex <= minIndx) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="maxIndex must be > minIndex", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- get grid parameters and associated DistGrid object
+    call ESMF_GridGet(grid, distgrid=distgrid, &
+      dimCount=dimCount, coordSys=coordSys, indexflag=indexflag, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    if (dimCount /= 2) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Grid object in field MUST have 2 dimensions", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- get 2D distribution information from Grid's DistGrid object
+    allocate(coordDimCount(dimCount),  &
+      distgridToGridMap(dimCount),     &
+      coordDimMap(dimCount,dimCount), &
+      stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    call ESMF_GridGet(grid, coordDimCount=coordDimCount, &
+      distgridToGridMap=distgridToGridMap, &
+      coordDimMap=coordDimMap, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- increment dimension count by one to build local 3D Grid
+    ldimCount = dimCount + 1
+
+    ! -- create mapping arrays for 3D Grid by extending original ones from 2D Grid
+    allocate(newcoordDimCount(ldimCount),  &
+      newdistgridToGridMap(ldimCount),     &
+      newcoordDimMap(ldimCount,ldimCount), &
+      stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    newcoordDimCount(1:dimCount)    = coordDimCount
+    newcoordDimCount(ldimCount)     = 3
+
+    newdistgridToGridMap(1:dimCount) = distgridToGridMap
+    newdistgridToGridMap(ldimCount)  = 3
+
+    newcoordDimMap(1:dimCount,1:dimCount) = coordDimMap
+    newcoordDimMap(:, ldimCount) = 1
+    newcoordDimMap(ldimCount, :) = (/ 1, 2, 3 /)
+
+    deallocate(coordDimCount, distgridToGridMap, coordDimMap, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- in a similar fashion, extend index/tile arrays and connection settings
+    ! -- for DistGrid object in new 3D Grid
+
+    ! -- get original DistGrid information
+    call ESMF_DistGridGet(distgrid, &
+      tileCount=tileCount, connectionCount=connectionCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    allocate(minIndexPTile(dimCount, tileCount), &
+             maxIndexPTile(dimCount, tileCount), &
+             connectionList(connectionCount),    &
+             stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- get original index arrays and connection list
+    call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
+      maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- create new index arrays
+    allocate(newminIndexPTile(ldimCount, tileCount), &
+             newmaxIndexPTile(ldimCount, tileCount), &
+             stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    newminIndexPTile(1:dimCount,:) = minIndexPTile
+    newmaxIndexPTile(1:dimCount,:) = maxIndexPTile
+    newminIndexPTile(ldimCount, :) = minIndx
+    newmaxIndexPTile(ldimCount, :) = maxIndex
+
+    deallocate(minIndexPTile, maxIndexPTile, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- extend connection list for new Grid
+    allocate(newConnectionList(connectionCount), &
+             newPositionVector(ldimCount), newOrientationVector(ldimCount), &
+             positionVector(dimCount),     orientationVector(dimCount), &
+             stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    do item = 1, connectionCount
+      ! -- WARNING: this interface needs to be finalized
+      call ESMF_DistGridConnectionGet(connectionList(item), &
+        tileIndexA=tileIndexA, tileIndexB=tileIndexB, &
+        positionVector=positionVector, orientationVector=orientationVector, &
+        rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+
+      newPositionVector(1:dimCount) = positionVector
+      newPositionVector( ldimCount) = 0
+      newOrientationVector(1:dimCount) = orientationVector
+      newOrientationVector( ldimCount) = 3
+
+      call ESMF_DistGridConnectionSet(newConnectionList(item), &
+        tileIndexA=tileIndexA, tileIndexB=tileIndexB, &
+        positionVector=newPositionVector, orientationVector=newOrientationVector, &
+        rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+    end do
+
+    deallocate(positionVector, newPositionVector, orientationVector, newOrientationVector, &
+      connectionList, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- create 3D DistGrid object
+    newdistgrid = ESMF_DistGridCreate(minIndexPTile=newminIndexPTile, &
+      maxIndexPTile=newmaxIndexPTile, connectionList=newConnectionList, &
+      rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    deallocate(newminIndexPTile, newmaxIndexPTile, newconnectionList, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- create 3D Grid object
+    newgrid = ESMF_GridCreate(newdistgrid, coordDimCount=newcoordDimCount, &
+      coordDimMap=newcoordDimMap, coordSys=coordSys, indexflag=indexflag, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    deallocate(newcoordDimMap, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- get localDeCount
+    call ESMF_GridGet(newgrid, localDeCount=localDeCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- add coordinates to 3D Grid
+    call ESMF_GridAddCoord(newgrid, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    write(6,'("newcoord: BEGIN")')
+    flush 6
+    ! -- load 2D coordinates
+    do item = 1, 2
+      select case (newcoordDimCount(item))
+        case (1)
+          do localDe = 0, localDeCount - 1
+            call ESMF_GridGetCoord(grid, coordDim=item, localDE=localDe, &
+              farrayPtr=fptrOut1d, rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)) return
+            call ESMF_GridGetCoord(newgrid, coordDim=item, localDE=localDe, &
+              farrayPtr=fptrIn1d, rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)) return
+            fptrIn1d = fptrOut1d
+            write(6,'("newcoord: ",i0,2x,"DE: ",i0," min/max: ",2g16.6)') item, localDe, minval(fptrIn1d), maxval(fptrIn1d)
+            flush 6
+          end do
+        case (2)
+          do localDe = 0, localDeCount - 1
+            call ESMF_GridGetCoord(grid, coordDim=item, localDE=localDe, &
+              farrayPtr=fptrOut2d, rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)) return
+            call ESMF_GridGetCoord(newgrid, coordDim=item, localDE=localDe, &
+              farrayPtr=fptrIn2d, rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)) return
+            fptrIn2d = fptrOut2d
+            write(6,'("newcoord: ",i0,2x,"DE: ",i0," min/max: ",2g16.6)') item, localDe, minval(fptrIn2d), maxval(fptrIn2d)
+            flush 6
+          end do
+        case default
+            write(6,'("newcoord: ",i0,2x,"NO COORDINATE SET")') item
+            flush 6
+      end select
+    end do
+    write(6,'("newcoord: END")')
+    flush 6
+
+    deallocate(newcoordDimCount, stat=localrc)
+    if (ESMF_LogFoundDeallocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    GridCreateFromGrid = newgrid
+
+  end function GridCreateFromGrid
+
+!------------------------------------------------------------------------------
+
+  function GridAddNewCoord(grid, staggerloc, coord, scale, offset, rc)
+    ! -- input variables
+    type(ESMF_Grid),                    intent(in) :: grid
+    type(ESMF_StaggerLoc),    optional, intent(in) :: staggerloc
+    real(ESMF_KIND_R8),                 intent(in) :: coord(:)
+    real(ESMF_KIND_R8),       optional, intent(in) :: scale
+    real(ESMF_KIND_R8),       optional, intent(in) :: offset
+
+    ! -- output variables
+    integer, optional, intent(out) :: rc
+    type(ESMF_Grid) :: GridAddNewCoord
+
+    ! -- local variables
+    logical :: isPresent
+    integer :: localrc
+    integer :: localDe, localDeCount
+    integer :: k, lsize
+    integer :: minIndx, maxIndx
+    integer, dimension(3)       :: lbnd, ubnd
+    real(ESMF_KIND_R8)          :: scale_factor, add_offset
+    real(ESMF_KIND_R8), pointer :: fptrIn3d(:,:,:)
+    type(ESMF_Grid)             :: newgrid
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    newgrid = GridCreateFromGrid(grid, maxIndex=size(coord), rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    isPresent = .false.
+    call ESMF_GridGetCoord(newgrid, staggerloc=staggerloc, &
+      isPresent=isPresent, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    if (.not.isPresent) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="This stagger location was not included in the new grid", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- get localDeCount
+    call ESMF_GridGet(newgrid, localDeCount=localDeCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- load vertical coordinate
+    scale_factor = 1._ESMF_KIND_R8
+    add_offset   = 0._ESMF_KIND_R8
+    if (present(scale)) scale_factor = scale
+    if (present(offset)) add_offset  = offset
+
+    do localDe = 0, localDeCount - 1
+
+      ! -- get coordinate pointer from new grid
+      call ESMF_GridGetCoord(newgrid, coordDim=3, localDE=localDe, &
+        staggerloc=staggerloc, &
+        computationalLBound=lbnd, computationalUBound=ubnd, &
+        farrayPtr=fptrIn3d, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+
+      ! -- check allocated memory size
+      lsize = ubnd(3)-lbnd(3)+1
+      if (lsize /= size(coord)) then
+        call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+          msg="size of coord array does not match internal coordinate size",&
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+
+      do k = 1, lsize
+        fptrIn3d(lbnd(1):ubnd(1),lbnd(2):ubnd(2),k+lbnd(3)-1) = scale_factor * coord(k) + add_offset
+      end do
+
+    end do
+
+    GridAddNewCoord = newgrid
+
+  end function GridAddNewCoord
+
+!------------------------------------------------------------------------------
+
+  function GridCreateFromField(field, scale, offset, rc)
+    ! -- input variables
+    type(ESMF_Field), intent(in) :: field
+    real(ESMF_KIND_R8), optional, intent(in) :: scale, offset
+
+    ! -- output variables
+    type(ESMF_Grid) :: GridCreateFromField
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc
+    integer :: localDe, localDeCount
+    integer :: item, itemCount
+    integer :: ungriddedBound, vSize
+    real(ESMF_KIND_R8)          :: scale_factor, add_offset
+    real(ESMF_KIND_R8), dimension(:,:,:), pointer :: fptrIn3d, fptrOut3d
+    type(ESMF_Grid)             :: grid, newgrid
+    type(ESMF_FieldStatus_Flag) :: fieldStatus
+    type(ESMF_GeomType_Flag)    :: geomtype
+
+    character(len=*), dimension(2), parameter :: &
+      AttributeList = (/ "UngriddedLBound", "UngriddedUBound" /)
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! -- check if field is completed
+    call ESMF_FieldGet(field, status=fieldStatus, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    if (fieldStatus /= ESMF_FIELDSTATUS_COMPLETE) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Field has not been completely created.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field contains valid grid object
+    call ESMF_FieldGet(field, geomtype=geomtype, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    if (geomtype /= ESMF_GEOMTYPE_GRID) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="No Grid object found in field ", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field has ungridded dimension
+    vSize = 0
+    do item = 1, 2
+      call ESMF_AttributeGet(field, name=trim(AttributeList(item)), &
+        convention="NUOPC", purpose="Instance", &
+        itemCount=itemCount, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return  ! bail out
+      if (itemCount == 1) then
+        call ESMF_AttributeGet(field, name=trim(AttributeList(item)), &
+          convention="NUOPC", purpose="Instance", &
+          value=ungriddedBound, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+        vSize = ungriddedBound - vSize
+      else
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="Field must have ONE ungridded dimension!", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+          return  ! bail out
+       end if
+     end do
+     vSize = vSize + 1
+
+    ! -- create 3D grid from field's 2D grid and vertical dimension
+    ! -- get original 2D grid from field
+    call ESMF_FieldGet(field, grid=grid, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    ! -- add vertical dimension
+    newgrid = GridCreateFromGrid(grid, minIndex=1, maxIndex=vSize, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    ! -- get new grid's localDeCount
+    call ESMF_GridGet(newgrid, localDeCount=localDeCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    ! -- load vertical coordinate
+    scale_factor = 1._ESMF_KIND_R8
+    add_offset   = 0._ESMF_KIND_R8
+    if (present(scale)) scale_factor = scale
+    if (present(offset)) add_offset  = offset
+
+    do localDe = 0, localDeCount - 1
+
+      call ESMF_FieldGet(field, localDE=localDe, farrayPtr=fptrOut3d, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+
+      call ESMF_GridGetCoord(newgrid, coordDim=3, localDE=localDe, &
+        staggerloc=ESMF_STAGGERLOC_CENTER, &
+        farrayPtr=fptrIn3d, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+
+      fptrIn3d = scale_factor * fptrOut3d + add_offset
+
+    end do
+
+    GridCreateFromField = newgrid
+
+  end function GridCreateFromField
+
+!------------------------------------------------------------------------------
+
+  subroutine MeshGetBounds(mesh, dim, bounds, rc)
+    type(ESMF_Mesh), intent(in) :: mesh
+    integer,         intent(in) :: dim
+    real(ESMF_KIND_R8), intent(out) :: bounds(2)
+    integer, optional,  intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc, numOwnedNodes, spatialDim
+    real(ESMF_KIND_R8), dimension(:), allocatable, target :: ownedNodeCoords
+    real(ESMF_KIND_R8), dimension(:), pointer :: p
+    real(ESMF_KIND_R8), dimension(1) :: sendData, recvData
+    type(ESMF_VM) :: vm
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    bounds(2) = huge(0._ESMF_KIND_R8)
+    bounds(1) = -bounds(2)
+
+    call ESMF_MeshGet(mesh, spatialDim=spatialDim, &
+      numOwnedNodes=numOwnedNodes, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    if (dim > spatialDim) then
+      call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+        msg="dim argument is higher than Mesh spatial dimension", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    allocate(ownedNodeCoords(spatialDim*numOwnedNodes), stat=localrc)
+    if (ESMF_LogFoundAllocError(statusToCheck=localrc, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) &
+      return
+
+    call ESMF_MeshGet(mesh, ownedNodeCoords=ownedNodeCoords, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    call ESMF_VMGetCurrent(vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    p => ownedNodeCoords(dim::spatialDim)
+    sendData(1) = minval(p)
+    recvData    = 0._ESMF_KIND_R8
+
+    call ESMF_VMAllReduce(vm, sendData, recvData, 1, ESMF_REDUCE_MIN, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    bounds(1) = recvData(1)
+
+    sendData(1) = maxval(p)
+    recvData    = 0._ESMF_KIND_R8
+
+    call ESMF_VMAllReduce(vm, sendData, recvData, 1, ESMF_REDUCE_MAX, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return
+
+    bounds(2) = recvData(1)
+    
+  end subroutine MeshGetBounds
+
+!------------------------------------------------------------------------------
+
+  subroutine NamespaceSetLocalGrid(name, grid, rc)
+    character(len=*), intent(in) :: name
+    type(ESMF_Grid)              :: grid
+    integer,         intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    integer                  :: item
+    logical                  :: isGridCreated, isFieldCreated
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    isGridCreated = ESMF_GridIsCreated(grid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (isGridCreated) then
+      p => compList
+      nullify(s)
+      do while (associated(p))
+        if (trim(p % name) == name) then
+          s => p % stateList
+          do while (associated(s))
+            s % localGrid  = grid
+            do item = 1, s % fieldMaxRank
+              ! -- if local field exists, destroy and recreate
+              isFieldCreated = ESMF_FieldIsCreated(s % localField(item), rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__)) &
+                return  ! bail out
+              if (isFieldCreated) then
+                call ESMF_FieldDestroy(s % localField(item), noGarbage=.true., rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__)) &
+                  return  ! bail out
+              end if
+              s % localField(item) = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R8, &
+                staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__, &
+                file=__FILE__)) &
+                return  ! bail out
+            end do
+            s => s % next
+          end do
+        end if
+        p => p % next
+      end do
+    else
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Invalid Grid object (not yet created)", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+  end subroutine NamespaceSetLocalGrid
+
+  subroutine NamespaceSetLocalGridFromField(name, state, fieldName, scale, offset, rc)
+    character(len=*), intent(in) :: name
+    type(ESMF_State)             :: state
+    character(len=*), intent(in) :: fieldName
+    real(ESMF_KIND_R8), optional, intent(in) :: scale, offset
+    integer,         intent(out) :: rc
+
+    ! -- local variables
+    type(ESMF_Field)            :: field
+    type(ESMF_Grid)             :: localGrid, grid
+    type(ESMF_Mesh)             :: localMesh
+    type(ESMF_GeomType_Flag)    :: geomtype
+    type(ESMF_FieldStatus_Flag) :: fieldStatus
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    field = NamespaceGetField(name, state, fieldName, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! -- check if field is completed
+    call ESMF_FieldGet(field, status=fieldStatus, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (fieldStatus /= ESMF_FIELDSTATUS_COMPLETE) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Field has not been completely created.", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- check if field contains valid grid object
+    call ESMF_FieldGet(field, geomtype=geomtype, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (geomtype /= ESMF_GEOMTYPE_GRID) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="No Grid object found in field "// fieldName, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    grid = GridCreateFromField(field, scale=scale, offset=offset, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+     
+    call NamespaceSetLocalGrid(name, grid, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+#if 0
+    ! -- write 3D Grid object as Mesh (VTK file) for debugging purposes
+    localMesh = ESMF_GridToMesh(grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
+      isSphere=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_MeshWrite(localMesh, 'localmesh', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+#endif
+
+  end subroutine NamespaceSetLocalGridFromField
+
+  subroutine NamespaceSetLocalMesh(name, mesh3d, mesh2d, levArray, rc)
+    character(len=*),           intent(in)  :: name
+    type(ESMF_Mesh),  optional, intent(in)  :: mesh2d, mesh3d
+    type(ESMF_Array), optional, intent(in)  :: levArray
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    logical                  :: proceed, isCreated
+    integer                  :: localrc, item
+    integer, dimension(1)    :: lb, ub
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    proceed = (     present(mesh2d) .and. .not.present(levArray)) .or. &
+              (.not.present(mesh2d) .and.      present(levArray))
+
+    if (proceed) then
+      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+        msg="both mesh2d and levArray must be provided if one of them is present", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    proceed = (present(mesh2d) .or. present(mesh3d) .or. present(levArray))
+
+    if (proceed) then
+      p => compList
+      nullify(s)
+      do while (associated(p))
+        if (trim(p % name) == name) then
+          s => p % stateList
+          do while (associated(s))
+            if (present(mesh3d)) then
+              s % localMesh = mesh3d
+              do item = 1, s % fieldMaxRank
+                ! -- if local field exists, destroy and recreate
+                isCreated = ESMF_FieldIsCreated(s % localField(item), rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+                if (isCreated) then
+                  call ESMF_FieldDestroy(s % localField(item), noGarbage=.true., rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+                end if
+                s % localField(item) = ESMF_FieldCreate(mesh3d, ESMF_TYPEKIND_R8, &
+                  meshloc=ESMF_MESHLOC_NODE, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+              end do
+              if (s % fieldMaxRank == 2) then
+                ! -- init unit vectors on new mesh
+                call StateSetLocalVectors(s, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+              end if
+            end if
+            if (present(mesh2d) .and. present(levArray)) then
+              call ESMF_ArrayGet(levArray, undistLBound=lb, undistUBound=ub, rc=localrc)
+              if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                line=__LINE__,  &
+                file=__FILE__,  &
+                rcToReturn=rc)) return  ! bail out
+              write(6,'("-- NamespaceSetLocalMesh: l/u = ",2i8)') lb(1),ub(1)
+              do item = 1, s % fieldMaxRank
+                ! -- if local field exists, destroy and recreate
+                isCreated = ESMF_FieldIsCreated(s % localIntField(item), rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+                if (isCreated) then
+                  call ESMF_FieldDestroy(s % localIntField(item), noGarbage=.true., rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+                end if
+                s % localIntField(item) = ESMF_FieldCreate(mesh2d, ESMF_TYPEKIND_R8, &
+                  meshloc=ESMF_MESHLOC_NODE, &
+                  ungriddedLBound=lb, ungriddedUBound=ub, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+              end do
+              s % localLevels = levArray
+            end if
+            s => s % next
+          end do
+        end if
+        p => p % next
+      end do
+    else
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="Invalid Mesh object (not yet created)", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+  end subroutine NamespaceSetLocalMesh
+
+  subroutine GetDataFromField(name, state, fieldName, farrayPtr, localDe, rc)
+    ! -- input variables
+    character(len=*), intent(in) :: name
+    type(ESMF_State)             :: state
+    character(len=*), intent(in) :: fieldName
+    real(ESMF_KIND_R8), dimension(:,:,:), pointer :: farrayPtr
+    integer,         optional, intent(in)  :: localDe
+    integer,         optional, intent(out) :: rc
+    ! -- output variables
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    type(ESMF_Field)         :: field
+    integer                  :: item, de
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    de = 0
+    if (present(localDe)) de = localDe
+
+    nullify(farrayPtr)
+       
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == name) then
+        s => p % stateList
+        do while (associated(s))
+          if (s % parent == state) then
+            if (associated(s % fieldNames)) then
+              do item = 1, size(s % fieldNames) 
+                if (trim(s % fieldNames(item)) == fieldName) then
+                  call ESMF_StateGet(s % self, field=field, itemName=fieldName, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__)) &
+                    return  ! bail out
+                  call ESMF_FieldGet(field, localDe=de, farrayPtr=farrayPtr, rc=rc)
+                  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__)) &
+                    return  ! bail out
+                  return  ! exit function
+                end if
+              end do 
+            end if
+          end if
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end subroutine GetDataFromField
+
+  subroutine NamespaceSetRemoteLevels(name, array, rc)
+    character(len=*), intent(in) :: name
+    type(ESMF_Array), intent(in) :: array
+    integer,         intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+  
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      if (trim(p % name) == name) then
+        s => p % stateList
+        do while (associated(s))
+          s % remoteLevels = array
+          s => s % next
+        end do
+      end if
+      p => p % next
+    end do
+
+    nullify(p, s)
+     
+  end subroutine NamespaceSetRemoteLevels
+
+  subroutine NamespaceSetRemoteLevelsFromField(name, state, fieldName, &
+    scale, offset, norm, rc)
+    character(len=*), intent(in) :: name
+    type(ESMF_State)             :: state
+    character(len=*), intent(in) :: fieldName
+    real(ESMF_KIND_R8), optional, intent(in) :: scale, offset, norm
+    integer,         intent(out) :: rc
+
+    ! -- local variables
+    logical            :: update
+    integer            :: localDe, localDeCount, rank
+    real(ESMF_KIND_R8) :: scale_factor, add_offset, div_by_norm
+    real(ESMF_KIND_R8), dimension(:),     pointer :: fptr1d
+    real(ESMF_KIND_R8), dimension(:,:),   pointer :: fptr2d
+    real(ESMF_KIND_R8), dimension(:,:,:), pointer :: fptr3d
+    type(ESMF_Field)   :: field
+    type(ESMF_Array)   :: array, localArray
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    field = NamespaceGetField(name, state, fieldName, rc)
+
+    call ESMF_FieldGet(field, array=array, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    update = .false.
+    scale_factor = 1._ESMF_KIND_R8
+    add_offset   = 0._ESMF_KIND_R8
+    div_by_norm  = 1._ESMF_KIND_R8
+    if (present(scale)) then
+      scale_factor = scale
+      update = .true.
+    end if
+
+    if (present(offset)) then
+      add_offset = offset
+      update = .true.
+    end if
+
+    if (present(norm)) then
+      div_by_norm = norm
+      update = .true.
+    end if
+
+    if (update) then
+      localArray = ESMF_ArrayCreate(array, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call ESMF_ArrayGet(localArray, rank=rank, localDeCount=localDeCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      do localDe = 0, localDeCount - 1
+        select case (rank)
+          case(1)
+            call ESMF_ArrayGet(localArray, localDe=localDe, farrayPtr=fptr1d, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            fptr1d = scale_factor * fptr1d + add_offset
+            fptr1d = fptr1d / div_by_norm
+          case(2)
+            call ESMF_ArrayGet(localArray, localDe=localDe, farrayPtr=fptr2d, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            fptr2d = scale_factor * fptr2d + add_offset
+            fptr2d = fptr2d / div_by_norm
+          case(3)
+            call ESMF_ArrayGet(localArray, localDe=localDe, farrayPtr=fptr3d, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+            fptr3d = scale_factor * fptr3d + add_offset
+            fptr3d = fptr3d / div_by_norm
+          case default
+            call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+              msg="Array rank can only be 1, 2, or 3", &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)
+            return ! bail out
+        end select
+      end do
+    else
+      localArray = array
+    end if
+
+    call NamespaceSetRemoteLevels(name, localArray, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+       
+  end subroutine NamespaceSetRemoteLevelsFromField
+
+  ! -- Namespace: Create/Get/Set methods: end definition --
+
+  ! -- Namespace: Field Retrieve/Store/Interpolate/Release methods: begin definition --
+
+  subroutine VerticalInterpolate1D(srcCoord, srcfarray, dstCoord, dstfarray, auxfarray, options, rc)
+    real(ESMF_KIND_R8), dimension(:,:),  intent(in) :: srcfarray, srcCoord, dstCoord
+    real(ESMF_KIND_R8), dimension(:,:), intent(out) :: dstfarray
+    real(ESMF_KIND_R8), dimension(:,:), optional, intent(in) :: auxfarray
+    character(len=*), optional, intent(in) :: options
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    logical :: isFlag
+    integer :: i, j, k, localrc
+    integer :: lbnd, ubnd
+    real(ESMF_KIND_R8) :: auxNorm, rt
+#ifdef LEGACY
+    integer, parameter :: extrap_start_level = 149
+#endif
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    ! -- check if src and dst arrays have same horizontal decompositions
+    isFlag = .false.
+    lbnd = lbound(srcfarray, dim=1)
+    isFlag = (lbound(dstfarray, dim=1) /= lbnd) 
+    if (.not.isFlag) then
+      ubnd = ubound(srcfarray, dim=1)
+      isFlag = (ubound(dstfarray, dim=1) /= ubnd)
+    end if
+    if (isFlag) then
+      call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+        msg="src and dst arrays defined on different 1D regions (mismatched lower/upper bounds)", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- pick interpolation method
+    auxNorm = 0._ESMF_KIND_R8
+    if (present(options)) then
+      read(options, *, iostat=localrc) auxNorm
+      if (localrc /= 0) auxNorm = 0._ESMF_KIND_R8
+      write(6,'("-- auxNorm: ",a," read as: ",f16.6)') trim(options), auxNorm
+    end if
+      
+    if (auxNorm > 0._ESMF_KIND_R8) then
+      if (present(auxfarray)) then
+        ! -- log interpolation + extrapolation w/ hypsometric equation
+        do i = lbnd, ubnd
+#ifdef LEGACY
+        ! -- if using extrap_start_level, make sure auxfarray is from original field (no intermediate interpolation)
+        ! -- use option "origin" in StateGetField
+          rt = auxfarray(i,extrap_start_level)
+#else
+          rt = auxfarray(i,ubound(auxfarray, dim=2))
+#endif
+          call LogInterpolate(srcCoord(i,:), srcfarray(i,:), &
+                              dstCoord(i,:), dstfarray(i,:), &
+                              rt=rt, ms=auxNorm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        end do
+!     write(6,'("-- srclevels: ",200f16.6)') srcCoord(lbnd,:)
+!     write(6,'("-- dstlevels: ",200f16.6)') dstCoord(lbnd,:)
+!     write(6,'("-- srclevels (km): ",200f16.6)') (srcCoord(lbnd,:)-1._ESMF_KIND_R8)*6371.0088_ESMF_KIND_R8
+!     write(6,'("-- dstlevels (km): ",200f16.6)') (dstCoord(lbnd,:)-1._ESMF_KIND_R8)*6371.0088_ESMF_KIND_R8
+!       write(6,'("srcdata: ",200g16.6)') srcfarray(lbnd,:)
+!       write(6,'("params : ",200g16.6)') auxNorm, rt * auxNorm, rt
+!       write(6,'("auxfarray : ",6i8,2x,2g16.6)') lbnd, ubnd, &
+!         lbound(auxfarray,1),ubound(auxfarray,1), &
+!         lbound(auxfarray,2),ubound(auxfarray,2), &
+!         minval(auxfarray(lbound(auxfarray,1):ubound(auxfarray,1),lbound(auxfarray,2):ubound(auxfarray,2))), &
+!         maxval(auxfarray(lbound(auxfarray,1):ubound(auxfarray,1),lbound(auxfarray,2):ubound(auxfarray,2)))
+!       write(6,'("interp : ",200g16.6)') dstfarray(lbnd,:)
+      else
+        ! -- log interpolation, no extrapolation
+        do i = lbnd, ubnd
+          call LogInterpolate(srcCoord(i,:), srcfarray(i,:), &
+                              dstCoord(i,:), dstfarray(i,:), &
+                              rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        end do
+      end if
+    else
+      ! -- linear interpolation, extrapolate with constant value
+      do i = lbnd, ubnd
+#ifdef LEGACY
+        call LinearInterpolate(srcCoord(i,:), srcfarray(i,:), &
+                               dstCoord(i,:), dstfarray(i,:), rc)
+#else
+        call PolyInterpolate(srcCoord(i,:), srcfarray(i,:), &
+                             dstCoord(i,:), dstfarray(i,:), 1, rc)
+#endif
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      end do
+    end if
+
+  end subroutine VerticalInterpolate1D
+
+  subroutine VerticalInterpolate2D(srcCoord, srcfarray, dstCoord, dstfarray, auxfarray, options, rc)
+    real(ESMF_KIND_R8), dimension(:,:,:),  intent(in) :: srcfarray, srcCoord, dstCoord
+    real(ESMF_KIND_R8), dimension(:,:,:), intent(out) :: dstfarray
+    real(ESMF_KIND_R8), dimension(:,:,:), optional, intent(in) :: auxfarray
+    character(len=*), optional, intent(in) :: options
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    logical :: isFlag
+    integer :: i, j, k, localrc
+    integer, dimension(2) :: lbnd, ubnd
+    real(ESMF_KIND_R8) :: auxNorm, rt
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    ! -- check if src and dst arrays have same horizontal decompositions
+    isFlag = .false.
+    do i = 1, 2
+      lbnd(i) = lbound(srcfarray, dim=i)
+      isFlag = (lbound(dstfarray, dim=i) /= lbnd(i)) 
+      if (isFlag) exit
+      ubnd(i) = ubound(srcfarray, dim=i)
+      isFlag = (ubound(dstfarray, dim=i) /= ubnd(i))
+      if (isFlag) exit
+    end do
+    if (isFlag) then
+      call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+        msg="src and dst arrays defined on different 2D regions (mismatched lower/upper bounds)", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    ! -- pick interpolation method
+    auxNorm = 0._ESMF_KIND_R8
+    if (present(options)) then
+      read(options, *, iostat=localrc) auxNorm
+      if (localrc /= 0) auxNorm = 0._ESMF_KIND_R8
+    end if
+      
+    if (auxNorm > 0._ESMF_KIND_R8) then
+      if (present(auxfarray)) then
+        ! -- log interpolation + extrapolation w/ hypsometric equation
+        do j = lbnd(2), ubnd(2)
+          do i = lbnd(1), ubnd(1)
+            rt = auxfarray(i,j,ubound(auxfarray, dim=3)) / auxNorm
+            call LogInterpolate(srcCoord(i,j,:), srcfarray(i,j,:), &
+                                dstCoord(i,j,:), dstfarray(i,j,:), &
+                                rt=rt, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          end do
+        end do
+      else
+        ! -- log interpolation, no extrapolation
+        do j = lbnd(2), ubnd(2)
+          do i = lbnd(1), ubnd(1)
+            call LogInterpolate(srcCoord(i,j,:), srcfarray(i,j,:), &
+                                dstCoord(i,j,:), dstfarray(i,j,:), &
+                                rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          end do
+        end do
+      end if
+    else
+        ! -- linear interpolation, extrapolate with constant value
+      do j = lbnd(2), ubnd(2)
+        do i = lbnd(1), ubnd(1)
+          call PolyInterpolate(srcCoord(i,j,:), srcfarray(i,j,:), &
+                               dstCoord(i,j,:), dstfarray(i,j,:), 1, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+        end do
+      end do
+    end if
+
+  end subroutine VerticalInterpolate2D
+
+  subroutine PolyInterpolate(xs, ys, xd, yd, m, rc)
+    real(ESMF_KIND_R8), dimension(:), intent(in)  :: xs, ys, xd
+    real(ESMF_KIND_R8), dimension(:), intent(out) :: yd
+    integer, intent(in)  :: m
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    integer :: i, j, k, n, np
+    real(ESMF_KIND_R8) :: x, y, dy
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    n = m + 1
+    np = size(xs)
+    do i = 1, size(xd)
+      x = xd(i)
+      y = 0._ESMF_KIND_R8
+      call locate(xs, np, x, j)
+      if (j == np) then
+        y = ys(np)
+      else if (j > 0) then
+        k = min(max(j-(n-1)/2,1), np+1-n)
+        call polint(xs(k:), ys(k:), n, x, y, dy, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg="Error in polint", &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      end if
+      yd(i) = y
+    end do
+    
+  end subroutine PolyInterpolate
+
+#ifdef LEGACY
+  subroutine LinearInterpolate(xs, ys, xd, yd, rc)
+    real(ESMF_KIND_R8), dimension(:), intent(in)  :: xs, ys, xd
+    real(ESMF_KIND_R8), dimension(:), intent(out) :: yd
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    integer :: k, kk, l, np, nd
+    integer, parameter :: extrap_start_level = 149
+
+    ! np = inlevels
+    ! nd = wamdim
+    ! varbuf = ys
+    ! hgtbuf = xs
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    np = size(xs)
+    nd = size(xd)
+    yd = 0._ESMF_KIND_R8
+
+    kk = 1
+    do k = 1, nd
+      do while (kk < np .and. xs(kk) < xd(k))
+        kk = kk + 1
+      end do
+      if (kk > extrap_start_level) then
+        do l = k, nd
+          yd(l)=ys(extrap_start_level)
+        end do
+        exit
+      end if
+      if (kk > 1) then
+        yd(k)=(ys(kk)*(xd(k)-xs(kk-1))+ &
+          ys(kk-1)*(xs(kk)-xd(k)))/(xs(kk)-xs(kk-1))
+      else
+        yd(k)=ys(kk)
+      end if
+    end do
+
+  end subroutine LinearInterpolate
+#endif
+
+#ifndef LEGACY
+  subroutine LogInterpolate(xs, ys, xd, yd, rt, rc)
+    ! -- note: both xs and xd are assumed to be "normalized" heights
+    ! --       x = 1 + z / earthRadius
+    ! -- if absolute heights (km) are used, please set earthRadius = 1
+    real(ESMF_KIND_R8), dimension(:), intent(in)  :: xs, ys, xd
+    real(ESMF_KIND_R8), dimension(:), intent(out) :: yd
+    real(ESMF_KIND_R8), optional, intent(in) :: rt  ! reduced T = T / mass
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    integer, parameter :: n = 2  ! linear interpolation (2 points)
+    integer :: i, itop, j, k, np, nd
+    real(ESMF_KIND_R8) :: fact, x, x1, y, y1, dy, ylog(n)
+
+    real(ESMF_KIND_R8), parameter :: log_min = 1.e-10_ESMF_KIND_R8
+    real(ESMF_KIND_R8), parameter :: g0 = 9.80665_ESMF_KIND_R8
+    real(ESMF_KIND_R8), parameter :: Rgas = 8.3141_ESMF_KIND_R8
+    real(ESMF_KIND_R8), parameter :: earthRadius = 6371.2_ESMF_KIND_R8
+    real(ESMF_KIND_R8), parameter :: const = 2 * g0 * earthRadius / Rgas
+ 
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    np = size(xs)
+    nd = size(xd)
+    yd = 0._ESMF_KIND_R8
+
+    ! -- interpolate
+    do i = 1, nd
+      x = xd(i)
+      y = 0._ESMF_KIND_R8
+      call locate(xs, np, x, j)
+      if (j == np) then
+        itop = i
+        exit
+      else if (j > 0) then
+        k = min(max(j-(n-1)/2,1), np+1-n)
+        ylog = log(max(ys(k:k+n-1), log_min))
+        call polint(xs(k:), ylog, n, x, y, dy, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg="Error in polint", &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      end if
+      yd(i) = exp(y)
+    end do
+
+    ! -- extrapolatw with hypsometric equation
+    if (present(rt)) then
+      if (rt <= 0._ESMF_KIND_R8) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="Optional rt argument (T/m) must be > 0", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if 
+      x1 = xs(np) 
+      y1 = ys(np) 
+      fact = const / rt
+      do i = itop, nd
+        y = fact * (x1-xd(i)) / (x1*x1+xd(i)*xd(i))
+        yd(i) = y1 * exp(y)
+        x1 = xd(i)
+        y1 = yd(i)
+      end do
+    end if
+
+  end subroutine LogInterpolate
+
+#else
+  ! ---------- TEST
+  subroutine LogInterpolate(xs, ys, xd, yd, rt, ms, rc)
+    ! -- note: both xs and xd are assumed to be "normalized" heights
+    ! --       x = 1 + z / earthRadius
+    ! -- if absolute heights (km) are used, please set earthRadius = 1
+    real(ESMF_KIND_R8), dimension(:), intent(in)  :: xs, ys, xd
+    real(ESMF_KIND_R8), dimension(:), intent(out) :: yd
+    real(ESMF_KIND_R8), optional, intent(in) :: rt  ! T at TOA
+    real(ESMF_KIND_R8), optional, intent(in) :: ms  ! mass
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    integer :: k, kk, l, np, nd
+    real(ESMF_KIND_R8) :: hgt_prev, dist, H_prev, data_prev
+    real(ESMF_KIND_R8) :: hgt_curr, H_avg, H_curr, data_curr
+    real(ESMF_KIND_R8) :: R, g0, re
+    real(ESMF_KIND_R8) :: mass
+
+    integer,            parameter :: extrap_start_level = 149
+    real(ESMF_KIND_R8), parameter :: log_min = 1.0E-10
+!   real(ESMF_KIND_R8), parameter :: log_min = 1.e-10_ESMF_KIND_R8
+!   real(ESMF_KIND_R8), parameter :: re = 6371.2_ESMF_KIND_R8
+!   real(ESMF_KIND_R8), parameter :: g0 = 9.80665_ESMF_KIND_R8
+!   real(ESMF_KIND_R8), parameter :: R  = 8.3141_ESMF_KIND_R8
+
+    R  = 8.3141
+    g0 = 9.80665
+    re = 6.3712e03
+
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    np = size(xs)
+    nd = size(xd)
+    yd = 0._ESMF_KIND_R8
+
+    ! -- interpolate
+
+    ! varbuf = ys
+    ! hgtbuf = xs
+
+    if (present(rt)) then
+      mass = 1._ESMF_KIND_R8
+      if (present(ms)) mass = ms
+      kk = 1
+      do k = 1, nd
+        do while (kk < np .and. xs(kk) < xd(k))
+          kk = kk + 1
+        end do
+        if (kk > extrap_start_level) then
+!         hgt_prev=re*(xs(extrap_start_level)-1)
+          hgt_prev=xs(extrap_start_level)
+          dist=re/(re+hgt_prev)
+          H_prev=R*rt/(mass*g0*dist*dist)
+          data_prev=ys(extrap_start_level)
+          do l = k, nd
+!           hgt_curr=re*(xd(l)-1)
+            hgt_curr=xd(l)
+            dist=re/(re+hgt_curr)
+            H_curr=R*rt/(mass*g0*dist*dist)
+
+            ! Extrapolate data to this level
+            H_avg=0.5*(H_prev+H_curr)
+            ! Temporary fix for H_avg = 0.0?
+            if ( H_avg .gt. 0. ) then
+              data_curr=data_prev*exp((hgt_prev-hgt_curr)/H_avg)
+            else
+              data_curr=data_prev
+            end if
+
+            ! Set extrapolated data in output array
+            yd(l)=data_curr
+
+            ! Set info for next pass
+            hgt_prev=hgt_curr
+            H_prev=H_curr
+            data_prev=data_curr
+          enddo
+          exit
+        endif
+        if (kk>1) then
+          yd(k)=exp((log(max(ys(kk),log_min))*(xd(k)-xs(kk-1))+ &
+            log(max(ys(kk-1),log_min))*(xs(kk)-xd(k)))/(xs(kk)-xs(kk-1)))
+        else
+          yd(k)=ys(kk)
+        endif
+      enddo
+    end if
+
+  end subroutine LogInterpolate
+
+#endif
+
+  ! -- auxiliary numerical subroutines for interpolation/extrapolation from:
+  ! -- W. H. Press, S. A. Teukolsky, W. T. Vetterling, B. P. Flannery,
+  ! -- Numerical Recipes in Fortran 77: The Art of Scientific Computing
+  ! -- (Vol. 1 of Fortran Numerical Recipes), 2nd Ed., Cambridge Univ. Press
+  ! -- 
+
+  subroutine locate(xx, n, x, j)
+    implicit none
+    integer, intent(in) :: n
+    real(ESMF_KIND_R8), intent(in) :: x, xx(n)
+    integer, intent(out) :: j
+
+    ! -- local variables
+    integer :: jl, jm, ju
+
+    ! -- begin
+    jl = 0
+    ju = n + 1
+    do while (ju-jl.gt.1)
+      jm = (ju+jl)/2
+      if ((xx(n).ge.xx(1)).eqv.(x.ge.xx(jm))) then
+        jl = jm
+      else
+        ju = jm
+      end if
+    end do
+    if (x.eq.xx(1)) then
+      j = 1
+    else if (x.eq.xx(n)) then
+      j = n - 1
+    else
+      j = jl
+    end if
+
+  end subroutine locate
+
+  subroutine polint(xa, ya, n, x, y, dy, rc)
+
+    implicit none
+
+    integer, intent(in) :: n
+    real(ESMF_KIND_R8),    intent(in) :: xa(n), ya(n)
+    real(ESMF_KIND_R8),    intent(in) :: x
+    real(ESMF_KIND_R8),   intent(out) :: y, dy
+    integer, intent(out) :: rc
+
+    ! -- local variables
+    integer, parameter :: nmax = 10
+    integer :: i, m, ns
+    real(ESMF_KIND_R8) :: den, dif, dift, ho, hp, w
+    real(ESMF_KIND_R8), dimension(nmax) :: c, d
+
+    ! -- begin
+    rc = ESMF_SUCCESS
+
+    ns = 1
+    dif = abs(x - xa(1))
+    do i = 1, n
+      dift = abs(x - xa(i))
+      if (dift < dif) then
+        ns  = i
+        dif = dift
+      end if
+      c(i) = ya(i)
+      d(i) = ya(i)
+    end do
+    y = ya(ns)
+    ns = ns - 1
+    do m = 1, n - 1
+      do i = 1, n - m
+        ho = xa(i)   - x
+        hp = xa(i+m) - x
+        w  = c(i+1)-d(i)
+        den = ho - hp
+        if (den == 0.) then
+          rc = ESMF_FAILURE
+          exit
+        end if
+        den = w / den
+        d(i) = hp * den
+        c(i) = ho * den
+      end do
+      if (2*ns < n - m) then
+        dy = c(ns+1)
+      else
+        dy = d(ns)
+        ns = ns - 1
+      end if
+      y = y + dy
+    end do
+
+  end subroutine polint
+
+  subroutine FieldGet(state, fieldName, compNames, compCount, rc)
+
+    ! -- input variables
+    type(stateType),            intent(in) :: state
+    character(len=*),           intent(in) :: fieldName
+
+    ! -- output
+    character(len=*), optional, intent(out) :: compNames(2)
+    integer,          optional, intent(out) :: compCount
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: comp, item
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_RC_NOT_FOUND
+
+    if (present(compCount)) compCount = 0
+    if (present(compNames)) compNames = ""
+
+    if (associated(state % fieldNames)) then
+      do item = 1, size(state % fieldNames)
+        if (trim(state % fieldNames(item)) == trim(fieldName)) then
+          comp = state % fieldDepMap(item)
+          if (comp > 0) then
+            if (present(compCount)) compCount = 2
+            if (present(compNames)) then
+              compNames(1) = trim(state % fieldNames(item))
+              compNames(2) = trim(state % fieldNames(comp))
+            end if
+          else if (comp == 0) then
+            if (present(compCount)) compCount = 1
+            if (present(compNames)) then
+              compNames(1) = trim(state % fieldNames(item))
+            end if
+          end if
+          if (present(rc)) rc = ESMF_SUCCESS
+          exit
+        end if
+      end do
+    end if
+
+  end subroutine FieldGet
+
+
+  subroutine FieldRegrid(rh, fieldName, auxArray, options, rc)
+
+    type(rhType)                            :: rh
+    character(len=*),           intent(in)  :: fieldName
+    type(ESMF_Array), optional, intent(in)  :: auxArray
+    character(len=*), optional, intent(in)  :: options
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    type(ESMF_Field) :: srcField, dstField
+    type(ESMF_Field), dimension(2) :: srcFieldComp, dstFieldComp
+    integer :: localrc
+    integer :: localDeCount, comp, compCount
+    logical :: isSrcCart, isDstCart
+    character(len=ESMF_MAXSTR) :: compNames(2)
+
+    ! -- begin 
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call FieldGet(rh % srcState, fieldName, compNames=compNames, compCount=compCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (compCount < 1) return
+
+    do comp = 1, compCount
+      srcFieldComp(comp) = StateGetField(rh % srcState, compNames(comp), &
+        auxArray=auxArray, options=options, component=comp, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      ! -- print diagnostic info
+      call FieldPrintMinMax(srcFieldComp(comp), "pre  - src:" // trim(compNames(comp)), rc)
+
+      dstFieldComp(comp) = StateGetField(rh % dstState, compNames(comp), component=comp, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    end do
+
+    if (compCount == 2) then
+      ! -- convert to Cartesian 3D vector
+      call Cardinal_to_Cart3D(srcFieldComp(2), srcFieldComp(1), &
+        rh % srcState % uvec(2), rh % srcState % uvec(1), &
+        rh % srcState % localCartField, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      srcField = rh % srcState % localCartField
+      dstField = rh % dstState % localCartField
+    else
+      srcField = srcFieldComp(1)
+      dstField = dstFieldComp(1)
+    end if
+
+    ! -- perform regrid
+    call ESMF_FieldRegrid(srcField=srcField, dstField=dstField, &
+      zeroregion=ESMF_REGION_TOTAL, &
+#ifdef BFB_REGRID
+      termorderflag=ESMF_TERMORDER_SRCSEQ, &
+#endif
+      routehandle=rh % rh, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (compCount == 2) then
+      ! -- convert back to cardinal vectors
+      call Cart3D_to_Cardinal(dstField, &
+        rh % dstState % uvec(2), rh % dstState % uvec(1), &
+        dstFieldComp(2), dstFieldComp(1), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    end if
+
+    do comp = 1, compCount
+      ! -- print diagnostic info
+      call FieldPrintMinMax(dstFieldComp(comp), "post - dst:" // trim(compNames(comp)), rc)
+
+      call StateStoreField(rh % srcState, srcFieldComp(comp), compNames(comp), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      call StateStoreField(rh % dstState, dstFieldComp(comp), compNames(comp), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    end do
+
+  end subroutine FieldRegrid
+
+  function StateGetField(state, fieldName, auxArray, options, component, rc)
+
+    ! -- input variables
+    type(stateType),            intent(inout) :: state
+    character(len=*),           intent(in)    :: fieldName
+    type(ESMF_Array), optional, intent(in)    :: auxArray
+    character(len=*), optional, intent(in)    :: options
+    integer,          optional, intent(in)    :: component
+
+    ! -- output 
+    type(ESMF_Field)               :: StateGetField
+    integer, optional, intent(out) :: rc
+
+    ! -- local variable
+    logical :: isFieldCreated
+    logical :: isNative, isNoData, isOrigin
+    integer :: localrc
+    integer :: localDeCount, localComp
+    real(ESMF_KIND_R8), pointer :: fptr1d(:), fptr2d(:,:)
+    type(ESMF_Field)            :: field
+    type(ESMF_StateIntent_Flag) :: stateIntent
+    type(ESMF_GeomType_Flag)    :: geomtype, lgeomtype
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    isNoData = .false.
+    isNative = .false.
+    isOrigin = .false.
+    if (present(options)) then
+      isNoData = (trim(options) == "nodata")
+      isNative = (trim(options) == "native")
+      isOrigin = (trim(options) == "origin")
+    end if
+
+    localComp = 1
+    if (present(component)) then
+      if (component < 1) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="component must be greater than 0", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      else if (component > state % fieldMaxRank) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="component not found", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      else
+        localComp = component
+      end if
+    end if
+
+    call ESMF_StateGet(state % parent, stateintent=stateIntent, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (stateIntent == ESMF_STATEINTENT_IMPORT) then
+      write(6,'(" - StateGetField: state is Import: getting ",a," ...")') trim(fieldName)
+    else if (stateIntent == ESMF_STATEINTENT_EXPORT) then
+      write(6,'(" - StateGetField: state is Export: getting ",a," ...")') trim(fieldName)
+    else
+      write(6,'(" - StateGetField: state is UNKNOWN for field ",a," ...")') trim(fieldName)
+      if (present(rc)) rc = ESMF_FAILURE
+      return
+    end if
+
+    call ESMF_StateGet(state % self, itemName=trim(fieldName), field=field, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (isOrigin) then
+      StateGetField = field
+      return
+    end if
+
+    write(6,'("-- StateGetField: checking if field is created ...")')
+    isFieldCreated = ESMF_FieldIsCreated(state % localField(localComp), rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    isNoData = isNoData .or. (stateIntent == ESMF_STATEINTENT_EXPORT)
+
+    if (isFieldCreated) then
+      if (isNoData) then
+        StateGetField = state % localField(localComp)
+        return
+      end if
+      call ESMF_FieldGet(field, geomtype=geomtype, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      call ESMF_FieldGet(state % localField(localComp), geomtype=lgeomtype, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      if (geomtype /= lgeomtype) then
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="remote and local GeomType must match", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+
+      if (geomtype == ESMF_GEOMTYPE_MESH) then
+
+        ! -- interpolate from 2d+1 Mesh to 3d Mesh
+        call FieldInterpolate(field, state % localIntField(localComp), &
+          srcLevels=state % remoteLevels, &
+          dstLevels=state % localLevels, &
+          auxArray=auxArray, options=options, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        if (isNative) then
+          StateGetField = state % localIntField(localComp)
+        else
+          ! -- assuming 1 DE/PET
+          call ESMF_FieldGet(state % localField(localComp), farrayPtr=fptr1d, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) return  ! bail out
+          call ESMF_FieldGet(state % localIntField(localComp), farrayPtr=fptr2d, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) return  ! bail out
+
+          write(6,'(" - StateGetField: size 1d/2d = ",2i10)') size(fptr1d),size(fptr2d)
+          flush 6
+          fptr1d = reshape(fptr2d, (/ size(fptr1d) /))
+
+          StateGetField = state % localField(localComp)
+        end if
+
+      else if (geomtype == ESMF_GEOMTYPE_GRID) then
+
+        ! -- use localLevels only on Mesh to reduce complexity for the time being
+        call FieldInterpolate(field, state % localField(localComp), srcLevels=state % remoteLevels, &
+          auxArray=auxArray, options=options, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        ! -- interpolate from 2d+1 Grid to 3d Grid
+!       if (ESMF_ArrayIsCreated(state % localLevels)) then
+!         call FieldInterpolate(field, state % localField, srcLevels=state % remoteLevels, &
+!           dstLevels=state % localLevels, &
+!           auxArray=auxArray, options=options, rc=localrc)
+!         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+!           line=__LINE__,  &
+!           file=__FILE__,  &
+!           rcToReturn=rc)) return  ! bail out
+!       else
+!         call FieldInterpolate(field, state % localField, srcLevels=state % remoteLevels, &
+!           auxArray=auxArray, options=options, rc=localrc)
+!         if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+!           line=__LINE__,  &
+!           file=__FILE__,  &
+!           rcToReturn=rc)) return  ! bail out
+!       end if
+        StateGetField = state % localField(localComp)
+
+      else
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="GeomType not recognized", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+
+      write(6,'(" - StateGetField: interpolation is done")')
+    else
+      write(6,'("-- StateGetField: field IS NOT created")')
+      StateGetField = field
+      write(6,'(" - RHStore: field is remote")')
+    end if
+
+  end function StateGetField
+
+  subroutine StateStoreField(state, field, fieldName, component, rc)
+
+    ! -- input variables
+    type(stateType),   intent(in)  :: state
+    type(ESMF_Field),  intent(in)  :: field
+    character(len=*),  intent(in)  :: fieldName
+    integer, optional, intent(in)  :: component
+
+    ! -- output 
+    integer, optional, intent(out) :: rc
+
+    ! -- local variable
+    integer                     :: localrc, localComp
+    real(ESMF_KIND_R8), pointer :: fptr1d(:), fptr2d(:,:)
+    type(ESMF_Field)            :: dstField
+    type(ESMF_GeomType_Flag)    :: geomtype
+    type(ESMF_StateIntent_Flag) :: stateIntent
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    localComp = 1
+    if (present(component)) then
+      if (component < 1) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="component must be greater than 0", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      else if (component > state % fieldMaxRank) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="component not found", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      else
+        localComp = component
+      end if
+    end if
+
+    call ESMF_StateGet(state % parent, stateintent=stateIntent, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (stateIntent /= ESMF_STATEINTENT_EXPORT) return
+
+    if (field == state % localField(localComp)) then
+
+      call ESMF_FieldGet(field, geomtype=geomtype, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      call ESMF_StateGet(state % self, itemName=trim(fieldName), &
+        field=dstField, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+
+      if (geomtype == ESMF_GEOMTYPE_MESH) then
+
+        ! -- assuming 1 DE/PET
+        call ESMF_FieldGet(state % localField(localComp), farrayPtr=fptr1d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        call ESMF_FieldGet(state % localIntField(localComp), farrayPtr=fptr2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        write(6,'(" - StateGetField: size 1d/2d = ",2i10," min/max = ",2g16.6)') &
+          size(fptr1d),size(fptr2d), minval(fptr1d),maxval(fptr1d)
+        flush 6
+        fptr2d = reshape(fptr1d, shape(fptr2d))
+
+        ! -- interpolate from 2d+1 Mesh to 3d Mesh
+        call FieldInterpolate(state % localIntField(localComp), dstField, &
+          srcLevels=state % localLevels, &
+          dstLevels=state % remoteLevels, &
+          rc=localrc)
+!         auxArray=auxArray, options=options, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call FieldPrintMinMax(dstField, "StateGetField:" // trim(fieldName), rc)
+
+      else if (geomtype == ESMF_GEOMTYPE_GRID) then
+
+        ! -- use localLevels only on Mesh to reduce complexity for the time being
+        call FieldInterpolate(field, dstField, dstLevels=state % remoteLevels, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+      end if
+
+    end if
+
+  end subroutine StateStoreField
+
+
+  subroutine StateSetLocalVectors(state, rc)
+
+    ! -- input/output variables
+    type(stateType), intent(inout) :: state
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc, item
+    logical :: isCreated
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    isCreated = ESMF_MeshIsCreated(state % localMesh, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (.not.isCreated) then
+      call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+        msg="local Mesh must be created before local vectors", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    do item = 1, size(state % uvec)
+      isCreated = ESMF_FieldIsCreated(state % uvec(item), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      if (isCreated) then
+        call ESMF_FieldDestroy(state % uvec(item), noGarbage=.true., rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+      end if
+      ! -- create unit vectors
+      state % uvec(item) = ESMF_FieldCreate(state % localMesh, ESMF_TYPEKIND_R8, &
+         gridToFieldMap=(/2/), ungriddedLBound=(/1/), ungriddedUBound=(/3/), &
+         rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    end do
+
+    ! -- set 3D Cartesian unit vectors
+    ! -- USE CART VERSION BECAUSE OF A BUG IN MESHREDIST() IN ESMF 7.0.0 and before, once in 7.1.0 USE NON-CART VERSION
+    if (ESMF_VERSION_MAJOR > 7) then
+      call Set_Field_Cardinal_UVecs(state % uvec(2), state % uvec(1), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    else if ((ESMF_VERSION_MAJOR == 7) .and. (ESMF_VERSION_MINOR > 0)) then
+      call Set_Field_Cardinal_UVecs(state % uvec(2), state % uvec(1), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    else
+      call Set_Field_Cardinal_UVecsCart(state % uvec(2), state % uvec(1), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    endif
+
+    ! -- now set local Cartesian vector
+    isCreated = ESMF_FieldIsCreated(state % localCartField, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+    if (isCreated) then
+      call ESMF_FieldDestroy(state % localCartField, noGarbage=.true., rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+    end if
+    state % localCartField = ESMF_FieldCreate(state % localMesh, ESMF_TYPEKIND_R8, &
+      gridToFieldMap=(/2/), ungriddedLBound=(/1/), ungriddedUBound=(/3/), &
+      meshloc=ESMF_MESHLOC_NODE, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+  end subroutine StateSetLocalVectors
+
+
+  subroutine FieldInterpolate(srcField, dstField, srcLevels, dstLevels, auxArray, options, rc)
+    type(ESMF_Field),            intent(in) :: srcField
+    type(ESMF_Field),         intent(inout) :: dstField
+    type(ESMF_Array), optional,  intent(in) :: srcLevels
+    type(ESMF_Array), optional,  intent(in) :: dstLevels
+    type(ESMF_Array), optional,  intent(in) :: auxArray
+    character(len=*), optional,  intent(in) :: options
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc
+    integer :: rank, lrank
+    integer :: deCount, ldeCount, localDe
+    real(ESMF_KIND_R8), dimension(:,:),   pointer :: srcCoord2d, srcData2d, &
+                                                     dstCoord2d, dstData2d, auxData2d
+    real(ESMF_KIND_R8), dimension(:,:,:), pointer :: srcCoord3d, srcData3d, &
+                                                     dstCoord3d, dstData3d, auxData3d
+    type(ESMF_Grid)  :: grid
+    type(ESMF_Array) :: srcCoordArray, dstCoordArray
+    type(ESMF_GeomType_flag) :: geomtype
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    call ESMF_FieldGet(srcField, geomtype=geomtype, rank=rank, &
+      localDeCount=deCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (rank < 2 .or. rank > 3 ) then
+      call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+        msg="rank of source field must be 2 or 3", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    if (geomtype == ESMF_GEOMTYPE_MESH) then
+      if (deCount /= 1) then
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="localDeCount of source field must be 1 since field is on Mesh", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+    end if
+
+    call ESMF_FieldGet(dstField, rank=lrank, localDeCount=ldeCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    if (ldeCount /= deCount) then
+      call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+        msg="localDeCount of source and destination field must match", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    if (lrank /= rank) then
+      call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+        msg="rank of source and destination field must match", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+
+    if (present(srcLevels)) then
+      call ESMF_ArrayGet(srcLevels, rank=lrank, localDeCount=ldeCount, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      if (lrank /= rank) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="Rank of source levels array must match rank of src/dst field", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+      if (ldeCount /= deCount) then
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="localDeCount of srcLevels must match src/dst fields", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+      srcCoordArray = srcLevels
+    else
+      ! -- check if src field is on Grid
+      call ESMF_FieldGet(srcField, geomtype=geomtype, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      if (geomtype == ESMF_GEOMTYPE_GRID) then
+        ! -- get src grid
+        write(6,'(" - FieldInterpolate: get src levels from src grid ...")')
+        call ESMF_FieldGet(srcField, grid=grid, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return
+        ! -- get vertical levels
+        call ESMF_GridGetCoord(grid, coordDim=3, &
+          staggerloc=ESMF_STAGGERLOC_CENTER, array=srcCoordArray, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return
+        write(6,'(" - FieldInterpolate: got src levels from src grid ")')
+      else
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="if no srcLevels provided, srcField must be on Grid", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+    end if
+
+    ! -- check for dstLevels
+    if (present(dstLevels)) then
+      call ESMF_ArrayGet(dstLevels, rank=lrank, localDeCount=ldeCount, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      if (lrank /= rank) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="Rank of dstLevels array must match rank of src/dst field", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+      if (ldeCount /= deCount) then
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="localDeCount of dstLevels must match src/dst fields", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+      dstCoordArray = dstLevels
+    else
+      ! -- check if src field is on Grid
+      call ESMF_FieldGet(dstField, geomtype=geomtype, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return
+      if (geomtype == ESMF_GEOMTYPE_GRID) then
+        ! -- get dst grid
+        write(6,'(" - FieldInterpolate: get dst levels from dst grid ...")')
+        call ESMF_FieldGet(dstField, grid=grid, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return
+        ! -- get vertical levels
+        call ESMF_GridGetCoord(grid, coordDim=3, &
+          staggerloc=ESMF_STAGGERLOC_CENTER, array=dstCoordArray, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return
+        write(6,'(" - FieldInterpolate: got dst levels from dst grid ")')
+      else
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="if no dstLevels provided, dstField must be on Grid", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+    end if
+
+    ! -- check for auxArray
+    if (present(auxArray)) then
+      call ESMF_ArrayGet(auxArray, rank=lrank, localDeCount=ldeCount, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      if (lrank /= rank) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="Rank of auxArray array must match rank of src/dst field", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+      if (ldeCount /= deCount) then
+        call ESMF_LogSetError(ESMF_RC_NOT_IMPL, &
+          msg="localDeCount of auxArray must match src/dst fields", &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end if
+    end if
+
+    do localDe = 0, deCount - 1
+
+      select case (rank)
+      case (2)
+
+        call ESMF_FieldGet(srcField, localDE=localDe, farrayPtr=srcData2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_ArrayGet(srcCoordArray, localDE=localDe, farrayPtr=srcCoord2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_FieldGet(dstField, localDE=localDe, farrayPtr=dstData2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_ArrayGet(dstCoordArray, localDE=localDe, farrayPtr=dstCoord2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        if (present(auxArray)) then
+          call ESMF_ArrayGet(auxArray, localDE=localDe, farrayPtr=auxData2d, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) return  ! bail out
+        else
+          nullify(auxData2d)
+        end if
+
+        call Interpolate(srcCoord2d, srcData2d, dstCoord2d, dstData2d, &
+          auxfarray=auxData2d, options=options, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+      case (3)
+
+        call ESMF_FieldGet(srcField, localDE=localDe, farrayPtr=srcData3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_ArrayGet(srcCoordArray, localDE=localDe, farrayPtr=srcCoord3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_FieldGet(dstField, localDE=localDe, farrayPtr=dstData3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        call ESMF_ArrayGet(dstCoordArray, localDE=localDe, farrayPtr=dstCoord3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+        if (present(auxArray)) then
+          call ESMF_ArrayGet(auxArray, localDE=localDe, farrayPtr=auxData3d, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) return  ! bail out
+        else
+          nullify(auxData3d)
+        end if
+
+        call Interpolate(srcCoord3d, srcData3d, dstCoord3d, dstData3d, &
+          auxfarray=auxData3d, options=options, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+
+      end select
+
+    end do
+
+  end subroutine FieldInterpolate
+
+  subroutine FieldPrintMinMax(field, label, rc)
+    type(ESMF_Field)                        :: field
+    character(len=*), optional,  intent(in) :: label
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: localrc, rank
+    integer :: localDe, localDeCount
+    character(len=ESMF_MAXSTR) :: name
+    real(ESMF_KIND_R8), pointer :: fptr1d(:), fptr2d(:,:), fptr3d(:,:,:)
+    real(ESMF_KIND_R8) :: fmin, fmax, fieldMin, fieldMax
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    fieldMin = huge(0._ESMF_KIND_R8)
+    fieldMax = -fieldMin
+
+    call ESMF_FieldGet(field, name=name, rank=rank, localDeCount=localDeCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    do localDe = 0, localDeCount - 1
+      select case (rank)
+      case(1)
+        call ESMF_FieldGet(field, farrayPtr=fptr1d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        fmin = minval(fptr1d)
+        fmax = maxval(fptr1d)
+      case(2)
+        call ESMF_FieldGet(field, farrayPtr=fptr2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        fmin = minval(fptr2d)
+        fmax = maxval(fptr2d)
+      case(3)
+        call ESMF_FieldGet(field, farrayPtr=fptr3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        fmin = minval(fptr3d)
+        fmax = maxval(fptr3d)
+      case default
+        call ESMF_LogSetError(ESMF_RC_OBJ_BAD, &
+          msg="Rank must be 1, 2, or 3 for field "//trim(name), &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return ! bail out
+      end select
+      fieldMin = min(fieldMin, fmin)
+      fieldMax = max(fieldMax, fmax)
+    end do
+
+    write(6,'("FieldPrintMinMax: ",a,1x,a," min = ",g14.6," max = ",g14.6)') &
+      trim(label), trim(name), fieldMin, fieldMax
+
+  end subroutine FieldPrintMinMax
+
+  ! -- Namespace: Field Retrieve/Store/Interpolate/Release methods: end definition --
+
+  ! -- Namespace: Utilities: begin definition --
+
+  subroutine NamespacePrint(logUnit, rc)
+    integer, intent(in),  optional :: logUnit
+    integer, intent(out), optional :: rc
+
+    ! -- local variables
+    type(compType),     pointer :: p
+    type(stateType),    pointer :: s
+    type(ESMF_StateIntent_Flag) :: stateintent
+    character(len=ESMF_MAXSTR)  :: stateName, compNames(2)
+    integer :: compCount, i, localPet, localrc, lunit
+    type(ESMF_VM) :: vm
+
+    integer, parameter :: defaultLogUnit = 6
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    lunit = defaultLogUnit
+    if (present(logUnit)) lunit = logUnit
+
+    call ESMF_VMGetCurrent(vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=localPet, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    if (localPet /= 0) return
+
+    nullify(s)
+    write(lunit,'("Namespaces defined")')
+    write(lunit,'("==================")')
+    p => compList
+    do while (associated(p))
+      write(lunit,'("Namespace: ",a)') trim(p % name)
+      s => p % stateList
+      do while (associated(s))
+        call ESMF_StateGet(s % parent, stateintent=stateintent, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+        call ESMF_StateGet(s % self, name=stateName, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+        if (stateintent == ESMF_STATEINTENT_IMPORT) then
+          write(lunit,'("State: ",a,": Import")') trim(stateName)
+        else if (stateintent == ESMF_STATEINTENT_EXPORT) then
+          write(lunit,'("State: ",a,": Export")') trim(stateName)
+        else if (stateintent == ESMF_STATEINTENT_UNSPECIFIED) then
+          write(lunit,'("State: ",a,": Intent unspecified")') trim(stateName)
+        else
+          write(lunit,'("State: ",a,": Intent N/A")') trim(stateName)
+        end if
+        if (associated(s % fieldNames)) then
+          do i = 1, size(s % fieldNames)
+            call FieldGet(s, trim(s % fieldNames(i)), compNames=compNames, &
+              compCount=compCount, rc=localrc)
+            if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__, &
+              rcToReturn=rc)) return  ! bail out
+            if (compCount == 1) then
+              write(lunit,'(i4,2x,a)') i, trim(compNames(1))
+            else if (compCount == 2) then
+              write(lunit,'(i4,2x,"(",3a,")")') i, trim(compNames(1)), &
+                s % fieldSep, trim(compNames(2))
+            end if
+          end do
+        else
+          write(lunit,'("No fields attached")')
+        end if
+        if (associated(s % fieldOptions)) then
+          do i = 1, size(s % fieldOptions)
+            write(lunit,'(i4,2x,a)') i, trim(s % fieldOptions(i))
+          end do
+        else
+          write(lunit,'("No field options attached")')
+        end if
+        if (s % ugDimLength /= 0) then
+          write(lunit,'("Length of ungridded dimension: ",i0)') s % ugDimLength
+        else
+          write(lunit,'("No ungridded dimension")')
+        end if
+        write(lunit,'("transferAction: ",a)') trim(s % trAction)
+        s => s % next
+      end do
+      p => p % next
+    end do
+    write(lunit,'("==================")')
+
+    nullify(p, s)
+
+  end subroutine NamespacePrint
+
+  ! -- Namespace: Utilities: end definition --
+
+  ! -- RouteHandle: begin definition --
+
+  function RouteHandleListGet(rc)
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    type(rhType),          pointer :: RouteHandleListGet
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    RouteHandleListGet => rhList
+
+  end function RouteHandleListGet
+
+  subroutine RouteHandleListSet(routeHandleList, rc)
+    integer, optional, intent(out) :: rc
+    type(rhType),          pointer :: routeHandleList
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    rhList => routeHandleList
+
+  end subroutine routeHandleListSet
+
+  logical function RouteHandleListIsCreated(rc)
+    integer, optional, intent(out) :: rc
+
+    ! -- begin
+    RouteHandleListIsCreated = associated(RouteHandleListGet(rc=rc))
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end function RouteHandleListIsCreated
+
+  subroutine RouteHandleCreate(routeHandle, rc)
+
+    type(rhType), optional,     pointer :: routeHandle
+    integer,      optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),     pointer :: p, q
+    type(stateType),    pointer :: r, s
+    type(rhType),       pointer :: rh, rHandle
+    type(ESMF_Field)            :: srcField, dstField
+    type(ESMF_StateIntent_flag) :: stateIntent
+    character(len=ESMF_MAXSTR)  :: srcName, dstName
+    integer                     :: localrc
+#ifdef BFB_REGRID
+    integer                     :: srcTermProcessing
+#endif
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    rh => rhList
+    p => compList
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+        call ESMF_StateGet(s % parent, stateintent=stateIntent, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        if (stateIntent == ESMF_STATEINTENT_IMPORT) then
+          q => compList
+          do while (associated(q))
+            if (trim(p % name) /= trim(q % name)) then
+              r => q % stateList
+              do while (associated(r))
+                call ESMF_StateGet(r % parent, stateintent=stateIntent, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+
+                if (stateIntent == ESMF_STATEINTENT_EXPORT) then
+
+                  call ESMF_StateGet(s % self, name=srcName, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+
+                  call ESMF_StateGet(r % self, name=dstName, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+
+                  srcField = StateGetField(s, s % fieldNames(1), options="nodata", rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+
+                  dstField = StateGetField(r, r % fieldNames(1), options="nodata", rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+
+                  nullify(rHandle)
+                  allocate(rHandle, stat=localrc)
+                  if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__, &
+                    file=__FILE__, &
+                    rcToReturn=rc)) return ! bail out
+                  rHandle % label    = trim(srcName)//" -> "//trim(dstName)
+                  rHandle % srcState => s
+                  rHandle % dstState => r
+                  nullify(rHandle % next)
+
+#ifdef BFB_REGRID
+                  srcTermProcessing = 0
+                  write(6,'(" - RHStore: start working on RH ...",a, "(srcTermProcessing = ",i0,")")') &
+                    trim(rHandle % label), srcTermProcessing
+#else
+                  write(6,'(" - RHStore: start working on RH ...",a)') trim(rHandle % label)
+#endif
+                  call ESMF_FieldRegridStore(srcField, dstField, &
+                    regridmethod   = ESMF_REGRIDMETHOD_BILINEAR, &
+                    unmappedaction = ESMF_UNMAPPEDACTION_IGNORE, &
+                    polemethod     = ESMF_POLEMETHOD_NONE,       &
+                    lineType       = ESMF_LINETYPE_GREAT_CIRCLE, &
+#ifdef BFB_REGRID
+                    srcTermProcessing = srcTermProcessing, &
+#endif
+                    routehandle=rHandle % rh, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+                  write(6,'(" - RHStore: done working on RH ...",a)') trim(rHandle % label)
+
+                  if (associated(rh)) then
+                    rh % next => rHandle
+                  else
+                    rhList => rHandle
+                  end if
+                  rh => rHandle
+                end if 
+                r => r % next
+              end do
+            end if 
+            q => q % next
+          end do
+        end if
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    if (present(routeHandle)) routeHandle => rhList
+
+  end subroutine RouteHandleCreate
+
+  subroutine RouteHandlePrint(routeHandleList, detailed, rc)
+    type(rhType), optional, pointer     :: routeHandleList
+    logical,      optional,  intent(in) :: detailed
+    integer,      optional, intent(out) :: rc
+
+    ! -- local variables
+    integer :: item, localrc
+    type(rhType), pointer :: rh
+
+    logical :: printDetails
+    integer :: localPet
+    type(ESMF_VM) :: vm
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    printDetails = .false.
+    if (present(detailed)) printDetails = detailed
+
+    call ESMF_VMGetCurrent(vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=localPet, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__, &
+      rcToReturn=rc)) return  ! bail out
+
+    if (present(routeHandleList)) then
+      rh => routeHandleList
+    else
+      rh => rhList
+    end if
+
+    print *, 'RouteHandle Table'
+    print *, '================='
+    item = 0
+    do while (associated(rh))
+      item = item + 1
+      write(6,'(i4,2x,a,2x,l5)') item, trim(rh % label), &
+        ESMF_RouteHandleIsCreated(rh % rh, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return  ! bail out
+      if (printDetails) then
+        call ESMF_RouteHandlePrint(rh % rh, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)) return  ! bail out
+      end if
+      rh => rh % next
+    end do
+    print *, '================='
+    
+  end subroutine RouteHandlePrint
+
+  subroutine RouteHandleListRelease(routeHandleList, rc)
+
+    type(rhType), optional, pointer     :: routeHandleList
+    integer,      optional, intent(out) :: rc
+
+    ! -- local variables
+    type(compType),  pointer :: p, q
+    type(stateType), pointer :: s, r
+    type(rhType),    pointer :: rh, lh
+    integer                  :: localrc
+    logical                  :: isRHCreated
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! -- free up memory
+    ! -- routehandles
+    if (present(routeHandleList)) then
+      rh => routeHandleList
+    else
+      rh => rhList
+    end if
+
+    do while (associated(rh))
+      lh => rh
+      rh => rh % next
+      isRHCreated = ESMF_RouteHandleIsCreated(lh % rh, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) return  ! bail out
+      if (isRHCreated) then
+        call ESMF_FieldRegridRelease(lh % rh, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+      end if
+      deallocate(lh, stat=localrc)
+      if (ESMF_LogFoundAllocError(statusToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)) return ! bail out
+      nullify(lh)
+    end do
+
+    if (present(routeHandleList)) then
+      nullify(routeHandleList)
+    else
+      nullify(rhList)
+    end if
+
+  end subroutine RouteHandleListRelease
+
+  ! -- RouteHandle: end definition --
+
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! Peggy's routines below....
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+
+  subroutine initGrids(model, wam2dMesh, wamMesh, minheight, heights, hArray, rc)
+
+#ifdef ESMF_NETCDF
+    use netcdf
+#endif
+    
+    type(ESMF_GridComp)  :: model
+    type(ESMF_MESH) :: wam2dmesh, wamMesh
+    real(ESMF_KIND_R8), optional, intent(in) :: minheight
+    real(ESMF_KIND_R8), optional, intent(in) :: heights(:)
+    type(ESMF_Array),   optional, intent(out) :: hArray
+    integer, intent(out) :: rc
+
+
+  type(ESMF_VM) :: vm
+#if 0
+  type(InternalState)     :: is
+  type(ESMF_MESH) :: wammesh
+#endif
+  real(ESMF_KIND_R8), pointer :: wamlon(:,:), wamlat(:,:), wamhgt(:)
+  real(ESMF_KIND_R8), pointer :: ipelon(:,:), ipelat(:,:), ipehgt(:), ipedata(:)
+  real(ESMF_KIND_R8), pointer :: hgtbuf(:,:,:), varbuf(:,:,:,:)
+  real(ESMF_KIND_R8), pointer :: databuf(:)
+  integer(ESMF_KIND_I4), pointer :: maxlevs(:)
+  integer(ESMF_KIND_I4), pointer :: numPerRow(:), shuffleOrder(:)
+  integer :: nc1, ncid
+  integer :: varid, dimid1, dimid2, dimid3
+  integer :: ndims, dimids(3)
+  integer :: wamdims(3), ipedims(3)
+  integer :: PetNo, PetCnt
+  integer(ESMF_KIND_I4), pointer :: elementIds(:), elementTypes(:), elementConn(:)
+  integer(ESMF_KIND_I4), pointer :: nodeIds(:), nodeOwners(:)
+  real(ESMF_KIND_R8), pointer :: nodeCoords(:)
+  integer(ESMF_KIND_I4), pointer :: southind(:), northind(:), totallats(:), gap(:)
+! integer :: minheight, maxheight, halo, neighbor, remind
+  integer :: halo, neighbor, remind
+  integer(ESMF_KIND_I4), pointer :: totalheight(:)
+  real(ESMF_KIND_R8) :: lon, lat, hgt, lon1, lat1, hgt1
+  real(ESMF_KIND_R4) :: interval
+  integer :: i,j, k, l, ii, jj, kk, count1, count3, count8, localcount, countup, save, base, base1
+  logical :: even, isInd
+  integer :: start, count, diff, lastlat, totalelements, totalnodes, localnodes, startid
+  integer :: wamtotalnodes
+  integer :: elmtcount, increment
+  integer :: startlevel, next, ind, ind1, totalnodes2d, totallevels, myrows, trigs
+  integer :: reminder, steps, startrow, startnode
+  integer, pointer :: rowinds(:), petTable(:), baseind(:)
+  integer(ESMF_KIND_I4), pointer :: elementCnt(:), nodeCnt(:), sendbuf(:), recvbuf(:)
+  integer(ESMF_KIND_I4), allocatable :: indList(:)
+  real(ESMF_KIND_R8), pointer :: conntbl(:), globalCoords(:,:), fptr2d(:,:), fptr1d(:)
+  type(ESMF_Arrayspec) :: arrayspec
+  type(ESMF_Array) :: array, array1, array2
+  real(ESMF_KIND_R8) :: maxerror, minerror, totalerrors, deg2rad
+  real(ESMF_KIND_R8) :: starttime, endtime, timesend(1), timereport(1)
+  real(ESMF_KIND_R8) :: differr
+  real(ESMF_KIND_R8) :: lminheight
+  real(ESMF_KIND_R8), pointer :: varout(:), lonbuf(:),latbuf(:)
+  real(ESMF_KIND_R8), pointer :: weights(:)
+  integer(ESMF_KIND_I4), pointer :: indices(:,:)
+  character(len=ESMF_MAXSTR) :: wamfilename
+  character(len=ESMF_MAXSTR) :: filename
+  integer :: wgtcount(1)
+  integer :: count2(1), start2(1)
+  integer, pointer :: allCounts(:), connectbase(:)
+  real, parameter :: PI=3.1415927
+  integer :: j1
+  integer :: localrc, status
+  real, parameter :: earthradius=6371.0  !in kilometers
+
+  ! For output
+  real(ESMF_KIND_R8), pointer :: lontbl(:), lattbl(:), hgttbl(:)
+  integer :: lonid, latid, hgtid, vertid, elmtid, nodeid, numid, connid, timeid
+  integer :: data1id, data2id, wgtid, wamid, ipeid
+  integer :: globalTotal, globalTotalelmt, nodestartid, totalwgts
+  type(ESMF_Distgrid) :: nodalDistgrid, distgrid
+  integer :: localDe, localDeCount
+  type(ESMF_Field) :: field
+
+  rc = ESMF_SUCCESS
+
+  !------------------------------------------------------------------------
+  ! get global vm information
+  !
+  call ESMF_VMGetCurrent(vm, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  ! set up local pet info
+  call ESMF_VMGet(vm, localPet=PetNo, petCount=PetCnt, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+#if 0
+  !------------------------------------------------------------------------
+  ! Allocate memory for the internal state and set it in the Component.
+    allocate(is%wrap, stat=rc)
+    if (ESMF_LogFoundAllocError(statusToCheck=rc, &
+      msg="Allocation of the internal state memory failed.", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridCompSetInternalState(model, is, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
+  !wamfilename = 'data/wam3dgridnew.nc'
+  wamfilename = 'wam3dgridnew_20160427.nc'
+  filename = 'wam2dmesh.nc'
+! minheight = 90.
+! maxheight = 782.
+  deg2rad = PI/180.0
+
+#ifdef ESMF_NETCDF
+  !!-------------------------------------
+  !! Create WAM mesh
+  !!-------------------------------------
+  ! We need to create a 2D mesh with distgrid only and use it to get the data
+  ! from the DATAWAM
+  ! we also need to create the 3D intermediate WAM mesh to be used to regrid
+  ! with IPE grid
+ 
+  ! Read in WAM grid from wam3dgrid.nc
+  !!
+  status = nf90_open(path= wamfilename, mode=nf90_nowrite, ncid=nc1)
+  call CheckNCError(status, wamfilename)
+  status = nf90_inq_varid(nc1,'lons', varid)
+  call CheckNCError(status, 'lons')
+  status = nf90_inquire_variable(nc1, varid, ndims=ndims, dimids = dimids)
+  call CheckNCError(status, 'lons')
+  status = nf90_inquire_dimension(nc1,dimids(1), len=wamdims(1))
+  call CheckNCError(status, 'lons 1st dimension')
+  status = nf90_inquire_dimension(nc1,dimids(2), len=wamdims(2))
+  call CheckNCError(status, 'lons 2nd dimension')
+
+  ! WAM dimension order:  lons, lats (192, 94)
+  allocate(wamlon(wamdims(1), wamdims(2)), &
+           wamlat(wamdims(1), wamdims(2)))
+  status = nf90_get_var(nc1, varid, wamlon)
+  call CheckNCError(status, 'lons')
+  status = nf90_inq_varid(nc1,'lats', varid)
+  call CheckNCError(status, 'lats')
+  status = nf90_get_var(nc1, varid, wamlat)
+  call CheckNCError(status, 'lats')
+
+  ! intermediate height fields
+  if (present(heights)) then
+    wamdims(3) = size(heights)
+    allocate(wamhgt(wamdims(3)))
+    wamhgt = heights
+  else
+    status = nf90_inq_varid(nc1,'height', varid)
+    call CheckNCError(status, 'height')
+    status = nf90_inquire_variable(nc1, varid, ndims=ndims, dimids = dimids)
+    call CheckNCError(status, 'height')
+    status = nf90_inquire_dimension(nc1,dimids(1), len=wamdims(3))
+    call CheckNCError(status, 'height 1st dimension')
+
+    allocate(wamhgt(wamdims(3)))
+    status = nf90_get_var(nc1, varid, wamhgt)
+    call CheckNCError(status, 'height')
+  end if
+
+  allocate(NumPerRow(wamdims(2)), ShuffleOrder(wamdims(2)))
+  status = nf90_inq_varid(nc1,'NumPerRow', varid)
+  call CheckNCError(status, 'NumPerRow')
+  status = nf90_get_var(nc1, varid, NumPerRow)
+  call CheckNCError(status, 'NumPerRow')
+  status = nf90_inq_varid(nc1,'ShuffleOrder', varid)
+  call CheckNCError(status, 'ShuffleOrder')
+  status = nf90_get_var(nc1, varid, ShuffleOrder)
+  call CheckNCError(status, 'ShuffleOrder')
+  status= nf90_close(nc1)
+  call CheckNCError(status, wamfilename)
+
+  ! Use the shuffle order to create the 2D mesh first
+  ! find the total number of nodes in each processor and create local index table
+  localnodes=0
+  myrows = wamdims(2)/PetCnt
+#if 0
+  if ((wamdims(2)-myrows*PetCnt) > PetNo) myrows = myrows+1
+  allocate(rowinds(myrows))      !my local row index
+  allocate(petTable(wamdims(2))) !the owner PET for each row
+  next = 0
+  ind1 = 0
+  do i=1,wamdims(2)
+    ind=ShuffleOrder(i)
+    petTable(ind)=next
+    if (next == PetNo) then
+       ind1=ind1+1
+       rowinds(ind1)=ind
+       localnodes=localnodes + numPerRow(ind)
+    endif
+    next=next+1
+    if (next == PetCnt) next=0
+  enddo
+  print *, PetNo, 'localnodes/myrows:', localnodes, myrows
+#else
+  reminder = wamdims(2)-myrows*PetCnt
+  if (reminder > PetNo)  then
+     myrows = myrows+1
+     startrow = myrows*PetNo+1
+  else
+     startrow = myrows*PetNo + reminder+1
+  endif
+  allocate(rowinds(myrows))      !my local row index
+  allocate(petTable(wamdims(2))) !the owner PET for each row
+  do i=1,myrows
+    rowinds(i)=ShuffleOrder(startrow+i-1)
+    localnodes = localnodes + numPerRow(rowinds(i))
+  enddo
+  print *, PetNo, 'start rows:', startrow, localnodes, myrows
+  ind1 = 1
+  steps = wamdims(2)/PetCnt
+  do next=0,PetCnt-1
+    if (next<reminder) then
+       do i=ind1, ind1+steps
+          PetTable(ShuffleOrder(i))=next
+       enddo
+       ind1 = ind1+steps+1
+    else
+       do i=ind1, ind1+steps-1
+          PetTable(ShuffleOrder(i))=next
+       enddo
+       ind1 = ind1+steps
+    endif
+  enddo
+  if (ind1 /= wamdims(2)+1) then
+     print *, 'MEDIATOR Wrong ind1 ', ind1, wamdims(2)
+  endif
+#endif
+  
+  ! sort rowinds
+  call ESMF_UtilSort(rowinds, ESMF_SORTFLAG_ASCENDING, rc)
+
+  print *, PetNo, 'sorted rowinds ', rowinds
+
+  ! Save the lat/lon in the order the distgrid
+  allocate(lonbuf(localnodes), latbuf(localnodes))
+
+  ! Create a distgrid using a collapsed 1D index array based on the local row index
+  allocate(indList(localnodes))
+  k=1
+  do i=1,myrows
+    ind=rowinds(i)
+    do j=1,numPerRow(ind)
+       indList(k)=(ind-1)*wamdims(1)+j
+       lonbuf(k)=wamlon(j,ind)
+       latbuf(k)=wamlat(j,ind)
+       k=k+1
+    enddo
+  enddo
+
+  ! write out the index into a NetCDF file
+  ! find the total nodes first
+  totalnodes = sum(numPerRow)
+  ! find out starting node id
+  startnode = 1
+  do i=1,startrow-1
+    startnode = startnode+numPerRow(ShuffleOrder(i))
+  enddo
+  call ESMF_VMBarrier(vm)
+
+  distgrid = ESMF_DistGridCreate(indList, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+  ! Create mesh using the distgrid as the nodaldistgrid,  no elemdistgrid available
+  ! just use nodeldistgrid for both
+  wam2dmesh = ESMF_MeshCreate(distgrid,distgrid,rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+  
+  ! Create the 3D mesh with fixed height
+  ! find the lower height level where height > minheight
+#ifdef LEGACY
+  do i=1,wamdims(3)
+     if (wamhgt(i) > 90) then
+        startlevel = i-1
+        exit
+     endif
+  enddo
+#else
+  lminheight = 0._ESMF_KIND_R8
+  if (present(minheight)) lminheight = minheight
+
+  allocate(nodeCoords(3))
+#if 1
+  ! ------- TEST
+  call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, 90._ESMF_KIND_R8, nodeCoords)
+  lminheight = nodeCoords(3)
+  ! ------- END TEST
+#endif
+  do i=1,wamdims(3)
+     call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, wamhgt(i), nodeCoords)
+!    if (wamhgt(i) > minheight) then
+     if (nodeCoords(3) > lminheight) then
+    	startlevel = i-1
+	exit
+     endif
+  enddo
+#endif
+! deallocate(nodeCoords)
+  totallevels = wamdims(3)-startlevel+1
+
+  ! -- create height Array if requested
+  if (present(hArray)) then
+    field = ESMF_FieldCreate(wam2dmesh, ESMF_TYPEKIND_R8, &
+          meshloc=ESMF_MESHLOC_NODE, &
+          ungriddedLBound=(/1/), ungriddedUBound=(/totallevels/), &
+          rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_FieldGet(field, localDeCount=localdeCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    do localDe = 0, localDeCount - 1
+      call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fptr2d, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      do i = 1, totallevels
+#ifdef LEGACY
+        fptr2d(:,i) = wamhgt(i+startlevel-1)
+#else
+        call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, &
+          wamhgt(i+startlevel-1), nodeCoords)
+        fptr2d(:,i) = nodeCoords(3)
+#endif
+      end do
+    end do
+    call ESMF_FieldGet(field, array=hArray, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+  end if
+
+#ifndef LEGACY
+  deallocate(nodeCoords)
+#endif
+
+  if (PetNo == 0) then
+    ! create the output file
+    status = nf90_create(filename, NF90_CLOBBER, ncid)
+    call CheckNCError(status, filename)
+    status = nf90_def_dim(ncid, 'nodes', totalnodes, dimid1)
+    call CheckNCError(status, 'dimension nodes')
+    status = nf90_def_dim(ncid, 'levels', totallevels, dimid2)
+    call CheckNCError(status, 'dimension nodes')
+    status = nf90_def_dim(ncid, 'vars', 7, dimid3)
+    call CheckNCError(status, 'dimension nodes')
+    status = nf90_def_var(ncid, 'lons', NF90_FLOAT, (/dimid1/), varid)
+    call CheckNCError(status, 'variable lons')
+    status = nf90_def_var(ncid, 'lats', NF90_FLOAT, (/dimid1/), varid)
+    call CheckNCError(status, 'variable lats')
+    status = nf90_def_var(ncid, 'wamdata', NF90_FLOAT, (/dimid1, dimid2, dimid3/), varid)
+    call CheckNCError(status, 'variable wamdata')
+    status = nf90_close(ncid)
+    call CheckNCError(status, filename)
+  endif
+
+  ! write out the lat/lon from each processor
+  do i=0, PetCnt-1
+    if (PetNo == i) then
+      status = nf90_open(filename, NF90_WRITE, ncid)
+      call CheckNCError(status, filename)
+      count2(1)=localnodes
+      start2(1)=startnode
+      status = nf90_inq_varId(ncid, 'lons', varid)
+      call CheckNCError(status, 'lons')
+      status = nf90_put_var(ncid, varid, lonbuf, & 
+		    start2, count2)
+      call CheckNCError(status, 'lons')
+      status = nf90_inq_varId(ncid, 'lats', varid)
+      call CheckNCError(status, 'lats')
+      status = nf90_put_var(ncid, varid, latbuf, & 
+		    start2, count2)
+      call CheckNCError(status, 'lats')
+      status = nf90_close(ncid)
+      call CheckNCError(status, filename)
+    endif
+    call ESMF_VMBarrier(vm)
+  enddo
+  deallocate(lonbuf, latbuf)
+
+  ! create the node table, find the total number of nodes in each processor, including the not-owned node
+  totalnodes=0
+  totalelements=0 
+  allocate(baseind(myrows))
+  do i=1,myrows
+     ind=rowinds(i)
+     baseind(i)=totalnodes
+     ! Add the neighbor nodes
+     ! If PetCnt==1, no need to add neighbor node
+     ! If last row, no need to add neighbors
+     ! If the neighbor is local, no need to add
+     if (ind < wamdims(2)) then
+       if (PetCnt>1) then
+        isInd = (i < myrows)
+        if (isInd) isInd = (rowinds(i+1) /= ind+1)
+        if (isInd .or. i==myrows) then
+!       if ((i < myrows .and. rowinds(i+1) /= ind+1) .or. i==myrows) then
+          totalnodes=totalnodes+numPerRow(ind)+numPerRow(ind+1)
+        else
+          totalnodes=totalnodes+numPerRow(ind)
+        endif
+       endif
+       if (numPerRow(ind) >= numPerRow(ind+1)) then
+         totalelements = totalelements + numPerRow(ind)
+       else
+         totalelements = totalelements + numPerRow(ind+1)
+       endif
+     else
+       totalnodes=totalnodes+numPerRow(ind)
+       !Add extra elements at the top
+       totalelements = totalelements+numPerRow(ind)-2
+     endif
+
+     ! Add extra elements for south pole
+      if (ind==1) then 
+        totalelements = totalelements+numPerRow(ind)-2
+     endif
+  enddo
+  if (PetCnt == 1) then
+     baseind(1)=0
+     do i=2,wamdims(2)
+       baseind(i)=baseind(i-1)+numPerRow(i-1)
+     enddo
+  endif
+
+  totalnodes2d=totalnodes  ! totalnodes includes neighboring nodes and my own nodes
+  totalnodes = totalnodes * totallevels 
+  localnodes = localnodes * totallevels  ! localnodes are locally owned nodes
+  totalelements = totalelements * (totallevels-1)
+  allocate(nodeIds(totalnodes), nodeOwners(totalnodes), nodeCoords(totalnodes*3))
+
+  ! Fill nodeIds, nodeOwners, and nodeCoords arrays, longitude first, latitude, then height
+  count1=1
+  localcount=1
+  count3=1
+  if (PetCnt > 1) then
+  do k=1, totallevels
+    do i=1,myrows
+       ind=rowinds(i)
+       do j=1,numPerRow(ind)
+          ! Global id based on the 3D indices
+       	  nodeIds(count1)= j+wamdims(1)*(ind-1)+wamdims(1)*wamdims(2)*(k-1)
+          nodeOwners(count1)=PetNo
+	  lon = wamlon(j,ind)
+          lat  = wamlat(j,ind)
+          hgt = wamhgt(startlevel+k-1)
+          call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
+          count1=count1+1
+          localcount=localcount+1
+          count3=count3+3
+       enddo
+       ! if not the last row, add the neighbor row's nodes and the neighbor
+       ! is not local
+       if (ind < wamdims(2)) then
+         isInd = (i < myrows)
+         if (isInd) isInd = (rowinds(i+1) /= ind+1)
+         if (isInd .or. i==myrows) then
+!        if (i==myrows .or. (i < myrows .and. rowinds(i+1)/= ind+1)) then
+       	  do j=1, numPerRow(ind+1)
+            ! Global id based on the 3D indices
+            nodeIds(count1)= j+wamdims(1)*ind+wamdims(1)*wamdims(2)*(k-1)
+	    if (PetTable(ind+1) == PetNo) then
+	       print *, PetNo, 'wrong neighbor ', count1, PetTable(ind+1)
+            endif
+            nodeOwners(count1)=PetTable(ind+1)
+	    lon = wamlon(j,ind+1)
+            lat  = wamlat(j,ind+1)
+            hgt = wamhgt(k+startlevel-1)
+            call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
+            count1=count1+1
+            count3=count3+3
+          enddo
+         endif
+	endif
+     enddo
+  enddo
+  else ! PetCnt==1
+  ! For sequential case, store the rows in its order, do not shuffle
+  do k=1, totallevels
+    do ind=1,myrows
+       do j=1,numPerRow(ind)
+          ! Global id based on the 3D indices
+       	  nodeIds(count1)= j+wamdims(1)*(ind-1)+wamdims(1)*wamdims(2)*(k-1)
+          nodeOwners(count1)=PetNo
+	  lon = wamlon(j,ind)
+          lat  = wamlat(j,ind)
+          hgt = wamhgt(k+startlevel-1)
+          call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
+          count1=count1+1
+          localcount=localcount+1
+          count3=count3+3
+       enddo
+     enddo
+  enddo
+  endif ! PetCnt > 1
+
+  if (count1-1 /= totalnodes .or. localcount-1 /= localnodes) then
+     print *, 'totalcount mismatch ', count1-1, totalnodes, localcount-1, localnodes
+  endif
+
+#ifdef USE_CART3D_COORDSYS
+  wamMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_CART, rc=rc)
+#else
+  wamMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+#endif
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+  call ESMF_MeshAddNodes(wamMesh, nodeIds, nodeCoords, nodeOwners, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+  
+  deallocate(wamlon, wamlat)
+  deallocate(nodeIds, nodeCoords, nodeOwners)
+
+  allocate(elementIds(totalelements), elementTypes(totalelements), &
+           elementConn(totalelements*8))
+
+  elementTypes(:)=ESMF_MESHELEMTYPE_HEX
+
+  ! find out the starting global id of the local element
+  allocate(elementCnt(PetCnt),sendbuf(1))
+  sendbuf(1)=totalelements
+  call ESMF_VMAllGather(vm, sendbuf, elementCnt, 1, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+  
+  ! find the starting elementID
+  startid=0
+  do i=1,PetNo
+    startid=startid+elementCnt(i)
+  enddo
+  globaltotalelmt = 0
+  do i=1,PetCnt
+    globaltotalelmt=globaltotalelmt+elementCnt(i)
+  enddo
+  deallocate(elementCnt, sendbuf)
+
+  ! Build the local elementConn table using local node indices
+  ! If PetCnt=1, no shuffle, the rows are in order
+  count1=1
+  count8=1
+  do k=1, totallevels-1
+    do i=1,myrows
+       if (PetCnt > 1) then
+           ind=rowinds(i)
+       else
+	   ind = i
+       endif
+       base = baseind(i)+totalnodes2d*(k-1)
+       if (ind == wamdims(2)) then
+#if 0
+         ! create dummy elements by connecting every other nodes to form a triangle to cover the pole
+         do j=1, numPerRow(ind)-2, 2
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+j+2
+	   elementConn(count8+3)=base+j+2
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+totalnodes2d+j+2
+	   elementConn(count8+7)=base+totalnodes2d+j+2
+	   count1=count1+1
+	   count8=count8+8
+         enddo
+         ! Last one, connect it back to the first node 
+     	 elementIds(count1)=startid+count1
+	 elementConn(count8)= base+j
+	 elementConn(count8+1)=base+j+1
+	 elementConn(count8+2)=base+1
+	 elementConn(count8+3)=base+1
+	 elementConn(count8+4)=base+totalnodes2d+j
+	 elementConn(count8+5)=base+totalnodes2d+j+1
+	 elementConn(count8+6)=base+totalnodes2d+1
+	 elementConn(count8+7)=base+totalnodes2d+1
+	 count1=count1+1
+	 count8=count8+8
+         cycle       
+#else
+         ! using the zigzag method to create triangles that covers the pole
+         ! First half
+         do j=1, numPerRow(ind)/2-1
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+numPerRow(ind)-j
+	   elementConn(count8+3)=base+numPerRow(ind)-j
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
+	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
+	   count1=count1+1
+	   count8=count8+8
+         enddo
+         ! second half
+         do j=numPerRow(ind)/2+1, numPerRow(ind)-1
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+numPerRow(ind)-j
+	   elementConn(count8+3)=base+numPerRow(ind)-j
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
+	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
+	   count1=count1+1
+	   count8=count8+8
+         enddo	   
+         cycle
+#endif
+       endif
+
+      ! South pole
+      if (ind == 1) then
+         ! using the zigzag method to create triangles that covers the pole
+         ! First half
+         do j=1, numPerRow(ind)/2-1
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+numPerRow(ind)-j
+	   elementConn(count8+3)=base+numPerRow(ind)-j
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
+	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
+	   count1=count1+1
+	   count8=count8+8
+         enddo
+
+	 ! Second half
+         do j=numPerRow(ind)/2+1, numPerRow(ind)-1
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+numPerRow(ind)-j
+	   elementConn(count8+3)=base+numPerRow(ind)-j
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
+	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
+	   count1=count1+1
+	   count8=count8+8
+         enddo	   
+       endif
+
+       ! the two adjacent rows have the same number of points, elements are cubes
+       if (numPerRow(ind+1) == numPerRow(ind)) then
+         do j=1,numPerRow(ind)-1
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+j+1
+	   elementConn(count8+2)=base+numPerRow(ind)+j+1
+	   elementConn(count8+3)=base+numPerRow(ind)+j
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+j+1
+	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
+	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
+	   count1=count1+1
+	   count8=count8+8
+         enddo
+         ! last one in the row, wrap around
+       	 elementIds(count1)=startid+count1
+	 elementConn(count8)= base+j
+	 elementConn(count8+1)=base+1
+	 elementConn(count8+2)=base+numPerRow(ind)+1
+	 elementConn(count8+3)=base+numPerRow(ind)+j
+	 elementConn(count8+4)=base+totalnodes2d+j
+	 elementConn(count8+5)=base+totalnodes2d+1
+	 elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
+	 elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
+	 count1=count1+1
+	 count8=count8+8
+       else
+         ! the number of nodes are different, make prism elements
+	 diff=numPerRow(ind)-numPerRow(ind+1)
+	 if (diff > 0) then 
+          ! make triangles with base at lower row
+          ! triangles will be evenly distributed
+	  interval = real(numPerRow(ind))/(diff+1)
+	  jj=1
+          trigs=1
+          do j=1,numPerRow(ind)-1
+ 	     if (j > trigs*interval) then
+!	     if (mod(j,increment)==0) then
+               ! triangles - base at bottom
+               trigs=trigs+1
+               elementIds(count1)=startid+count1
+	       elementConn(count8)= base+j
+	       elementConn(count8+1)=base+j+1
+	       elementConn(count8+2)=base+numPerRow(ind)+jj
+	       elementConn(count8+3)=base+numPerRow(ind)+jj
+	       elementConn(count8+4)=base+totalnodes2d+j
+	       elementConn(count8+5)=base+totalnodes2d+j+1
+	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+jj
+	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
+             else
+               elementIds(count1)=startid+count1
+	       elementConn(count8)= base+j
+	       elementConn(count8+1)=base+j+1
+	       elementConn(count8+2)=base+numPerRow(ind)+jj+1
+	       elementConn(count8+3)=base+numPerRow(ind)+jj
+	       elementConn(count8+4)=base+totalnodes2d+j
+	       elementConn(count8+5)=base+totalnodes2d+j+1
+	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+jj+1
+	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
+	       jj=jj+1
+	     endif
+	     count1=count1+1
+	     count8=count8+8
+           enddo
+           ! last one in the row, wrap around
+           elementIds(count1)=startid+count1
+	   elementConn(count8)= base+j
+	   elementConn(count8+1)=base+1
+	   elementConn(count8+2)=base+numPerRow(ind)+1
+	   elementConn(count8+3)=base+numPerRow(ind)+jj
+	   elementConn(count8+4)=base+totalnodes2d+j
+	   elementConn(count8+5)=base+totalnodes2d+1
+	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
+	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
+   	   count1=count1+1
+	   count8=count8+8
+	   if (k==1 .and. (jj /= numPerRow(ind+1))) then
+	      print *, PetNo, 'Upper row index mismatch', ind, jj, numPerRow(ind+1)
+           endif
+        else  ! diff < 0 
+          ! make triangles with base at upper row
+          ! triangles will be evenly distributed
+	  interval = real(numPerRow(ind+1))/(-1*diff+1)
+	  jj=1
+	  trigs=1
+          do j=1,numPerRow(ind+1)-1
+	     if (j > trigs*interval) then
+	       trigs = trigs+1              
+               ! triangles - base at bottom
+               elementIds(count1)=startid+count1
+	       elementConn(count8)= base+jj
+	       elementConn(count8+1)=base+jj
+	       elementConn(count8+2)=base+numPerRow(ind)+j+1
+	       elementConn(count8+3)=base+numPerRow(ind)+j
+	       elementConn(count8+4)=base+totalnodes2d+jj
+	       elementConn(count8+5)=base+totalnodes2d+jj
+	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
+	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
+             else
+               elementIds(count1)=startid+count1
+	       elementConn(count8)= base+jj
+	       elementConn(count8+1)=base+jj+1
+	       elementConn(count8+2)=base+numPerRow(ind)+j+1
+	       elementConn(count8+3)=base+numPerRow(ind)+j
+	       elementConn(count8+4)=base+totalnodes2d+jj
+	       elementConn(count8+5)=base+totalnodes2d+jj+1
+	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
+	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
+	       jj=jj+1
+	     endif
+	     count1=count1+1
+ 	     count8=count8+8
+           enddo
+           ! last one in the row, wrap around
+       	   elementIds(count1)=startid+count1
+	   elementConn(count8)= base+jj
+	   elementConn(count8+1)=base+1
+	   elementConn(count8+2)=base+numPerRow(ind)+1
+	   elementConn(count8+3)=base+numPerRow(ind)+j
+	   elementConn(count8+4)=base+totalnodes2d+jj
+	   elementConn(count8+5)=base+totalnodes2d+1
+	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
+	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
+ 	   count1=count1+1
+	   count8=count8+8
+	   if (k==1 .and. (jj /= numPerRow(ind))) then
+	      print *, PetNo, 'Lower row index mismatch', ind, jj, numPerRow(ind)
+           endif
+        endif
+       endif         	            
+    enddo
+  enddo 
+
+  if (count1-1 /= totalelements) then
+     print *, 'total element mismatch ', count1-1, totalelements
+  endif
+
+  do i=1, totalelements*8
+     if (elementConn(i) > totalnodes) then
+          print *, PetNo, 'node id out of bound', i/8, elementConn(i)
+     endif
+  enddo  
+  print *, PetNo, "Before MeshAddElements"
+  call ESMF_MeshAddElements(wamMesh, elementIds, elementTypes, elementConn,rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+   print *, PetNo, "After MeshAddElements"
+
+  deallocate(NumPerRow, ShuffleOrder, rowinds, petTable)
+  deallocate(indList, baseind)
+  deallocate(elementIds, elementTypes, elementConn)
+
+#if 0
+  ! Info passed to the run routine
+  is%wrap%wamdims = wamdims
+  is%wrap%wamhgt => wamhgt
+  is%wrap%startlevel = startlevel
+  is%wrap%totallevels = totallevels
+  is%wrap%wamtotalnodes = totalnodes
+  is%wrap%localnodes = localnodes
+  is%wrap%startnode = startnode
+  is%wrap%wam2dMesh = wam2dMesh
+  is%wrap%wamMesh = wamMesh
+  is%wrap%PetNo = PetNo
+  is%wrap%PetCnt = PetCnt
+#endif
+
+  return 
+#else
+    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, & 
+                 msg="- ESMF_NETCDF not defined when lib was compiled") 
+    return
+#endif
+
+contains
+
+  subroutine convert2Cart (lon, lat, hgt, coords, rc)
+    real(ESMF_KIND_R8):: lon, lat, hgt
+    real(ESMF_KIND_R8):: coords(3)
+    integer, optional :: rc
+
+    real(ESMF_KIND_R8) :: earthradius, nhgt
+    integer :: localrc
+
+    if (present(rc)) rc=ESMF_FAILURE
+    earthradius = 6371.0
+    nhgt = 1+hgt/earthradius
+
+    coords(1)=lon
+    coords(2)=lat
+    coords(3)=nhgt
+
+    if (present(rc)) rc=ESMF_SUCCESS
+
+  end subroutine convert2Cart
+!
+!  check CDF file error code
+!
+#undef  ESMF_METHOD
+#define ESMF_METHOD "CheckNCError"
+  subroutine CheckNCError (ncStatus, errmsg)
+
+    integer,          intent(in)  :: ncStatus
+    character(len=*), intent(in)  :: errmsg
+
+    integer, parameter :: nf90_noerror = 0
+
+#ifdef ESMF_NETCDF
+    if ( ncStatus .ne. nf90_noerror) then
+      print '("NetCDF Error: ", A, " : ", A)', &
+                trim(errmsg),trim(nf90_strerror(ncStatus))
+      call ESMF_LogSetError(ESMF_RC_NETCDF_ERROR, &
+        msg=trim(errmsg) // " : " // trim(nf90_strerror(ncStatus)), &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return ! bail out
+    end if
+#else
+    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, &
+                 msg="- ESMF_NETCDF not defined when lib was compiled")
+    return
+#endif
+
+  end subroutine CheckNCError
+
+end subroutine initGrids
+
+
+! Fill a Field with 3D Cartesian unit vectors corresponding to cardinal directions
+! This assumes that the incoming fields are built on the same Mesh, and have an undistributed dim of 3
+subroutine Set_Field_Cardinal_UVecs(north_field, east_field, rc)
+  type(ESMF_Field) :: north_field, east_field
+  type(ESMF_Mesh) :: mesh
+  type(ESMF_VM) :: vm
+  integer :: localPet
+  integer :: numNodes
+  real(ESMF_KIND_R8), allocatable :: nodeCoords(:)
+  real(ESMF_KIND_R8), pointer :: north_field_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: east_field_ptr(:,:)
+  real(ESMF_KIND_R8) :: lat, lon
+  integer :: localDECount, i
+  integer :: rc
+
+  ! Error checking
+  real(ESMF_KIND_R8) :: max_coord(2), g_max_coord(2)
+  real(ESMF_KIND_R8) :: min_coord(2), g_min_coord(2)
+
+
+  ! debug
+  real(ESMF_KIND_R8) :: len
+
+  ! Get mesh
+  call ESMF_FieldGet(north_field, mesh=mesh, &
+                     localDECount=localDECount, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+  ! If there are no DEs on this processor, then leave
+  if (localDECount .eq. 0) then
+     return
+  endif
+
+  ! If there is more than 1 DE then complain, because we aren't handling
+  ! that case right now
+  if (localDECount .gt. 1) then
+     return
+  endif
+
+
+  ! Get Coordinates
+  call ESMF_MeshGet(mesh, numOwnedNodes=numNodes, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+   ! Allocate space for coordinates
+   allocate(nodeCoords(3*numNodes))
+
+   ! Set interpolated function
+   call ESMF_MeshGet(mesh, ownedNodeCoords=nodeCoords, rc=rc)
+   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Get pointer to north field array
+  ! (Should only be 1 localDE)
+  call ESMF_FieldGet(north_field, 0, north_field_ptr, &
+       rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Error checking of Field Bounds
+  if ((lbound(north_field_ptr,1) .ne. 1) .or. &
+       (ubound(north_field_ptr,1) .ne. 3) .or. &
+       (lbound(north_field_ptr,2) .ne. 1) .or. &
+       (ubound(north_field_ptr,2) .ne. numNodes)) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+          msg="north Field bounds wrong", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  ! Get pointer to east field array
+  ! (Should only be 1 localDE)
+  call ESMF_FieldGet(east_field, 0, east_field_ptr, &
+       rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Error checking of Field Bounds
+  if ((lbound(east_field_ptr, 1) .ne. 1) .or. &
+       (ubound(east_field_ptr, 1) .ne. 3) .or. &
+       (lbound(east_field_ptr, 2) .ne. 1) .or. &
+       (ubound(east_field_ptr, 2) .ne. numNodes)) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+          msg="east Field bounds wrong", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  ! For error checking
+  min_coord= HUGE(min_coord)
+  max_coord=-HUGE(max_coord)
+
+  ! Loop setting unit vectors
+  do i=1,numNodes
+
+     ! Get position on sphere
+     lon=nodeCoords(3*(i-1)+1)
+     lat=nodeCoords(3*(i-1)+2)
+
+     ! Get min/max of coord for error checking
+     if (lon < min_coord(1)) min_coord(1)=lon
+     if (lon > max_coord(1)) max_coord(1)=lon
+     if (lat < min_coord(2)) min_coord(2)=lat
+     if (lat > max_coord(2)) max_coord(2)=lat
+
+     ! Convert to radians
+     lon=lon*ESMF_COORDSYS_DEG2RAD
+     lat=lat*ESMF_COORDSYS_DEG2RAD
+
+     ! Set east vector
+     east_field_ptr(1,i)=cos(lon)
+     east_field_ptr(2,i)=sin(lon)
+     east_field_ptr(3,i)=0.0
+
+     ! Set north vector
+     north_field_ptr(1,i)=-sin(lat)*sin(lon)
+     north_field_ptr(2,i)= sin(lat)*cos(lon)
+     north_field_ptr(3,i)= cos(lat)
+
+  enddo
+
+
+  ! Get current vm
+  call ESMF_VMGetCurrent(vm, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+  ! set up local pet info
+  call ESMF_VMGet(vm, localPet=localPet, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+
+  ! Compute global max
+  call ESMF_VMAllReduce(vm, max_coord, g_max_coord, 2, &
+       ESMF_REDUCE_MAX, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+  call ESMF_VMAllReduce(vm, min_coord, g_min_coord, 2, &
+       ESMF_REDUCE_MIN, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+  ! Report error
+  if ((g_max_coord(1) - g_min_coord(1)) < 20.0) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+ msg="Longitude range of grid unexpectedly small (< 20 deg) possibly using radians or 7.1.0 snapshot before 16", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  if ((g_max_coord(2) - g_min_coord(2)) < 20.0) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+msg="Latitude range of grid unexpectedly small (< 20 deg) possibly using radians or 7.1.0 snapshot before 16", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  ! Get rid of coordinates
+  deallocate(nodeCoords)
+
+  ! return success
+  rc=ESMF_SUCCESS
+
+end subroutine Set_Field_Cardinal_UVecs
+
+
+! This function does the same thing as the above. However, it starts from Cart coordinates in the Mesh.
+! This is due to a bug in redisting the mesh. When we switch to 7.1.0 you can get rid of this subroutine and
+! use the above for both meshes.
+subroutine Set_Field_Cardinal_UVecsCart(north_field, east_field, rc)
+  type(ESMF_Field) :: north_field, east_field
+  type(ESMF_Mesh) :: mesh
+  integer :: numNodes
+  real(ESMF_KIND_R8), allocatable :: nodeCoords(:)
+  real(ESMF_KIND_R8), pointer :: north_field_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: east_field_ptr(:,:)
+  real(ESMF_KIND_R8) :: lat, lon, r
+  integer :: localDECount, i
+  integer :: rc
+  real(ESMF_KIND_R8) :: x,y,z
+  real(ESMF_KIND_R8),parameter :: half_pi=1.5707963267949_ESMF_KIND_R8
+  real(ESMF_KIND_R8),parameter :: two_pi=6.28318530717959_ESMF_KIND_R8
+
+  ! debug
+  real(ESMF_KIND_R8) :: len
+
+  ! Get mesh
+  call ESMF_FieldGet(north_field, mesh=mesh, &
+                     localDECount=localDECount, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+  ! If there are no DEs on this processor, then leave
+  if (localDECount .eq. 0) then
+     return
+  endif
+
+  ! If there is more than 1 DE then complain, because we aren't handling
+  ! that case right now
+  if (localDECount .gt. 1) then
+     return
+  endif
+
+
+  ! Get Coordinates
+  call ESMF_MeshGet(mesh, numOwnedNodes=numNodes, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+   ! Allocate space for coordinates
+   allocate(nodeCoords(3*numNodes))
+
+   ! Set interpolated function
+   call ESMF_MeshGet(mesh, ownedNodeCoords=nodeCoords, rc=rc)
+   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Get pointer to north field array
+  ! (Should only be 1 localDE)
+  call ESMF_FieldGet(north_field, 0, north_field_ptr, &
+       rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Error checking of Field Bounds
+  if ((lbound(north_field_ptr,1) .ne. 1) .or. &
+       (ubound(north_field_ptr,1) .ne. 3) .or. &
+       (lbound(north_field_ptr,2) .ne. 1) .or. &
+       (ubound(north_field_ptr,2) .ne. numNodes)) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+          msg="north Field bounds wrong", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  ! Get pointer to east field array
+  ! (Should only be 1 localDE)
+  call ESMF_FieldGet(east_field, 0, east_field_ptr, &
+       rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+
+  ! Error checking of Field Bounds
+  if ((lbound(east_field_ptr, 1) .ne. 1) .or. &
+       (ubound(east_field_ptr, 1) .ne. 3) .or. &
+       (lbound(east_field_ptr, 2) .ne. 1) .or. &
+       (ubound(east_field_ptr, 2) .ne. numNodes)) then
+     call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, &
+          msg="east Field bounds wrong", &
+          line=__LINE__, &
+          file=__FILE__,  &
+          rcToReturn=rc)
+     return
+  endif
+
+  ! Loop setting unit vectors
+  do i=1,numNodes
+
+     ! Get position on sphere
+     x=nodeCoords(3*(i-1)+1)
+     y=nodeCoords(3*(i-1)+2)
+     z=nodeCoords(3*(i-1)+3)
+
+     ! convert to lon/lat/r
+     r=sqrt(x*x+y*y+z*z)
+
+     lon=atan2(y,x)
+     if (lon < 0.0) lon = lon + two_pi
+
+     lat=half_pi-acos(z/r)
+
+     ! Set east vector
+     east_field_ptr(1,i)=cos(lon)
+     east_field_ptr(2,i)=sin(lon)
+     east_field_ptr(3,i)=0.0
+
+     ! Set north vector
+     north_field_ptr(1,i)=-sin(lat)*sin(lon)
+     north_field_ptr(2,i)= sin(lat)*cos(lon)
+     north_field_ptr(3,i)= cos(lat)
+
+  enddo
+
+  ! Get rid of coordinates
+  deallocate(nodeCoords)
+
+  ! return success
+  rc=ESMF_SUCCESS
+
+end subroutine Set_Field_Cardinal_UVecsCart
+
+
+! Convert Cardinal vectors to one 3D cartesian vector
+subroutine Cardinal_to_Cart3D(north_field, east_field, &
+                              north_uvec, east_uvec, &
+                              cart_vec, rc)
+  type(ESMF_Field) :: north_field, east_field
+  type(ESMF_Field) :: north_uvec, east_uvec
+  type(ESMF_Field) :: cart_vec
+  integer :: rc
+  real(ESMF_KIND_R8), pointer :: north_field_ptr(:)
+  real(ESMF_KIND_R8), pointer :: east_field_ptr(:)
+  real(ESMF_KIND_R8), pointer :: north_uvec_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: east_uvec_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: cart_vec_ptr(:,:)
+  integer :: localDECount, lDE
+  integer :: clbnd(1), cubnd(1), i
+
+
+  ! Get localDECount
+  ! (Asssumes that all the incoming Fields have the same local DE Count)
+  call ESMF_FieldGet(north_field, &
+                     localDECount=localDECount, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+
+  ! Loop over local DEs processing data
+  do lDE=0,localDECount-1
+
+     ! Get pointer to north field array
+     call ESMF_FieldGet(north_field, lDE, north_field_ptr, &
+          computationalLBound=clbnd, computationalUBound=cubnd, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to east field array
+     call ESMF_FieldGet(east_field, lDE, east_field_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to north unit vector array
+     call ESMF_FieldGet(north_uvec, lDE, north_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to north unit vector array
+     call ESMF_FieldGet(east_uvec, lDE, east_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to east unit vector array
+     call ESMF_FieldGet(east_uvec, lDE, east_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+
+     ! Get pointer to east unit vector array
+     call ESMF_FieldGet(cart_vec, lDE, cart_vec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Loop over points processing
+     do i=clbnd(1), cubnd(1)
+
+
+#if 0
+        cart_vec_ptr(1,i)=east_uvec_ptr(1,i)
+        cart_vec_ptr(2,i)=east_uvec_ptr(2,i)
+        cart_vec_ptr(3,i)=east_uvec_ptr(3,i)
+#endif
+
+        cart_vec_ptr(1,i)=east_field_ptr(i)*east_uvec_ptr(1,i)+ &
+                          north_field_ptr(i)*north_uvec_ptr(1,i)
+
+        cart_vec_ptr(2,i)=east_field_ptr(i)*east_uvec_ptr(2,i)+ &
+                          north_field_ptr(i)*north_uvec_ptr(2,i)
+
+        cart_vec_ptr(3,i)=east_field_ptr(i)*east_uvec_ptr(3,i)+ &
+                          north_field_ptr(i)*north_uvec_ptr(3,i)
+     enddo
+  enddo
+
+  ! return success
+  rc=ESMF_SUCCESS
+
+end subroutine Cardinal_to_Cart3D
+
+
+
+! Convert 3D cartesian vector to Cardinal vectors
+subroutine Cart3D_to_Cardinal(cart_vec, &
+                              north_uvec, east_uvec, &
+                              north_field, east_field, rc)
+  type(ESMF_Field) :: cart_vec
+  type(ESMF_Field) :: north_uvec, east_uvec
+  type(ESMF_Field) :: north_field, east_field
+  integer :: rc
+  real(ESMF_KIND_R8), pointer :: north_field_ptr(:)
+  real(ESMF_KIND_R8), pointer :: east_field_ptr(:)
+  real(ESMF_KIND_R8), pointer :: north_uvec_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: east_uvec_ptr(:,:)
+  real(ESMF_KIND_R8), pointer :: cart_vec_ptr(:,:)
+  integer :: localDECount, lDE
+  integer :: clbnd(1), cubnd(1), i
+
+
+  ! Get localDECount
+  ! (Asssumes that all the incoming Fields have the same local DE Count)
+  call ESMF_FieldGet(north_field, &
+                     localDECount=localDECount, rc=rc)
+  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+       line=__LINE__, &
+       file=__FILE__)) &
+       return  ! bail out
+
+
+  ! Loop over local DEs processing data
+  do lDE=0,localDECount-1
+
+     ! Get pointer to north field array
+     call ESMF_FieldGet(north_field, lDE, north_field_ptr, &
+          computationalLBound=clbnd, computationalUBound=cubnd, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to east field array
+     call ESMF_FieldGet(east_field, lDE, east_field_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to north unit vector array
+     call ESMF_FieldGet(north_uvec, lDE, north_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to north unit vector array
+     call ESMF_FieldGet(east_uvec, lDE, east_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Get pointer to east unit vector array
+     call ESMF_FieldGet(east_uvec, lDE, east_uvec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+
+     ! Get pointer to east unit vector array
+     call ESMF_FieldGet(cart_vec, lDE, cart_vec_ptr, &
+          rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     ! Loop over points processing
+     do i=clbnd(1), cubnd(1)
+
+        east_field_ptr(i)=cart_vec_ptr(1,i)*east_uvec_ptr(1,i)+ &
+                          cart_vec_ptr(2,i)*east_uvec_ptr(2,i)+ &
+                          cart_vec_ptr(3,i)*east_uvec_ptr(3,i)
+
+        north_field_ptr(i)=cart_vec_ptr(1,i)*north_uvec_ptr(1,i)+ &
+                           cart_vec_ptr(2,i)*north_uvec_ptr(2,i)+ &
+                           cart_vec_ptr(3,i)*north_uvec_ptr(3,i)
+
+!        if (i .lt. 1000) then
+!           write(*,*) i," east=",east_field_ptr(i)," north=",north_field_ptr(i)
+!        endif
+
+     enddo
+  enddo
+
+  ! return success
+  rc=ESMF_SUCCESS
+
+end subroutine Cart3D_to_Cardinal
+
+subroutine StateFilterField(state, fieldName, threshold, rc)
+
+    ! -- input variables
+    type(stateType),            intent(inout) :: state
+    character(len=*),           intent(in)    :: fieldName
+    real(ESMF_KIND_R8),         intent(in)    :: threshold
+
+    ! -- output variables
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer                     :: localrc, rank
+    type(ESMF_Field)            :: field
+    type(ESMF_GeomType_Flag)    :: geomtype
+    real(ESMF_KIND_R8), pointer :: fptr1d(:), fptr2d(:,:), fptr3d(:,:,:)
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    field = StateGetField(state, fieldName, options="origin", rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    call ESMF_FieldGet(field, rank=rank, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) return  ! bail out
+
+    select case (rank)
+      case (1)
+        call ESMF_FieldGet(field, farrayPtr=fptr1d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        where (fptr1d < threshold) fptr1d = threshold
+      case (2)
+        call ESMF_FieldGet(field, farrayPtr=fptr2d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        where (fptr2d < threshold) fptr2d = threshold
+      case (3)
+        call ESMF_FieldGet(field, farrayPtr=fptr3d, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) return  ! bail out
+        where (fptr3d < threshold) fptr3d = threshold
+      case default
+        ! -- not implemented
+    end select
+
+end subroutine StateFilterField
+
+end module module_MED_SWPC_methods
