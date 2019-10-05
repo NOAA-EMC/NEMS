@@ -201,7 +201,7 @@ all:
 LIBS_NEMS = $(DEP_LINK_OBJS)             \
             ENS_Cpl/ENS_Cpl.a
 
-EXTRA_LINK_FLAGS =
+EXTRA_LINK_FLAGS = $(DEP_SHRD_PATH) $(DEP_SHRD_LIBS)
 
 ifneq (,$(findstring MACOSX,$(CPPDEFS)))
 EXTRA_LINK_FLAGS += -headerpad_max_install_names
@@ -210,7 +210,7 @@ endif
 nems: nems_libs $(OBJS) $(COBJS) $(MAIN) ./conf/configure.nems
 	echo libgocart is $(LIBGOCART)
 	echo extlibs is $(EXTLIBS)
-	$(FC) $(SMP) -o $(TARGET) $(MAIN) $(OBJS) $(COBJS) $(LIBS_NEMS) $(EXTLIBS) $(LIBGOCART) $(EXTRA_LINK_FLAGS)
+	$(LD) $(SMP) -o $(TARGET) $(MAIN) $(OBJS) $(COBJS) $(LIBS_NEMS) $(sort $(EXTLIBS) $(LIBGOCART) $(EXTRA_LINK_FLAGS))
 	@echo "$(TARGET) is created."
 
 conf/configure.nems:
