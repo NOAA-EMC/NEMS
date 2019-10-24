@@ -13,6 +13,12 @@ if [[ "$hostchar" == "$prodchar" ]] ; then
     exit 1
 fi
 
+#WCOSS_Cray need to load newer git version
+if [[ `hostname | cut -c2-6` == "login" ]] ; then
+    source /opt/modules/default/init/sh
+    module use /usrx/local/dev/modulefiles
+    module load git/2.18.0
+fi
 
 cd $( dirname "$0" )
 cd ..
