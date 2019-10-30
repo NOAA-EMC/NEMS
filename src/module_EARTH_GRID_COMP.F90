@@ -933,13 +933,6 @@
           file=__FILE__)) &
           return  ! bail out
       endif
-      call NUOPC_FieldDictionarySetSyno( &
-        standardNames = (/"ice_fraction",&
-                          "sea_ice_concentration"/), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_sw_pen_to_ocn")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -2612,6 +2605,25 @@
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"northward_wind_at_10m_height",&
                           "inst_merid_wind_height10m   "/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "sea_ice_concentration")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="sea_ice_concentration", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      call NUOPC_FieldDictionarySetSyno( &
+        standardNames = (/"ice_fraction",&
+                          "sea_ice_concentration"/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
