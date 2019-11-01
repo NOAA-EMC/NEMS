@@ -216,7 +216,8 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
-      integer, parameter       :: NumFields=251
+      integer, parameter       :: NumFields=252
+!     integer, parameter       :: NumFields=251
 !     integer, parameter       :: NumFields=250
       character(60), parameter :: Field_Name_unit(2,NumFields) = (/                                                                   &
       "air_density_height_lowest                                   ", "kg m-3                                                      ", &
@@ -460,6 +461,7 @@
       "northward_wave_radiation_stress                             ", "N m-1                                                       ", &
       "wave_induced_charnock_parameter                             ", "1                                                           ", &
       "wave_z0_roughness_length                                    ", "m                                                           ", &
+      "wave_bottom_current_period                                  ", "s                                                           ", &
 
 ! Fields from WAM to IPE
 ! ----------------------
