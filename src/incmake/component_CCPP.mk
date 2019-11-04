@@ -63,12 +63,13 @@ $(ccpp_mk): configure
 
 # Rule for cleaning intermediate files
 distclean_CCPP: clean_CCPP
-	set -x                                                          ; \
+	set -xue                                                        ; \
+	export PATH_CCPP="$(CCPP_SRCDIR)"                               ; \
 	cd $(ROOTDIR)                                                   ; \
-	./ccpp/framework/scripts/ccpp_prebuild.py $(CCPP_CONFOPT) --clean ; \
-	cd "$(CCPP_SRCDIR)"                                             ; \
-	rm -rf "$(CCPP_SRCDIR)/lib"                                     ; \
-	rm -rf "$(CCPP_SRCDIR)/include"                                 ; \
+	$$PATH_CCPP/framework/scripts/ccpp_prebuild.py $(CCPP_CONFOPT) --clean ; \
+	cd $$PATH_CCPP                                                  ; \
+	rm -rf "$(CCPP_BINDIR)/lib"                                     ; \
+	rm -rf "$(CCPP_BINDIR)/include"                                 ; \
 	rm -f $(ccpp_mk)
 
 clean_CCPP:
