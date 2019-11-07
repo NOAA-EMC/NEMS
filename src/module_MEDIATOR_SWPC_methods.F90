@@ -686,6 +686,7 @@ contains
       ! -- local variables
       type(ESMF_Field)               :: field
       type(ESMF_FieldStatus_flag)    :: fieldStatus
+      logical                        :: isPresent
       integer                        :: itemCount, localrc
       integer, dimension(:), pointer :: ugLBound, ugUBound, gridToFieldMap
 
@@ -711,7 +712,7 @@ contains
         ! deal with gridToFieldMap
         call ESMF_AttributeGet(field, name="GridToFieldMap", &
           convention="NUOPC", purpose="Instance", &
-          itemCount=itemCount, rc=rc)
+          itemCount=itemCount, isPresent=isPresent, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -733,7 +734,7 @@ contains
         ! deal with ungriddedLBound
         call ESMF_AttributeGet(field, name="UngriddedLBound", &
           convention="NUOPC", purpose="Instance", &
-          itemCount=itemCount, rc=rc)
+          itemCount=itemCount, isPresent=isPresent, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -771,7 +772,7 @@ contains
         ! deal with ungriddedUBound
         call ESMF_AttributeGet(field, name="UngriddedUBound", &
           convention="NUOPC", purpose="Instance", &
-          itemCount=itemCount, rc=rc)
+          itemCount=itemCount, isPresent=isPresent, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -2283,6 +2284,7 @@ contains
     integer :: localDe, localDeCount
     integer :: item, itemCount
     integer :: ungriddedBound, vSize
+    logical :: isPresent
     real(ESMF_KIND_R8)          :: scale_factor, add_offset
     real(ESMF_KIND_R8), dimension(:,:,:), pointer :: fptrIn3d, fptrOut3d
     type(ESMF_Grid)             :: grid, newgrid
@@ -2332,7 +2334,7 @@ contains
     do item = 1, 2
       call ESMF_AttributeGet(field, name=trim(AttributeList(item)), &
         convention="NUOPC", purpose="Instance", &
-        itemCount=itemCount, rc=localrc)
+        itemCount=itemCount, isPresent=isPresent, rc=localrc)
       if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__, &
