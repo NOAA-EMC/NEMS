@@ -4815,7 +4815,7 @@ contains
 
   subroutine initGrids(model, wam2dMesh, wamMesh, minheight, heights, hArray, rc)
 
-#ifdef ESMF_NETCDF
+#ifdef HAVE_NETCDF
     use netcdf
 #endif
     
@@ -4932,7 +4932,7 @@ contains
 ! maxheight = 782.
   deg2rad = PI/180.0
 
-#ifdef ESMF_NETCDF
+#ifdef HAVE_NETCDF
   !!-------------------------------------
   !! Create WAM mesh
   !!-------------------------------------
@@ -5659,7 +5659,7 @@ contains
   return 
 #else
     call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, & 
-                 msg="- ESMF_NETCDF not defined when lib was compiled") 
+                 msg="- HAVE_NETCDF not defined when lib was compiled") 
     return
 #endif
 
@@ -5696,7 +5696,7 @@ contains
 
     integer, parameter :: nf90_noerror = 0
 
-#ifdef ESMF_NETCDF
+#ifdef HAVE_NETCDF
     if ( ncStatus .ne. nf90_noerror) then
       print '("NetCDF Error: ", A, " : ", A)', &
                 trim(errmsg),trim(nf90_strerror(ncStatus))
@@ -5709,7 +5709,7 @@ contains
     end if
 #else
     call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, &
-                 msg="- ESMF_NETCDF not defined when lib was compiled")
+                 msg="- HAVE_NETCDF not defined when SWPC mediator was compiled")
     return
 #endif
 
