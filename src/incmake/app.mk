@@ -92,7 +92,7 @@ if [[ "$(VERBOSE_MAKE)" == YES ]] ; then
   echo \# COMPONENT-SPECIFIC VARS FOR: \[ $${COMPONENTS[@]} \] 1>&2
 fi
 
-for component in $${COMPONENTS[@]} ; do
+for component in $${COMPONENTS[@]} NEMS ; do
   if [[ $(VERBOSE_MAKE) == YES ]] ; then
     echo 1>&2
   fi
