@@ -336,8 +336,18 @@ module module_MED_SWPC
     
     ! -- local variable
     type(ESMF_State)         :: importState
+
     ! -- begin
     rc = ESMF_SUCCESS
+
+    ! -- check if local DE count for coupled fields is supported
+    call NamespaceCheckDE(rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, &
+      msg="Try using a number of PETs at least as big as the largest one &
+          &used by the coupled components", &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     print *,'MED: DataInitialize: calling NamespaceInitializeFields ...'
     call NamespaceInitializeFields(rc=rc)

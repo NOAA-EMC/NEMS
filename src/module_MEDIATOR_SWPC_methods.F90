@@ -73,6 +73,7 @@ module module_MED_SWPC_methods
     NamespaceAdjustFields,             &
     NamespaceAdvertise,                &
     NamespaceCheckConnectedFields,     &
+    NamespaceCheckDE,                  &
     NamespaceDestroy,                  &
     NamespaceGet,                      &
     NamespaceGetGrid,                  &
@@ -1347,6 +1348,70 @@ contains
     nullify(p, s)
 
   end subroutine NamespaceSetupRotation
+
+  subroutine NamespaceCheckDE(rc)
+
+    integer, optional, intent(out) :: rc
+
+    ! -- local variables
+    integer                  :: localrc, ldeCount, item
+    type(compType),  pointer :: p
+    type(stateType), pointer :: s
+    type(ESMF_Field)         :: field
+    character(ESMF_MAXSTR)   :: errmsg
+
+    integer,       parameter :: localDeCount = 1
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    write(errmsg,'("The SWPC mediator only supports fields with local DE count = ",i0)') &
+      localDeCount
+
+    nullify(s)
+    p => compList
+    do while (associated(p))
+      s => p % stateList
+      do while (associated(s))
+
+        item = 0
+        if (associated(s % fieldNames)) item = size(s % fieldNames)
+
+        if (item > 0) then
+
+          call ESMF_StateGet(s % self, field=field, &
+            itemName=trim(s % fieldNames(item)), rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+
+          call ESMF_FieldGet(field, localDeCount=ldeCount, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+
+          ! -- if field's localDeCount is different than input localDeCount, bail out
+          if (ldeCount /= localDeCount) then
+            call ESMF_LogSetError(ESMF_RC_VAL_OUTOFRANGE, msg=errmsg, &
+              line=__LINE__,  &
+              file=__FILE__,  &
+              rcToReturn=rc)
+            return  ! bail out
+          end if
+
+        end if
+        s => s % next
+      end do
+      p => p % next
+    end do
+
+    nullify(p, s)
+
+  end subroutine NamespaceCheckDE
 
   subroutine NamespaceDestroy(nsList, rc)
 
