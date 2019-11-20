@@ -261,10 +261,6 @@ module module_MED_SWPC
       file=__FILE__)) &
       return  ! bail out
 
-    write(6,'(" -- InitP5: MeshGetBounds: low/upp = ",2g16.6)') coordBounds
-    write(6,'(" -- InitP5: MeshGetBounds: low/upp = ",2g16.6)') &
-      (coordBounds-1._ESMF_KIND_R8)*earthRadius
-
     call NamespaceGet("ATM", importState, geomtype=geomtype, &
       grid=grid, mesh=mesh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -286,7 +282,6 @@ module module_MED_SWPC
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-      print *,'MED: done creating intermediate 3D grid'
 
     else if (geomtype == ESMF_GEOMTYPE_MESH) then
 
@@ -314,17 +309,14 @@ module module_MED_SWPC
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-      print *,'MED: done creating intermediate 3D mesh'
 
     end if
    
-    print *,'MED: starting field realize ...'
     call NamespaceRealizeFields(rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    print *,'MED: done field realize'
 
   end subroutine InitializeP5
 
@@ -349,24 +341,19 @@ module module_MED_SWPC
       file=__FILE__)) &
       return  ! bail out
 
-    print *,'MED: DataInitialize: calling NamespaceInitializeFields ...'
     call NamespaceInitializeFields(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    print *,'MED: DataInitialize: done NamespaceInitializeFields ...'
 
     ! indicate that data initialization is complete (breaking out of init-loop)
-    print *,'MED: DataInitialize: setting complete attribute...'
     call NUOPC_CompAttributeSet(mediator, &
       name="InitializeDataComplete", value="true", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    print *,'MED: DataInitialize: done complete attribute'
-    print *,'MED: DataInitialize: done'
     
   end subroutine DataInitialize
 
@@ -391,7 +378,6 @@ module module_MED_SWPC
     ! -- begin
     rc = ESMF_SUCCESS
 
-    print *,'MED: entering MediatorAdvance...'
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(mediator, clock=clock, &
       importState=importState, exportState=exportState, rc=rc)
@@ -507,8 +493,6 @@ module module_MED_SWPC
 
           ! -- only process fields with known destination
           do item = 1, size(rh % dstState % fieldNames)
-            print *, 'MED: regridding ',trim(rh % dstState % fieldNames(item)), &
-              ' with ', trim(rh % label)
             call FieldRegrid(rh, trim(rh % dstState % fieldNames(item)), &
               auxArray=tnArray, options=rh % dstState % fieldOptions(item), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -534,8 +518,6 @@ module module_MED_SWPC
               file=__FILE__)) &
               return  ! bail out
             call FieldPrintMinMax(srcField, "orig - src:" // trim(rh % dstState % fieldNames(item)), rc)
-            print *, 'MED: regridding ',trim(rh % dstState % fieldNames(item)), &
-              ' with ', trim(rh % label)
             call FieldRegrid(rh, trim(rh % dstState % fieldNames(item)), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, &
