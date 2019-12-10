@@ -12,10 +12,17 @@ $(call require_dir,$(MOM6_SRCDIR),MOM6 source directory)
 # Rule for building this component:
 build_MOM6: $(mom6_mk)
 
+ifneq (,$(findstring CMEPS,$(COMPONENTS)))
+CPPCMEPS = -DCMEPS
+else
+CPPCMEPS =
+endif
+
 MOM6_ALL_OPTS=\
   COMP_SRCDIR="$(MOM6_SRCDIR)" \
   COMP_BINDIR="$(MOM6_BINDIR)" \
   FMS_BINDIR="$(FMS_BINDIR)" \
+  CPPCMEPS="$(CPPCMEPS)" \
   MACHINE_ID="$(MACHINE_ID)"
 
 # Workaround: if MOM6 is built twice, it fails because files in

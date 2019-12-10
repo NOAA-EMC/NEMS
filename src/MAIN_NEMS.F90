@@ -64,6 +64,14 @@
 !-----------------------------------------------------------------------
 !
        USE module_NEMS_Rusage,ONLY: NEMS_Rusage
+#ifdef CMEPS
+!
+!-----------------------------------------------------------------------
+!***  This module init PIO 
+!-----------------------------------------------------------------------
+!
+       USE shr_pio_mod, ONLY : shr_pio_init1
+#endif
 !
 !-----------------------------------------------------------------------
 !
@@ -118,6 +126,9 @@
 !
       CHARACTER(LEN=MPI_MAX_PROCESSOR_NAME) :: PROCNAME                    !<-- The processor(host) name
       INTEGER :: PROCNAME_LEN                                              !<-- Actual PROCRNAME string length
+#ifdef CMEPS
+      INTEGER :: COMP_COMM
+#endif
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -189,6 +200,15 @@
       call rusage%start(MPI_COMM_WORLD,PROCNAME,PROCNAME_LEN,RC)
       ! It is safe to ignore RC since rusage%is_valid will tell us if
       ! the start succeeded.
+#ifdef CMEPS
+!
+!-----------------------------------------------------------------------
+!***  Initialize PIO
+!-----------------------------------------------------------------------
+!
+      COMP_COMM = MPI_COMM_WORLD
+      call shr_pio_init1(8, "pio_in", COMP_COMM)
+#endif
 !
 !-----------------------------------------------------------------------
 !***  Set up the default log.

@@ -16,6 +16,12 @@ NEMS_GRID?=T126_mx5
 $(call require_dir,$(CICE_SRCDIR),CICE source directory)
 $(call require_dir,$(ROOTDIR)/CICE_CAP,CICE cap directory)
 
+ifneq (,$(findstring CMEPS,$(COMPONENTS)))
+CPPCMEPS = -DCMEPS
+else
+CPPCMEPS =
+endif
+
 CICE_ALL_OPTS=\
   COMP_SRCDIR=$(CICE_SRCDIR) \
   COMP_BINDIR=$(CICE_BINDIR) \
@@ -23,6 +29,7 @@ CICE_ALL_OPTS=\
   SYSTEM_USERDIR="$(CICE_SRCDIR)" \
   SRCDIR="$(CICE_SRCDIR)" \
   EXEDIR="$(CICE_SRCDIR)" \
+  CPPCMEPS="$(CPPCMEPS)"  \
   NEMS_GRID="$(NEMS_GRID)"
 
 ########################################################################
