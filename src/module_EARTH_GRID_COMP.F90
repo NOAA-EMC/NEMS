@@ -151,7 +151,7 @@
 #endif
   ! - Mediator
 #ifdef CMEPS
-      use MED, only : MED_SS     => SetServices 
+      use MED,                    only : MED_SS     => SetServices 
       use med_internalstate_mod , only : med_id
 #else
       use module_MEDIATOR,        only: MED_SS     => SetServices
@@ -184,6 +184,7 @@
       logical :: use_cmeps = .true.
 #else
       logical :: use_cmeps = .false.
+      integer :: med_id
 #endif
 
       CONTAINS
@@ -3865,6 +3866,7 @@
           elseif (trim(model) == "nems") then
 
             if (use_cmeps) then
+               ! Set the mediator id for in med_internal_state for CMEPS
                med_id = i+1
             end if
 
