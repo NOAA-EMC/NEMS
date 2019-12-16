@@ -5487,7 +5487,7 @@ module module_MEDIATOR
     customwgt = wgtm01 / const_lhvap
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , & 
                                 is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'        , customwgt, &
+                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx_atm'    , customwgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
