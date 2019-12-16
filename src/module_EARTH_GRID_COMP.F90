@@ -151,8 +151,7 @@
 #endif
   ! - Mediator
 #ifdef CMEPS
-      use MED,                    only : MED_SS     => SetServices 
-      use med_internalstate_mod , only : med_id
+      use MED, only : MED_SS     => SetServices 
 #else
       use module_MEDIATOR,        only: MED_SS     => SetServices
 #endif
@@ -180,12 +179,7 @@
 !
 
       LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
-#ifdef CMEPS
-      logical :: use_cmeps = .true.
-#else
-      logical :: use_cmeps = .false.
-      integer :: med_id
-#endif
+
 
       CONTAINS
 
@@ -289,14 +283,13 @@
       !TODO: In the long run this section will not be needed when we have
       !TODO: absorbed the needed standard names into the default dictionary.
       ! -> 20 fields identified as exports by the GSM component
-      if (use_cmeps) then
-         call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
-         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, &
-              file=__FILE__)) &
-              return  ! bail out
-
-      else
+#ifdef CMEPS
+      call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+#else
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "air_density_height_lowest")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -3298,7 +3291,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
-      endif  ! for if-cmeps
+#endif
 
 !-----------------------------------------------------------------------
 !
@@ -3310,7 +3303,9 @@
 !
 
       subroutine SetModelServices(driver, rc)
-
+#ifdef CMEPS
+        use med_internalstate_mod , only : med_id
+#endif
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
 
@@ -3328,10 +3323,12 @@
         integer                         :: petListBounds(2)
         integer                         :: componentCount
         type(NUOPC_FreeFormat)          :: attrFF, fdFF
-        logical                         :: read_restart ! CMEPS
-        character(ESMF_MAXSTR)          :: cvalue       ! CMEPS
-        character(len=5)                :: inst_suffix  ! CMEPS
-        logical                         :: isPresent    ! CMEPS
+#ifdef CMEPS
+        logical                         :: read_restart
+        character(ESMF_MAXSTR)          :: cvalue
+        character(len=5)                :: inst_suffix
+        logical                         :: isPresent
+#endif
         rc = ESMF_SUCCESS
 
         ! query the Component for info
@@ -3406,36 +3403,36 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-        if (use_cmeps) then
-           ! get file suffix
-           call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-           if (isPresent) then
-              call NUOPC_CompAttributeGet(driver, name="inst_suffix", value=inst_suffix, rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                   line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-           else
-              inst_suffix = ""
-           endif
+#ifdef CMEPS
+        ! get file suffix
+        call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (isPresent) then
+          call NUOPC_CompAttributeGet(driver, name="inst_suffix", value=inst_suffix, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        else
+          inst_suffix = ""
+        endif
 
-           ! obtain driver attributes (for CMEPS)
-           call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        ! obtain driver attributes (for CMEPS)
+        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-           call ReadAttributes(driver, config, "FLDS_attributes::", formatprint=.true., rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        call ReadAttributes(driver, config, "FLDS_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-           call ReadAttributes(driver, config, "CLOCK_attributes::", formatprint=.true., rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        call ReadAttributes(driver, config, "CLOCK_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-           call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        end if
+        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#endif
 
         ! determine information for each component and add to the driver
         do i=1, componentCount
@@ -3875,12 +3872,9 @@
 #endif
           ! - Two mediator choices currently built into NEMS from internal
           elseif (trim(model) == "nems") then
-
-            if (use_cmeps) then
-               ! Set the mediator id for in med_internal_state for CMEPS
-               med_id = i+1
-            end if
-
+#ifdef CMEPS
+            med_id = i+1
+#endif
             call NUOPC_DriverAddComp(driver, trim(prefix), MED_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3914,17 +3908,16 @@
           ! clean-up
           deallocate(petList)
 
-          if (use_cmeps) then
-             ! Perform restarts if appropriate
-             call InitRestart(driver, rc)
-             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#ifdef CMEPS
+        ! Perform restarts if appropriate
+        call InitRestart(driver, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-             call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
-             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-          end if
-
+        call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#endif          
         enddo
 
 #if ESMF_VERSION_MAJOR < 8
@@ -4399,9 +4392,9 @@
   end subroutine
 
   !-----------------------------------------------------------------------------
-  subroutine ReadAttributes(gcomp, config, label, relaxedflag, formatprint, rc)
 
-    ! Only used in for CMEPS
+#ifdef CMEPS
+  subroutine ReadAttributes(gcomp, config, label, relaxedflag, formatprint, rc)
 
     use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
     use NUOPC , only : NUOPC_FreeFormatCreate, NUOPC_CompAttributeIngest
@@ -4453,7 +4446,6 @@
   subroutine InitRestart(driver, rc)
 
     !-----------------------------------------------------
-    ! Only used in for CMEPS
     ! Determine if will restart and read pointer file if appropriate
     !-----------------------------------------------------
 
@@ -4510,7 +4502,6 @@
 
   function IsRestart(gcomp, rc)
 
-    ! Only used in for CMEPS
     use ESMF         , only : ESMF_GridComp, ESMF_SUCCESS
     use ESMF         , only : ESMF_LogSetError, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_RC_NOT_VALID
     use NUOPC        , only : NUOPC_CompAttributeGet
@@ -4556,7 +4547,6 @@
 
   subroutine AddAttributes(gcomp, driver, config, compid, compname, inst_suffix, rc)
 
-    ! Only used in for CMEPS
     ! Add specific set of attributes to components from driver attributes
 
     use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
@@ -4729,6 +4719,7 @@
     end if
 
   end subroutine AddAttributes
+#endif
 !
 !-----------------------------------------------------------------------
 !
