@@ -1378,6 +1378,17 @@
           return  ! bail out
       endif 
       if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "inst_net_lw_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_net_lw_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif 
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_net_sw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="inst_net_sw_flx", &
