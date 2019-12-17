@@ -12,9 +12,9 @@ APP FV3-MOM6-CICE5  COMPSETS -f
 APP FV3GFS-GSDCHEM  COMPSETS -f
 
 # URLs of each application's repository.  Default is gerrit:APPNAME
-APP NEMSfv3gfs      URL gerrit:NEMSfv3gfs
+APP NEMSfv3gfs      URL https://github.com/ufs-community/ufs-weather-model
 APP WW3-FV3         URL gerrit:EMC_FV3-GSDCHEM-WW3
-APP FV3-MOM6-CICE5  URL gerrit:EMC_FV3-MOM6-CICE5
+APP FV3-MOM6-CICE5  URL https://github.com/ufs-community/ufs-s2s-model
 APP FV3GFS-GSDCHEM  URL gerrit:EMC_FV3GFS-GSDCHEM
 
 # Shell expressions that generate scrub space for a given $username
