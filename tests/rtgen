@@ -749,8 +749,8 @@ def decide_project_gaea():
 # WCOSS project detection
 
 def decide_project_wcoss():
-    """!Placeholder for future development; returns "FV3GFS-T2O" """
-    return 'FV3GFS-T2O'
+    """!Placeholder for future development; returns "GFS-DEV" """
+    return 'GFS-DEV'
 
 def decide_tmp_wcoss(pex):
     """!Placeholder for future development; returns "/ptmpp/$USER"
