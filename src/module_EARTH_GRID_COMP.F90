@@ -2610,6 +2610,25 @@
         file=__FILE__)) &
         return  ! bail out
 
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "sea_ice_concentration")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="sea_ice_concentration", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      call NUOPC_FieldDictionarySetSyno( &
+        standardNames = (/"ice_fraction",&
+                          "sea_ice_concentration"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
       !For MOM6 and WW3 variables to match: 
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_eastward_sea_water_velocity",&
