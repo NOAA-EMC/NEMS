@@ -41,7 +41,7 @@ clean_MOM6:
 	cd $(MOM6_SRCDIR)                                                ; \
 	set +e                                                           ; \
 	rm -rf exec src/path_names_shared                                ; \
-	find . -name '*.o' -o -name '*.mod' -o -name '*.a' | xargs rm -f
+	find . -type f -name '*.o' -o -type f -name '*.mod' -o -type f -name '*.a' | xargs rm -f
 
 distclean_MOM6: clean_MOM6
 	rm -f $(MOM6_SRCDIR)/src/MOM6/config_src/nems_cap/mom5.mk.install
