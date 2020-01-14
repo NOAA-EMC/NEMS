@@ -7,7 +7,7 @@ WW3_SRCDIR?=$(ROOTDIR)/WW3/model
 WW3_BINDIR?=$(ROOTDIR)/WW3/WW3_INSTALL
 
 # Make sure the source directory exists and is non-empty
-$(call require_dir,$(WW3_SRCDIR),WaveWatch3 source directory)
+$(call require_dir,$(WW3_SRCDIR),WW3 source directory)
 
 # Rule for building this component:
 build_WW3: $(ww3_mk)
