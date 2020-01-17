@@ -31,7 +31,7 @@ CICE_ALL_OPTS=\
 $(cice_mk): configure
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
-	export $(CICE_ALL_OPTS)                                           ; \
+	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
 	cd $(CICE_SRCDIR)                                                 ; \
 	./comp_ice.backend
 	+$(MODULE_LOGIC) ; cd $(CICE_CAPDIR) ; exec $(MAKE) -f makefile.nuopc    \
