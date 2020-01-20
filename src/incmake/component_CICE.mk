@@ -4,7 +4,7 @@ all_component_mk_files+=$(cice_mk)
 
 # Location of source code and installation
 CICE_SRCDIR?=$(ROOTDIR)/CICE
-CICE_BINDIR?=$(ROOTDIR)/CICE_INSTALL
+CICE_BINDIR?=$(ROOTDIR)/CICE/CICE_INSTALL
 
 CICE_CAPDIR?=$(ROOTDIR)/CICE_CAP
 

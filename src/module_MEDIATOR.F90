@@ -5148,7 +5148,7 @@ module module_MEDIATOR
 !tcx      thbot1(1) = thbot(i,j)
       qbot1(1)  = qbot(i,j)
       if(tbot(i,j) .gt. 0.0) &
-      rbot1(1)  =pbot(i,j)/(287.058_ESMF_KIND_R8*(1._ESMF_KIND_R8+0.608_ESMF_KIND_R8*qbot(i,j))*tbot(i,j)) ! tcx temporary
+      rbot1(1)  = pbot(i,j)/(287.058_ESMF_KIND_R8*(1._ESMF_KIND_R8+0.608_ESMF_KIND_R8*qbot(i,j))*tbot(i,j)) ! tcx temporary
 !tcx      rbot1(1)  = rbot(i,j)
       tbot1(1)  = tbot(i,j)
       us1(1)    = us(i,j)
