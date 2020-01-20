@@ -3700,12 +3700,18 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     allocate(ocnwgt(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
+    allocate(customwgt(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
     do j=lbound(icewgt,2),ubound(icewgt,2)
     do i=lbound(icewgt,1),ubound(icewgt,1)
       ocnwgt(i,j) = 1.0_ESMF_KIND_R8 - icewgt(i,j)
-!BL2017      ocnwgt = 1.0_ESMF_KIND_R8 - icewgt
+      customwgt(i,j) = 1.0_ESMF_KIND_R8
     enddo
     enddo
+
+    ! FLAG icewgt > 1.0
+    write(msgString,'(A,3g17.10)')trim(subname)//trim(' FLAG icewgt>1.0'), &
+       minval(icewgt),maxval(icewgt-1.0_ESMF_KIND_R8),sum(icewgt)
+    if(maxval(icewgt) .gt. 1.0_ESMF_KIND_R8)call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     !--- fill land mask every coupling from initial computation
 
@@ -3726,45 +3732,39 @@ module module_MEDIATOR
       return
     endif
 
-    !--- merges
-
+    !--- merges from ice only
+    
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx' , & 
-                                is_local%wrap%FBAtmOcn_a,'mean_sensi_heat_flx_atm_into_ocn',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_laten_heat_flx' , & 
-                                is_local%wrap%FBAtmOcn_a,'mean_laten_heat_flx_atm_into_ocn',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_up_lw_flx' , & 
-                                is_local%wrap%FBAtmOcn_a,'mean_up_lw_flx_ocn',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_evap_rate' , & 
-                                is_local%wrap%FBAtmOcn_a,'mean_evap_rate_atm_into_ocn',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_zonal_moment_flx' , & 
-                                is_local%wrap%FBAtmOcn_a,'stress_on_air_ocn_zonal',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_merid_moment_flx' , & 
-                                is_local%wrap%FBAtmOcn_a,'stress_on_air_ocn_merid',ocnwgt, &
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid',icewgt, rc=rc)
+                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid',customwgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    deallocate(ocnwgt)
+    deallocate(ocnwgt, customwgt)
 
     !---------------------------------------
     !--- set export State to special value for testing
