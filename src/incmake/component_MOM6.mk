@@ -30,7 +30,7 @@ MOM6_ALL_OPTS=\
 
 $(mom6_mk): $(fms_mk) configure
 	-rm -fr $(MOM6_SRCDIR)/exec
-	$(MODULE_LOGIC) ; export $(MOM6_ALL_OPTS)                     ; \
+	$(MODULE_LOGIC) ; export $(MOM6_ALL_OPTS) $(MOM6_MAKEOPT)     ; \
 	set -e                                                        ; \
 	cd $(MOM6_SRCDIR)                                             ; \
 	./compile.sh --platform $(FULL_MACHINE_ID) --fms-dir "$(FMS_BINDIR)"
