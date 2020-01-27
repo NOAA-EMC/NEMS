@@ -97,11 +97,11 @@ module module_MEDIATOR
     type(ESMF_FieldBundle):: FBHyd_a     ! Hyd export data mapped to atm grid
     type(ESMF_FieldBundle):: FBHyd_h     ! Hyd export on hyd grid
     type(ESMF_FieldBundle):: FBAtmOcn_o  ! Atm/Ocn flux fields on ocn grid
-    type(ESMF_FieldBundle):: FBAtmOcn_a  ! Atm/Ocn flux fields on atm grid
+!    type(ESMF_FieldBundle):: FBAtmOcn_a  ! Atm/Ocn flux fields on atm grid
 !BL2017b
     type(ESMF_FieldBundle):: FBOcn2_a     ! Ocn export data mapped to atm grid
     type(ESMF_FieldBundle):: FBIce2_a     ! Ice export data mapped to atm grid
-    type(ESMF_FieldBundle):: FBAtmOcn2_a  ! Atm/Ocn flux fields on atm grid
+!    type(ESMF_FieldBundle):: FBAtmOcn2_a  ! Atm/Ocn flux fields on atm grid
 !BL2017b
     type(ESMF_FieldBundle):: FBforAtm    ! data storage for atm import
     type(ESMF_FieldBundle):: FBforOcn    ! data storage for ocn import
@@ -2373,11 +2373,11 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
-      fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
+    !call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
+    !  fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
 !BL2017b
-    call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
-      fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
+    !call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
+    !  fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
 !BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -3220,11 +3220,11 @@ module module_MEDIATOR
     call fieldBundle_reset(is_local%wrap%FBIce_if, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBLnd_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBHyd_a, value=czero, rc=rc)
-    call fieldBundle_reset(is_local%wrap%FBAtmOcn_a, value=czero, rc=rc)
+    !call fieldBundle_reset(is_local%wrap%FBAtmOcn_a, value=czero, rc=rc)
 !BL2017b
     call fieldBundle_reset(is_local%wrap%FBOcn2_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBIce2_a, value=czero, rc=rc)
-    call fieldBundle_reset(is_local%wrap%FBAtmOcn2_a, value=czero, rc=rc)
+    !call fieldBundle_reset(is_local%wrap%FBAtmOcn2_a, value=czero, rc=rc)
 !BL2017b
 
     if (is_local%wrap%o2a_active) then
@@ -3272,7 +3272,7 @@ module module_MEDIATOR
       enddo
       deallocate(fieldNameList)
 !BL2017b
-
+#ifdef test
       call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
          consfmap=is_local%wrap%RH_o2a_consf, &
          consdmap=is_local%wrap%RH_o2a_consd, &
@@ -3317,6 +3317,7 @@ module module_MEDIATOR
       enddo
       deallocate(fieldNameList)
 !BL2017b
+#endif
     endif
 
     if (is_local%wrap%i2a_active) then
@@ -3660,14 +3661,14 @@ module module_MEDIATOR
       call FieldBundle_diagnose(is_local%wrap%FBIce_a, trim(subname)//' FBIce_a ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBLnd_a, trim(subname)//' FBLnd_a ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBHyd_a, trim(subname)//' FBHyd_a ', rc=rc)
-      call FieldBundle_diagnose(is_local%wrap%FBAtmOcn_a, trim(subname)//' FBAtmOcn_a ', rc=rc)
+      !call FieldBundle_diagnose(is_local%wrap%FBAtmOcn_a, trim(subname)//' FBAtmOcn_a ', rc=rc)
     endif
 
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBOcn_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBIce_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBLnd_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBHyd_a, rc=rc)
-    call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBAtmOcn_a, rc=rc)
+    !call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBAtmOcn_a, rc=rc)
 
     if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforAtm, trim(subname)//' FBforAtm ', rc=rc)
