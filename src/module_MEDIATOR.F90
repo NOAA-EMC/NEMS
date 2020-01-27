@@ -3732,37 +3732,37 @@ module module_MEDIATOR
     endif
 
     !--- merges from ice only
-    
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_laten_heat_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_up_lw_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_evap_rate' , & 
-                                is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_zonal_moment_flx' , & 
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_merid_moment_flx' , & 
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
+!    
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx' , & 
+!                                is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_laten_heat_flx' , & 
+!                                is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_up_lw_flx' , & 
+!                                is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_evap_rate' , & 
+!                                is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_zonal_moment_flx' , & 
+!                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_merid_moment_flx' , & 
+!                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid',customwgt, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, file=__FILE__)) return  ! bail out
+!
     deallocate(ocnwgt, customwgt)
 
     !---------------------------------------
@@ -5257,6 +5257,8 @@ module module_MEDIATOR
     integer                     :: fieldCount
     logical                     :: checkOK, checkOK1, checkOK2
     character(len=*),parameter  :: subname='(module_MEDIATOR:MedPhase_prep_ocn)'
+
+    integer :: ii,jj
 
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
