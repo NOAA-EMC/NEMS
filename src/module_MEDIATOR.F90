@@ -3272,52 +3272,50 @@ module module_MEDIATOR
       enddo
       deallocate(fieldNameList)
 !BL2017b
-#ifdef test
-      call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
-         consfmap=is_local%wrap%RH_o2a_consf, &
-         consdmap=is_local%wrap%RH_o2a_consd, &
-         bilnrmap=is_local%wrap%RH_o2a_bilnr, &
-         patchmap=is_local%wrap%RH_o2a_patch, &
-         string='o2aatmocn', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
+      !call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
+      !   consfmap=is_local%wrap%RH_o2a_consf, &
+      !   consdmap=is_local%wrap%RH_o2a_consd, &
+      !   bilnrmap=is_local%wrap%RH_o2a_bilnr, &
+      !   patchmap=is_local%wrap%RH_o2a_patch, &
+      !   string='o2aatmocn', rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
 
+!BL201!7b
+! use !the nearest neighbor method
+      !call Fieldbundle_Regrid2(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn2_a, &
+      !   nearestmap=is_local%wrap%RH_o2a_nearest, &
+      !   string='atmocn_o2a_nearest', rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
+
+      !call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldCount=fieldCount, rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
+      !allocate(fieldNameList(fieldCount))
+      !call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldNameList=fieldNameList, rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
+
+      !do n = 1, fieldCount
+      !call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn_a, fieldNameList(n),dataPtr1,rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
+
+      !call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, file=__FILE__)) return  ! bail out
+
+      !do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
+      !do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
+      !if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
+      !  dataPtr1(i,j)=dataPtr2(i,j)
+      !  endif
+      !enddo
+      !enddo
+      !enddo
+      !deallocate(fieldNameList)
 !BL2017b
-! use the nearest neighbor method
-      call Fieldbundle_Regrid2(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn2_a, &
-         nearestmap=is_local%wrap%RH_o2a_nearest, &
-         string='atmocn_o2a_nearest', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldCount=fieldCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      allocate(fieldNameList(fieldCount))
-      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      do n = 1, fieldCount
-      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn_a, fieldNameList(n),dataPtr1,rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
-      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
-      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
-        dataPtr1(i,j)=dataPtr2(i,j)
-        endif
-      enddo
-      enddo
-      enddo
-      deallocate(fieldNameList)
-!BL2017b
-#endif
     endif
 
     if (is_local%wrap%i2a_active) then
@@ -5482,6 +5480,14 @@ module module_MEDIATOR
       endif
     enddo
     enddo
+
+    ii =lbound(icewgt,1)+(ubound(icewgt,1) - lbound(icewgt,1))/2
+    jj =lbound(icewgt,2)+(ubound(icewgt,2) - lbound(icewgt,2))/2
+    write(msgString,'(A,6f12.5)')trim(subname)//trim(' wts for atm-ocn merges'), &
+      real(icewgt(ii,jj),4), real(atmwgt(ii,jj),4),&
+      real(icewgt1(ii,jj),4), real( atmwgt1(ii,jj),4),&
+      real(wgtp01(ii,jj),4), real( wgtm01(ii,jj),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     !-------------
     ! mean_evap_rate = mean_laten_heat_flux * (1-ice_fraction)/const_lhvap
