@@ -3169,7 +3169,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
         do j=lbound(dataptr1,2),ubound(dataptr1,2)
           do i=lbound(dataptr1,1),ubound(dataptr1,1)
-            ifrac_i(i,j) = dataPtr1(i,j)
+            ifrac_i(i,j) = max(czero, min(cone, dataPtr1(i,j)))
           enddo
         enddo
 !BL2017b
@@ -3199,8 +3199,9 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=jl,ju
             do i=il,iu
+              dataPtr2(i,j) = max(czero, min(cone, dataPtr2(i,j)))
               if (dataPtr2(i,j) <= epsln .and. dataPtr5(i,j) > epsln) then
-                dataPtr2(i,j) = dataPtr5(i,j)
+                dataPtr2(i,j) = max(czero, min(cone, dataPtr5(i,j)))
               endif
             enddo
           enddo
@@ -3242,8 +3243,9 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=jl,ju
             do i=il,iu
+              dataPtr2(i,j) = max(czero, min(cone, dataPtr2(i,j)))
               if (dataPtr2(i,j) <= epsln .and. dataPtr5(i,j)  > epsln) then
-                dataPtr2(i,j) = dataPtr5(i,j)
+                dataPtr2(i,j) = max(czero, min(cone, dataPtr5(i,j)))
               endif
             enddo
           enddo
@@ -3286,6 +3288,7 @@ module module_MEDIATOR
           do j=jl,ju
             do i=il,iu
             !--- compute ice fraction on atm grid and reciprocal
+              dataPtr2(i,j) = max(czero, min(cone, dataPtr2(i,j)))
               ifrac_ab(i,j) = dataPtr2(i,j)
               if (dataPtr2(i,j) <= epsln) then
                 ifrac_abr(i,j) = cone
@@ -3316,6 +3319,7 @@ module module_MEDIATOR
           do j=jl,ju
             do i=il,iu
             !--- compute ice fraction on atm grid and reciprocal
+              dataPtr2(i,j) = max(czero, min(cone, dataPtr2(i,j)))
               ifrac_ap(i,j) = dataPtr2(i,j)
               if (dataPtr2(i,j) <= epsln) then
                 ifrac_apr(i,j) = cone
@@ -3336,7 +3340,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
             do j=lbound(dataptr3,2),ubound(dataptr3,2)
               do i=lbound(dataptr3,1),ubound(dataptr3,1)
-                dataPtr3(i,j) = dataPtr4(i,j) * max(ifrac_i(i,j), czero)
+                dataPtr3(i,j) = dataPtr4(i,j) * ifrac_i(i,j)
               enddo
             enddo
           endif
@@ -3435,7 +3439,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=lbound(dataptr3,2),ubound(dataptr3,2)
             do i=lbound(dataptr3,1),ubound(dataptr3,1)
-              dataPtr3(i,j) = max(ifrac_af(i,j), czero)
+              dataPtr3(i,j) = max(czero, min(cone, ifrac_af(i,j)))
             enddo
           enddo
           deallocate(ifrac_af, ifrac_afr)
@@ -3445,7 +3449,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=lbound(dataptr3,2),ubound(dataptr3,2)
             do i=lbound(dataptr3,1),ubound(dataptr3,1)
-              dataPtr3(i,j) = max(ifrac_ad(i,j), czero)
+              dataPtr3(i,j) = max(czero, min(cone, ifrac_ad(i,j)))
             enddo
           enddo
           deallocate(ifrac_ad, ifrac_adr)
@@ -3454,7 +3458,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=lbound(dataptr3,2),ubound(dataptr3,2)
             do i=lbound(dataptr3,1),ubound(dataptr3,1)
-              dataPtr3(i,j) = max(ifrac_ab(i,j), czero)
+              dataPtr3(i,j) = max(czero, min(cone, ifrac_ab(i,j)))
             enddo
           enddo
           deallocate(ifrac_ab, ifrac_abr)
@@ -3463,7 +3467,7 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j=lbound(dataptr3,2),ubound(dataptr3,2)
             do i=lbound(dataptr3,1),ubound(dataptr3,1)
-              dataPtr3(i,j) = max(ifrac_ap(i,j), czero)
+              dataPtr3(i,j) = max(czero, min(cone, ifrac_ap(i,j)))
             enddo
           enddo
           deallocate(ifrac_ap, ifrac_apr)
@@ -4510,23 +4514,6 @@ module module_MEDIATOR
     integer, intent(out) :: rc
     
     ! local variables
-    type(ESMF_Clock)            :: clock
-    type(ESMF_Time)             :: time
-    character(len=64)           :: timestr
-    type(ESMF_State)            :: importState, exportState
-    type(InternalState)         :: is_local
-    integer                     :: i,j,n
-    real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
-                                   qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
-    real(ESMF_KIND_R8), pointer :: us  (:,:),vs  (:,:),ts  (:,:),mask(:,:)
-    real(ESMF_KIND_R8), pointer :: sen (:,:),lat (:,:),lwup(:,:),evap(:,:), &
-                                   taux(:,:),tauy(:,:),tref(:,:),qref(:,:),duu10n(:,:)
-!   real(ESMF_KIND_R8)          :: zbot1(1),ubot1(1),vbot1(1),thbot1(1), &
-!                                  qbot1(1),rbot1(1),tbot1(1)
-!   integer                     :: mask1(1)
-!   real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
-!   real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
-!                                  taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
     character(len=*), parameter :: subname='(module_MEDIATOR:MedPhase_fast_after)'
     
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
@@ -5485,8 +5472,7 @@ module module_MEDIATOR
     
     ! local variables
     type(ESMF_Clock)           :: clock
-    type(ESMF_Time)            :: currTime
-    type(ESMF_Time)            :: startTime
+    type(ESMF_Time)            :: currTime, startTime
     type(ESMF_TimeInterval)    :: elapsedTime
     ! ESMF_TimeInterval
     integer*8                  :: sec8
@@ -7230,7 +7216,9 @@ endif
 !$omp parallel do default(shared) private(i,j)
           do j = lb2,ub2
             do i = lb1,ub1
-              dataOut(i,j) = dataOut(i,j) + dataPtr(i,j) * wgt(i,j)
+              if (abs(wgt(i,j)) > epsln) then
+                dataOut(i,j) = dataOut(i,j) + dataPtr(i,j) * wgt(i,j)
+              endif
             enddo
           enddo
         else
