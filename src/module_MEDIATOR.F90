@@ -3133,7 +3133,7 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: ifrac_ad(:,:), ifrac_adr(:,:)  ! ice fraction on atm grid consd map
     real(ESMF_KIND_R8), pointer :: ifrac_ab(:,:), ifrac_abr(:,:)  ! ice fraction on atm grid bilnr map
     real(ESMF_KIND_R8), pointer :: ifrac_ap(:,:), ifrac_apr(:,:)  ! ice fraction on atm grid patch map
-    real(ESMF_KIND_R8), pointer :: ocnwgt(:,:),icewgt(:,:),customwgt(:,:)
+    real(ESMF_KIND_R8), pointer :: icewgt(:,:)
     integer                     :: i,j,n
     integer                     :: regridwriteAtmExp_timeslice = 0
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_atm)'
@@ -3690,23 +3690,11 @@ module module_MEDIATOR
 #endif
     endif
 
-    !---------------------------------------
-    !--- custom calculations to atm
-    !---------------------------------------
-
-    !---  ocn and ice fraction for merges
+    !--- check for ice fraction out of range
 
     call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, 'ice_fraction', icewgt, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    allocate(ocnwgt(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
-    allocate(customwgt(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
-    do j=lbound(icewgt,2),ubound(icewgt,2)
-    do i=lbound(icewgt,1),ubound(icewgt,1)
-      ocnwgt(i,j) = 1.0_ESMF_KIND_R8 - icewgt(i,j)
-      customwgt(i,j) = 1.0_ESMF_KIND_R8
-    enddo
-    enddo
 
     ! FLAG icewgt > 1.0
     write(msgString,'(A,3g17.10)')trim(subname)//trim(' FLAG icewgt>1.0'), &
@@ -3731,40 +3719,6 @@ module module_MEDIATOR
       rc = ESMF_FAILURE
       return
     endif
-
-    !--- merges from ice only
-    
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_laten_heat_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_up_lw_flx' , & 
-                                is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_evap_rate' , & 
-                                is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_zonal_moment_flx' , & 
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_merid_moment_flx' , & 
-                                is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid',customwgt, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    deallocate(ocnwgt, customwgt)
 
     !---------------------------------------
     !--- set export State to special value for testing
