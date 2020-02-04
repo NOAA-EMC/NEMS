@@ -991,6 +991,14 @@ module module_MEDIATOR
     write(msgString,'(A,l6)') trim(subname)//' profile_memory = ',profile_memory
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
+    call ESMF_AttributeGet(gcomp, name="AoMedFlux", value=value, defaultValue="true", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    atmocn_flux_from_atm=(trim(value)/="false")
+    write(msgString,'(A,l6)') trim(subname)//' atmocn_flux_from_atm = ',atmocn_flux_from_atm
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
     ! Set clock_invalidTimeStamp
     call ESMF_TimeSet(time_invalidTimeStamp, yy=99999999, mm=1, dd=1, h=0, m=0, s=0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3316,7 +3324,7 @@ module module_MEDIATOR
 !      enddo
 !      enddo
 !      deallocate(fieldNameList)
-!!BL2017b
+!BL2017b
     endif
 
     if (is_local%wrap%i2a_active) then
@@ -4260,7 +4268,7 @@ module module_MEDIATOR
       call state_diagnose(NState_IceExp, trim(subname)//' IceExp_final ', rc=rc)
     endif
 
-    if (statewrite_flag) then
+    !if (statewrite_flag) then
       ! write the fields exported to ice to file
       call NUOPC_Write(NState_IceExp, &
         fldsToIce%shortname(1:fldsToIce%num), &
@@ -4268,7 +4276,7 @@ module module_MEDIATOR
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-    endif
+    !endif
     
     !---------------------------------------
     !--- clean up
@@ -5213,6 +5221,8 @@ module module_MEDIATOR
     logical                     :: checkOK, checkOK1, checkOK2
     character(len=*),parameter  :: subname='(module_MEDIATOR:MedPhase_prep_ocn)'
 
+    integer :: ii,jj
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -5379,9 +5389,9 @@ module module_MEDIATOR
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBIce_o, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBAccumAtmOcn, rc=rc)
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFregrid ', rc=rc)
-    endif
+    !endif
 
     !---------------------------------------
     !--- custom calculations to ocn
@@ -5414,17 +5424,21 @@ module module_MEDIATOR
     allocate(wgtm01(lbound(icewgt,1):ubound(icewgt,1),lbound(icewgt,2):ubound(icewgt,2)))
     do j=lbound(icewgt,2),ubound(icewgt,2)
     do i=lbound(icewgt,1),ubound(icewgt,1)
+#ifndef FV3_CPLD
+! DATM uses mediator aoflux calc in icy water
       atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
       atmwgt1(i,j) = atmwgt(i,j)
       icewgt1(i,j) = icewgt(i,j)
       wgtp01(i,j)  = 0.0_ESMF_KIND_R8
       wgtm01(i,j)  = 0.0_ESMF_KIND_R8
+! DATM uses atm fluxes in non-icy water
       if (atmocn_flux_from_atm .and. icewgt(i,j) <= 0.0_ESMF_KIND_R8) then
         atmwgt1(i,j) = 0.0_ESMF_KIND_R8
         icewgt1(i,j) = 0.0_ESMF_KIND_R8
         wgtp01(i,j)  = 1.0_ESMF_KIND_R8
         wgtm01(i,j)  = -1.0_ESMF_KIND_R8
       endif
+
       ! check wgts do add to 1 as expected
       if (abs(atmwgt(i,j) + icewgt(i,j) - 1.0_ESMF_KIND_R8) > 1.0e-12 .or. &
           abs(atmwgt1(i,j) + icewgt1(i,j) + wgtp01(i,j) - 1.0_ESMF_KIND_R8) > 1.0e-12 .or. &
@@ -5433,8 +5447,23 @@ module module_MEDIATOR
         rc = ESMF_FAILURE
         return
       endif
+#else
+      atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
+      atmwgt1(i,j) = 0.0_ESMF_KIND_R8
+      icewgt1(i,j) =  icewgt(i,j)
+      wgtm01(i,j)  = -atmwgt(i,j)
+      wgtp01(i,j)  =  atmwgt(i,j)
+#endif
     enddo
     enddo
+
+    ii =lbound(icewgt,1)+(ubound(icewgt,1) - lbound(icewgt,1))/2
+    jj =lbound(icewgt,2)+(ubound(icewgt,2) - lbound(icewgt,2))/2
+    write(msgString,'(A,6f12.5)')trim(subname)//trim(' sample wts for atm-ocn merges'), &
+      real(icewgt(ii,jj),4), real(atmwgt(ii,jj),4),&
+      real(icewgt1(ii,jj),4), real( atmwgt1(ii,jj),4),&
+      real(wgtp01(ii,jj),4), real( wgtm01(ii,jj),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     !-------------
     ! mean_evap_rate = mean_laten_heat_flux * (1-ice_fraction)/const_lhvap
@@ -5490,12 +5519,12 @@ module module_MEDIATOR
 
 ! not used by mom, mom uses evap
 ! hycom uses latent heat flux
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , & 
-                                is_local%wrap%FBAccumAtmOcn, 'mean_laten_heat_flx_atm_into_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'             , wgtm01, &
-                                rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
+    !call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , & 
+    !                            is_local%wrap%FBAccumAtmOcn, 'mean_laten_heat_flx_atm_into_ocn', atmwgt1, &
+    !                            is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'             , wgtm01, &
+    !                            rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, file=__FILE__)) return  ! bail out
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , & 
                                 is_local%wrap%FBAccumAtmOcn, 'mean_sensi_heat_flx_atm_into_ocn', atmwgt1, &
@@ -5503,7 +5532,7 @@ module module_MEDIATOR
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-
+      
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , & 
                                 is_local%wrap%FBAtm_o      , 'mean_down_lw_flx'  , atmwgt1, &
                                 is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1, &
