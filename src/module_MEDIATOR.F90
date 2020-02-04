@@ -97,11 +97,11 @@ module module_MEDIATOR
     type(ESMF_FieldBundle):: FBHyd_a     ! Hyd export data mapped to atm grid
     type(ESMF_FieldBundle):: FBHyd_h     ! Hyd export on hyd grid
     type(ESMF_FieldBundle):: FBAtmOcn_o  ! Atm/Ocn flux fields on ocn grid
-    type(ESMF_FieldBundle):: FBAtmOcn_a  ! Atm/Ocn flux fields on atm grid
+    !type(ESMF_FieldBundle):: FBAtmOcn_a  ! Atm/Ocn flux fields on atm grid
 !BL2017b
     type(ESMF_FieldBundle):: FBOcn2_a     ! Ocn export data mapped to atm grid
     type(ESMF_FieldBundle):: FBIce2_a     ! Ice export data mapped to atm grid
-    type(ESMF_FieldBundle):: FBAtmOcn2_a  ! Atm/Ocn flux fields on atm grid
+    !type(ESMF_FieldBundle):: FBAtmOcn2_a  ! Atm/Ocn flux fields on atm grid
 !BL2017b
     type(ESMF_FieldBundle):: FBforAtm    ! data storage for atm import
     type(ESMF_FieldBundle):: FBforOcn    ! data storage for ocn import
@@ -2373,11 +2373,11 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
-      fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
+    !call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
+    !  fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
 !BL2017b
-    call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
-      fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
+    !call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
+    !  fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
 !BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -3220,11 +3220,11 @@ module module_MEDIATOR
     call fieldBundle_reset(is_local%wrap%FBIce_if, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBLnd_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBHyd_a, value=czero, rc=rc)
-    call fieldBundle_reset(is_local%wrap%FBAtmOcn_a, value=czero, rc=rc)
+    !call fieldBundle_reset(is_local%wrap%FBAtmOcn_a, value=czero, rc=rc)
 !BL2017b
     call fieldBundle_reset(is_local%wrap%FBOcn2_a, value=czero, rc=rc)
     call fieldBundle_reset(is_local%wrap%FBIce2_a, value=czero, rc=rc)
-    call fieldBundle_reset(is_local%wrap%FBAtmOcn2_a, value=czero, rc=rc)
+    !call fieldBundle_reset(is_local%wrap%FBAtmOcn2_a, value=czero, rc=rc)
 !BL2017b
 
     if (is_local%wrap%o2a_active) then
@@ -3272,51 +3272,51 @@ module module_MEDIATOR
       enddo
       deallocate(fieldNameList)
 !BL2017b
-
-      call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
-         consfmap=is_local%wrap%RH_o2a_consf, &
-         consdmap=is_local%wrap%RH_o2a_consd, &
-         bilnrmap=is_local%wrap%RH_o2a_bilnr, &
-         patchmap=is_local%wrap%RH_o2a_patch, &
-         string='o2aatmocn', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-!BL2017b
-! use the nearest neighbor method
-      call Fieldbundle_Regrid2(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn2_a, &
-         nearestmap=is_local%wrap%RH_o2a_nearest, &
-         string='atmocn_o2a_nearest', rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldCount=fieldCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-      allocate(fieldNameList(fieldCount))
-      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldNameList=fieldNameList, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      do n = 1, fieldCount
-      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn_a, fieldNameList(n),dataPtr1,rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out
-
-      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
-      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
-      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
-        dataPtr1(i,j)=dataPtr2(i,j)
-        endif
-      enddo
-      enddo
-      enddo
-      deallocate(fieldNameList)
-!BL2017b
+!
+!      call Fieldbundle_Regrid(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn_a, &
+!         consfmap=is_local%wrap%RH_o2a_consf, &
+!         consdmap=is_local%wrap%RH_o2a_consd, &
+!         bilnrmap=is_local%wrap%RH_o2a_bilnr, &
+!         patchmap=is_local%wrap%RH_o2a_patch, &
+!         string='o2aatmocn', rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!!BL2017b
+!! use the nearest neighbor method
+!      call Fieldbundle_Regrid2(fldsAtmOcn, is_local%wrap%FBAtmOcn_o, is_local%wrap%FBAtmOcn2_a, &
+!         nearestmap=is_local%wrap%RH_o2a_nearest, &
+!         string='atmocn_o2a_nearest', rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldCount=fieldCount, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!      allocate(fieldNameList(fieldCount))
+!      call ESMF_FieldBundleGet(is_local%wrap%FBAtmOcn_a, fieldNameList=fieldNameList, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      do n = 1, fieldCount
+!      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn_a, fieldNameList(n),dataPtr1,rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      call FieldBundle_GetFldPtr(is_local%wrap%FBAtmOcn2_a, fieldNameList(n), dataPtr2, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
+!      do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
+!      if(dataPtr1(i,j).eq.0._ESMF_KIND_R8.and.abs(dataPtr2(i,j)).gt.0._ESMF_KIND_R8) then
+!        dataPtr1(i,j)=dataPtr2(i,j)
+!        endif
+!      enddo
+!      enddo
+!      enddo
+!      deallocate(fieldNameList)
+!!BL2017b
     endif
 
     if (is_local%wrap%i2a_active) then
@@ -3660,14 +3660,14 @@ module module_MEDIATOR
       call FieldBundle_diagnose(is_local%wrap%FBIce_a, trim(subname)//' FBIce_a ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBLnd_a, trim(subname)//' FBLnd_a ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBHyd_a, trim(subname)//' FBHyd_a ', rc=rc)
-      call FieldBundle_diagnose(is_local%wrap%FBAtmOcn_a, trim(subname)//' FBAtmOcn_a ', rc=rc)
+      !call FieldBundle_diagnose(is_local%wrap%FBAtmOcn_a, trim(subname)//' FBAtmOcn_a ', rc=rc)
     endif
 
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBOcn_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBIce_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBLnd_a, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBHyd_a, rc=rc)
-    call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBAtmOcn_a, rc=rc)
+    !call fieldBundle_copy(is_local%wrap%FBforAtm, is_local%wrap%FBAtmOcn_a, rc=rc)
 
     if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforAtm, trim(subname)//' FBforAtm ', rc=rc)
@@ -5362,10 +5362,10 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBAtm_o, trim(subname)//' FBAtm_o ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBIce_o, trim(subname)//' FBIce_o ', rc=rc)
-    endif
+    !endif
 
 ! tcx Xgrid
     ! XGrid intermediary required? instantiate FBXgrid FieldBundle?
@@ -5597,9 +5597,9 @@ module module_MEDIATOR
 
     deallocate(atmwgt,customwgt,atmwgt1,icewgt1,wgtp01)
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFmrg ', rc=rc)
-    endif
+    !endif
     
     endif
 
@@ -5662,7 +5662,7 @@ module module_MEDIATOR
       call State_diagnose(NState_OcnExp, trim(subname)//' es_AFcp ', rc=rc)
     endif
 
-    if (statewrite_flag) then
+    !if (statewrite_flag) then
       ! write the fields exported to ocn to file
       call NUOPC_Write(NState_OcnExp, &
         fldsToOcn%shortname(1:fldsToOcn%num), &
@@ -5670,7 +5670,7 @@ module module_MEDIATOR
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-    endif
+    !endif
 
     !---------------------------------------
 
