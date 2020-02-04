@@ -220,12 +220,10 @@ module module_MEDIATOR
     fieldBundle_copyST2FB
   end interface
 
-#if ESMF_VERSION_MAJOR < 8
   interface NUOPCplus_UpdateTimestamp; module procedure &
     NUOPCplus_UpdateTimestampS, &
     NUOPCplus_UpdateTimestampF
   end interface
-#endif
 
   ! local variables
   type(ESMF_Grid)    :: gridAtm, gridOcn, gridIce, gridLnd, gridHyd, gridMed
@@ -264,6 +262,7 @@ module module_MEDIATOR
   real(ESMF_KIND_R8), parameter :: czero      = 0.0_ESMF_KIND_R8
   real(ESMF_KIND_R8), parameter :: cone       = 1.0_ESMF_KIND_R8
   real(ESMF_KIND_R8), parameter :: chalf      = 0.5_ESMF_KIND_R8
+  real(ESMF_KIND_R8), parameter :: conem6     = 1.0e-6_ESMF_KIND_R8
   real(ESMF_KIND_R8), parameter :: epsln      = 1.0e-12_ESMF_KIND_R8
   real(ESMF_KIND_R8), parameter :: albocn     = 0.06_ESMF_KIND_R8
 !BL2017b
@@ -2037,8 +2036,10 @@ module module_MEDIATOR
 !$omp parallel do default(shared) private(i,j)
           do j = lbound(dataPtr_fieldAtm,2),ubound(dataPtr_fieldAtm,2)
             do i = lbound(dataPtr_fieldAtm,1),ubound(dataPtr_fieldAtm,1)
-              dataPtr_fieldAtm(i,j) = min(cone, max(czero, cone - dataPtr_fieldAtm(i,j)))
-              land_mask(i,j)        = dataPtr_fieldAtm(i,j)
+              dataPtr_fieldAtm(i,j) = cone - dataPtr_fieldAtm(i,j)
+              if (dataPtr_fieldAtm(i,j) > cone)   dataPtr_fieldAtm(i,j) = cone
+              if (dataPtr_fieldAtm(i,j) < conem6) dataPtr_fieldAtm(i,j) = czero
+              land_mask(i,j) = dataPtr_fieldAtm(i,j)
             enddo
           enddo
 
@@ -8884,7 +8885,6 @@ endif
   end subroutine NEMS_GridCopyItem
 
   !-----------------------------------------------------------------------------
-#if ESMF_VERSION_MAJOR < 8
   subroutine NUOPCplus_UpdateTimestampS(state, time, rc)
     type(ESMF_State)      :: state
     type(ESMF_Time)       :: time
@@ -8931,7 +8931,6 @@ endif
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
   end subroutine NUOPCplus_UpdateTimestampF
-#endif 
   !-----------------------------------------------------------------------------
 !=======================================================================
 

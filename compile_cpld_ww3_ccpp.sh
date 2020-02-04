@@ -1,4 +1,4 @@
-#make app=coupledFV3_MOM6_CICE_WW3_CCPP      distclean
+ make app=coupledFV3_MOM6_CICE_WW3_CCPP      distclean
  make app=coupledFV3_MOM6_CICE_WW3_CCPP -j 8 build
 
 #

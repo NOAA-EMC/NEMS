@@ -48,9 +48,7 @@
         Driver_label_SetRunSequence   => label_SetRunSequence,   &
         Driver_label_SetRunClock      => label_SetRunClock,      &
         Driver_label_Finalize         => label_Finalize
-#if ESMF_VERSION_MAJOR < 8
       use NUOPC_Connector,  only: conSS      => SetServices
-#endif
    ! -   Handle build time ATM options:
 #ifdef FRONT_SATM
       use FRONT_SATM,       only: SATM_SS    => SetServices
