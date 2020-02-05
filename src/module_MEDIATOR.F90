@@ -3144,6 +3144,7 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: icewgt(:,:)
     integer                     :: i,j,n
     integer                     :: regridwriteAtmExp_timeslice = 0
+    character(len=128)         :: fname
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_atm)'
 !BL2017b
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
@@ -3750,21 +3751,32 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
     ! write the fields exported to atm to file
-#ifdef FRONT_FV3
-      regridwriteAtmExp_timeslice = regridwriteAtmExp_timeslice + 1
-      call ESMFPP_RegridWriteFB(is_local%wrap%FBforAtm, "med_to_atm_export_", regridwriteAtmExp_timeslice, rc=rc)
+#ifdef FV3_CPLD
+      write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
+      call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+        line=__LINE__, file=__FILE__)) return  ! bail out
 #else
-      call NUOPC_Write(NState_AtmExp, &
-        fldsToAtm%shortname(1:fldsToAtm%num), &
-        "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
-        relaxedFlag=.true., rc=rc)
+      write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
+      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
+!#ifdef FRONT_FV3
+!      regridwriteAtmExp_timeslice = regridwriteAtmExp_timeslice + 1
+!      call ESMFPP_RegridWriteFB(is_local%wrap%FBforAtm, "med_to_atm_export_", regridwriteAtmExp_timeslice, rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, &
+!        file=__FILE__)) &
+!        return  ! bail out
+!#else
+!      call NUOPC_Write(NState_AtmExp, &
+!        fldsToAtm%shortname(1:fldsToAtm%num), &
+!        "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
+!        relaxedFlag=.true., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!#endif
     endif
 
     if (dbug_flag > 1) then
@@ -4712,6 +4724,7 @@ module module_MEDIATOR
     type(ESMF_State)            :: importState, exportState
     type(InternalState)         :: is_local
     integer                     :: i,j,n
+    character(len=128)         :: fname
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_accum_fast)'
     
     if (dbug_flag > 5) then
@@ -4752,17 +4765,19 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
 
-    if (statewrite_flag) then
+!    if (statewrite_flag) then
       ! write the fields imported from atm to file
-#ifndef FRONT_FV3
-      call NUOPC_Write(NState_AtmImp, &
-        fldsFrAtm%shortname(1:fldsFrAtm%num), &
-        "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
-        relaxedFlag=.true., rc=rc)
+#ifdef FV3_CPLD
+      write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
+      call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+#else
+      write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
+      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
-
       ! write the fields imported from ice to file
       call NUOPC_Write(NState_IceImp, &
         fldsFrIce%shortname(1:fldsFrIce%num), &
@@ -4786,7 +4801,40 @@ module module_MEDIATOR
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-    endif
+!    endif
+!#ifndef FRONT_FV3
+!      call NUOPC_Write(NState_AtmImp, &
+!        fldsFrAtm%shortname(1:fldsFrAtm%num), &
+!        "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
+!        relaxedFlag=.true., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!#endif
+!
+!      ! write the fields imported from ice to file
+!      call NUOPC_Write(NState_IceImp, &
+!        fldsFrIce%shortname(1:fldsFrIce%num), &
+!        "field_med_from_ice_", timeslice=is_local%wrap%fastcntr, &
+!        relaxedFlag=.true., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      ! write the fields imported from lnd to file
+!      call NUOPC_Write(NState_LndImp, &
+!        fieldNameList=fldsFrLnd%shortname(1:fldsFrLnd%num), &
+!        fileNamePrefix="field_med_from_lnd_", timeslice=is_local%wrap%fastcntr, &
+!        relaxedFlag=.true., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!
+!      ! write the fields imported from hyd to file
+!      call NUOPC_Write(NState_HydImp, &
+!        fieldNameList=fldsFrHyd%shortname(1:fldsFrHyd%num), &
+!        fileNamePrefix="field_med_from_hyd_", timeslice=is_local%wrap%fastcntr, &
+!        relaxedFlag=.true., rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
+!    endif
 
     !---------------------------------------
     !--- atm, ice, lnd, hyd accumulator for ocean
@@ -6131,7 +6179,7 @@ module module_MEDIATOR
     integer,optional :: rc
 
     ! local variables
-    type(ESMF_Field) :: f(47)
+    type(ESMF_Field),allocatable :: flds(:)
     type(ESMF_GridComp) :: IOComp
     type(ESMF_Grid) :: gridFv3
     character(len=ESMF_MAXSTR) :: name
@@ -6145,7 +6193,6 @@ module module_MEDIATOR
       call ESMF_LogWrite(trim(subname)//trim(fname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
-    if (mode == 'write') then
       call ESMF_FieldBundleGet(FB, fieldCount=fieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
@@ -6153,11 +6200,14 @@ module module_MEDIATOR
     write(msgString,*) trim(subname)//' fieldCount = ',fieldCount
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
-    call fieldBundle_getFieldN(FB, 1, f(1), rc)
+    allocate(flds(fieldCount))
+
+    if (mode == 'write') then
+    call fieldBundle_getFieldN(FB, 1, flds(1), rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call ESMF_FieldGet(f(1), grid=gridFv3, rc=rc)
+    call ESMF_FieldGet(flds(1), grid=gridFv3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -6166,11 +6216,11 @@ module module_MEDIATOR
           line=__LINE__, file=__FILE__)) return  ! bail out
     call ESMF_LogWrite(trim(subname)//": write "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
 
-    do n=2, 47
-    call fieldBundle_getFieldN(FB, n, f(n), rc)
+    do n=2, fieldCount
+    call fieldBundle_getFieldN(FB, n, flds(n), rc)
     enddo
 
-    call ESMFIO_Write(IOComp, fname, f, filePath='./', rc=rc)
+    call ESMFIO_Write(IOComp, fname, flds, filePath='./', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -6182,11 +6232,11 @@ module module_MEDIATOR
     call ESMF_LogWrite(trim(subname)//": read "//trim(fname)//    &
      "tile1-tile6", ESMF_LOGMSG_INFO, rc=dbrc)
 
-    call fieldBundle_getFieldN(FB, 1, f(1), rc)
+    call fieldBundle_getFieldN(FB, 1, flds(1), rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call ESMF_FieldGet(f(1), grid=gridFv3, rc=rc)
+    call ESMF_FieldGet(flds(1), grid=gridFv3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -6194,11 +6244,11 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-    do n=2, 47
-    call fieldBundle_getFieldN(FB, n, f(n), rc)
+    do n=2, fieldCount
+    call fieldBundle_getFieldN(FB, n, flds(n), rc)
     enddo
 
-    call ESMFIO_Read(IOComp, fname, f, filePath='./', rc=rc)
+    call ESMFIO_Read(IOComp, fname, flds, filePath='./', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -6208,6 +6258,7 @@ module module_MEDIATOR
     call ESMF_LogWrite(trim(subname)//": mode WARNING "//trim(fname)//" mode="//trim(mode), ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 ! -- Finalize ESMFIO
+    deallocate(flds)
     call ESMFIO_Destroy(IOComp, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, file=__FILE__)) call ESMF_Finalize()
