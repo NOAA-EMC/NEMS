@@ -3757,26 +3757,18 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #else
-      write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
+! TODO: check method for DATM
+      call NUOPC_Write(NState_AtmExp, &
+        fldsToAtm%shortname(1:fldsToAtm%num), &
+        "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
+        relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-#endif
-!#ifdef FRONT_FV3
-!      regridwriteAtmExp_timeslice = regridwriteAtmExp_timeslice + 1
-!      call ESMFPP_RegridWriteFB(is_local%wrap%FBforAtm, "med_to_atm_export_", regridwriteAtmExp_timeslice, rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, &
-!        file=__FILE__)) &
-!        return  ! bail out
-!#else
-!      call NUOPC_Write(NState_AtmExp, &
-!        fldsToAtm%shortname(1:fldsToAtm%num), &
-!        "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
-!        relaxedFlag=.true., rc=rc)
+!      write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
+!      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !        line=__LINE__, file=__FILE__)) return  ! bail out
-!#endif
+#endif
     endif
 
     if (dbug_flag > 1) then
@@ -4773,10 +4765,17 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #else
-      write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
+! TODO: check method for DATM
+      call NUOPC_Write(NState_AtmImp, &
+        fldsFrAtm%shortname(1:fldsFrAtm%num), &
+        "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
+        relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
+!      write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
+!      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
+!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!        line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
       ! write the fields imported from ice to file
       call NUOPC_Write(NState_IceImp, &
@@ -4801,39 +4800,6 @@ module module_MEDIATOR
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-!    endif
-!#ifndef FRONT_FV3
-!      call NUOPC_Write(NState_AtmImp, &
-!        fldsFrAtm%shortname(1:fldsFrAtm%num), &
-!        "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
-!        relaxedFlag=.true., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, file=__FILE__)) return  ! bail out
-!#endif
-!
-!      ! write the fields imported from ice to file
-!      call NUOPC_Write(NState_IceImp, &
-!        fldsFrIce%shortname(1:fldsFrIce%num), &
-!        "field_med_from_ice_", timeslice=is_local%wrap%fastcntr, &
-!        relaxedFlag=.true., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, file=__FILE__)) return  ! bail out
-!
-!      ! write the fields imported from lnd to file
-!      call NUOPC_Write(NState_LndImp, &
-!        fieldNameList=fldsFrLnd%shortname(1:fldsFrLnd%num), &
-!        fileNamePrefix="field_med_from_lnd_", timeslice=is_local%wrap%fastcntr, &
-!        relaxedFlag=.true., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, file=__FILE__)) return  ! bail out
-!
-!      ! write the fields imported from hyd to file
-!      call NUOPC_Write(NState_HydImp, &
-!        fieldNameList=fldsFrHyd%shortname(1:fldsFrHyd%num), &
-!        fileNamePrefix="field_med_from_hyd_", timeslice=is_local%wrap%fastcntr, &
-!        relaxedFlag=.true., rc=rc)
-!      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!        line=__LINE__, file=__FILE__)) return  ! bail out
 !    endif
 
     !---------------------------------------
@@ -5420,10 +5386,10 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
 
-    !if (dbug_flag > 1) then
+    if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBAtm_o, trim(subname)//' FBAtm_o ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBIce_o, trim(subname)//' FBIce_o ', rc=rc)
-    !endif
+    endif
 
 ! tcx Xgrid
     ! XGrid intermediary required? instantiate FBXgrid FieldBundle?
@@ -5437,17 +5403,17 @@ module module_MEDIATOR
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBIce_o, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBAccumAtmOcn, rc=rc)
 
-    !if (dbug_flag > 1) then
+    if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFregrid ', rc=rc)
-    !endif
+    endif
 
     !---------------------------------------
     !--- custom calculations to ocn
     !---------------------------------------
 
-!    if (dbug_flag > 1) then
-!      call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFcc ', rc=rc)
-!    endif
+    if (dbug_flag > 1) then
+      call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFcc ', rc=rc)
+    endif
 
     !---------------------------------------
     !--- merges to ocn
@@ -5674,9 +5640,9 @@ module module_MEDIATOR
 
     deallocate(atmwgt,customwgt,atmwgt1,icewgt1,wgtp01)
 
-    !if (dbug_flag > 1) then
+    if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFmrg ', rc=rc)
-    !endif
+    endif
     
     endif
 
