@@ -687,7 +687,6 @@ contains
        endif
        hash=c_crc32c
      
-       if(hash < 0) hash = MPI_UNDEFINED
        call MPI_Comm_Split(commin,hash,rank_world,comm_name,error)
        if(error/=0) then
           ierr=2
