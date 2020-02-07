@@ -4272,7 +4272,10 @@ module module_MEDIATOR
       call state_diagnose(NState_IceExp, trim(subname)//' IceExp_final ', rc=rc)
     endif
 
-    !if (statewrite_flag) then
+    if (statewrite_flag) then
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_ice '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
       ! write the fields exported to ice to file
       call NUOPC_Write(NState_IceExp, &
         fldsToIce%shortname(1:fldsToIce%num), &
@@ -4280,7 +4283,7 @@ module module_MEDIATOR
         relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
-    !endif
+    endif
     
     !---------------------------------------
     !--- clean up
@@ -4759,6 +4762,8 @@ module module_MEDIATOR
 
 !    if (statewrite_flag) then
       ! write the fields imported from atm to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
       call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
@@ -5386,10 +5391,10 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBAtm_o, trim(subname)//' FBAtm_o ', rc=rc)
       call FieldBundle_diagnose(is_local%wrap%FBIce_o, trim(subname)//' FBIce_o ', rc=rc)
-    endif
+    !endif
 
 ! tcx Xgrid
     ! XGrid intermediary required? instantiate FBXgrid FieldBundle?
@@ -5403,9 +5408,9 @@ module module_MEDIATOR
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBIce_o, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBAccumAtmOcn, rc=rc)
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFregrid ', rc=rc)
-    endif
+    !endif
 
     !---------------------------------------
     !--- custom calculations to ocn
@@ -5640,9 +5645,9 @@ module module_MEDIATOR
 
     deallocate(atmwgt,customwgt,atmwgt1,icewgt1,wgtp01)
 
-    if (dbug_flag > 1) then
+    !if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFmrg ', rc=rc)
-    endif
+    !endif
     
     endif
 
@@ -5707,6 +5712,9 @@ module module_MEDIATOR
 
     !if (statewrite_flag) then
       ! write the fields exported to ocn to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_ocn '), is_local%wrap%slowcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
       call NUOPC_Write(NState_OcnExp, &
         fldsToOcn%shortname(1:fldsToOcn%num), &
         "field_med_to_ocn_", timeslice=is_local%wrap%slowcntr, &
@@ -5751,9 +5759,9 @@ module module_MEDIATOR
     character(len=128)         :: fname
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_write_restart)'
 
-    if (dbug_flag > 5) then
+    !if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
+    !endif
     rc = ESMF_SUCCESS
 
     if (restart_interval > 0) then
@@ -5789,9 +5797,9 @@ module module_MEDIATOR
       endif
     endif
 
-    if (dbug_flag > 5) then
+    !if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
+    !endif
 
   end subroutine MedPhase_write_restart
 
@@ -5808,14 +5816,17 @@ module module_MEDIATOR
     integer              :: stat
     character(len=*),parameter :: subname='(module_MEDIATOR:Finalize)'
 
-    if (dbug_flag > 5) then
+    !if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
-    endif
+    !endif
     rc = ESMF_SUCCESS
 
     call Mediator_restart(gcomp,'write','mediator',rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
+
+     write(msgString,*) trim(subname)//' restart at Finalize'
+     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=dbrc)
 
     ! Get the internal state from Component.
     nullify(is_local%wrap)
@@ -6169,6 +6180,10 @@ module module_MEDIATOR
     allocate(flds(fieldCount))
 
     if (mode == 'write') then
+
+    call ESMF_LogWrite(trim(subname)//": write "//trim(fname)//    &
+     "tile1-tile6", ESMF_LOGMSG_INFO, rc=dbrc)
+
     call fieldBundle_getFieldN(FB, 1, flds(1), rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
