@@ -3751,6 +3751,8 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
     ! write the fields exported to atm to file
+     write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_atm '), is_local%wrap%fastcntr
+     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
       call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
@@ -4762,7 +4764,7 @@ module module_MEDIATOR
 
 !    if (statewrite_flag) then
       ! write the fields imported from atm to file
-      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from '), is_local%wrap%fastcntr
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_atm '), is_local%wrap%fastcntr
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
@@ -4783,6 +4785,8 @@ module module_MEDIATOR
 !        line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
       ! write the fields imported from ice to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_ice '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
       call NUOPC_Write(NState_IceImp, &
         fldsFrIce%shortname(1:fldsFrIce%num), &
         "field_med_from_ice_", timeslice=is_local%wrap%fastcntr, &
@@ -5283,6 +5287,8 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
       ! write the fields imported from ocn to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_ocn '), is_local%wrap%slowcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
       call NUOPC_Write(NState_OcnImp, &
         fldsFrOcn%shortname(1:fldsFrOcn%num), &
         "field_med_from_ocn_", timeslice=is_local%wrap%slowcntr, &
