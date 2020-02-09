@@ -3749,7 +3749,7 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    if (statewrite_flag) then
+    !if (statewrite_flag) then
     ! write the fields exported to atm to file
      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_atm '), is_local%wrap%fastcntr
      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
@@ -3771,7 +3771,7 @@ module module_MEDIATOR
 !      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !        line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
-    endif
+    !endif
 
     if (dbug_flag > 1) then
      call state_diagnose(NState_AtmExp, trim(subname)//' AtmExp_final ', rc=rc)
@@ -5240,6 +5240,7 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: atmwgt1(:,:),icewgt1(:,:),wgtp01(:,:),wgtm01(:,:)
     real(ESMF_KIND_R8), pointer :: tmp_n1(:,:),tmp_n2(:,:)
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
+    type(ESMF_Field)            :: aofield
     integer                     :: fieldCount
     logical                     :: checkOK, checkOK1, checkOK2
     character(len=*),parameter  :: subname='(module_MEDIATOR:MedPhase_prep_ocn)'
@@ -5425,6 +5426,30 @@ module module_MEDIATOR
     if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFcc ', rc=rc)
     endif
+
+    !---------------------------------------
+    !--- write the Mediator Atm-Ocn fluxes
+    !---------------------------------------
+
+    !if (statewrite_flag) then
+      ! write the fields cantaining the mediator fluxes to ocn to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_aofield_to_ocn '), is_local%wrap%slowcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+      call ESMF_FieldBundleGet(is_local%wrap%FBAccumAtmOcn, fieldCount=fieldCount, rc=rc)
+      allocate(fieldNameList(fieldCount))
+      call ESMF_FieldBundleGet(is_local%wrap%FBAccumAtmOcn, fieldNameList=fieldNameList, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+
+      do n = 1, fieldCount
+       call ESMF_FieldBundleGet(is_local%wrap%FBAccumAtmOcn, fieldname=fieldNameList(n), field=aofield, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+       call ESMF_FieldWrite(aofield,'field_aofield_to_ocn_'//trim(fieldnameList(n))//'.nc', &
+                            timeslice=is_local%wrap%slowcntr, overwrite=.true.,rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+      end do
+      deallocate(fieldNameList)
+    !endif
 
     !---------------------------------------
     !--- merges to ocn
@@ -6180,8 +6205,8 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-    write(msgString,*) trim(subname)//' fieldCount = ',fieldCount
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+    !write(msgString,*) trim(subname)//' fieldCount = ',fieldCount
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
     allocate(flds(fieldCount))
 
