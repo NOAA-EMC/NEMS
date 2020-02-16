@@ -6136,7 +6136,7 @@ module module_MEDIATOR
     elseif (mode == 'read') then
       inquire(file=fname,exist=fexists)
 
-      if(.not.fexists)then
+      if(.not.fexists .and. .not. coldstart)then
        call ESMF_LogWrite(trim(fname)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
       endif
@@ -6243,7 +6243,7 @@ module module_MEDIATOR
       fname_tile1='mediator_FBAtm_a_restart.tile1.nc'
       inquire(file=fname_tile1,exist=fexists)
 
-      if(.not.fexists)then
+      if(.not.fexists .and. .not. coldstart)then
        call ESMF_LogWrite(trim(fname_tile1)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
        call ESMF_Finalize(endflag=ESMF_END_ABORT)
       endif
