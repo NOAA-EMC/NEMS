@@ -6135,6 +6135,12 @@ module module_MEDIATOR
       call fieldBundle_diagnose(FB, 'write '//trim(fname), rc)
     elseif (mode == 'read') then
       inquire(file=fname,exist=fexists)
+
+      if(.not.fexists)then
+       call ESMF_LogWrite(trim(fname)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
+       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      endif
+
       if (fexists) then
         call ESMF_LogWrite(trim(subname)//": read "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
 !-----------------------------------------------------------------------------------------------------
@@ -6236,6 +6242,12 @@ module module_MEDIATOR
     elseif (mode == 'read') then
       fname_tile1='mediator_FBAtm_a_restart.tile1.nc'
       inquire(file=fname_tile1,exist=fexists)
+
+      if(.not.fexists)then
+       call ESMF_LogWrite(trim(fname_tile1)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
+       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      endif
+
       if (fexists) then
 
     call ESMF_LogWrite(trim(subname)//": read "//trim(fname)//    &
