@@ -14,7 +14,7 @@ ifeq ("$(DOXYGEN)","doxygen")
   JET_DOXYGEN=/contrib/doxygen/1.8.10/bin/doxygen
   LUNA_DOXYGEN=/gpfs/hps3/emc/hwrf/noscrub/soft/doxygen-1.8.10/bin/doxygen
   TIDE_DOXYGEN=/hwrf/noscrub/soft/doxygen-1.8.10/bin/doxygen
-  MY_DOXYGEN=/usr/bin/doxygen
+  HERA_DOXYGEN=/usr/bin/doxygen
 
   ifneq ($(wildcard $(THEIA_DOXYGEN)*),)
     $(info On Theia.)
@@ -32,9 +32,11 @@ ifeq ("$(DOXYGEN)","doxygen")
     $(info on Tide or Gyre.)
     DOXYGEN=$(TIDE_DOXYGEN)
     TARGET ?= rvasic@emcrzdm.ncep.noaa.gov:/home/www/emc/htdocs/mmb/rvasic/nems-sample/.
+  else ifneq ($(wildcard $(HERA_DOXYGEN)*),)
+    $(info on Local machine.)
+    DOXYGEN=$(HERA_DOXYGEN)
   else
-    #$(error Could not detect environment.  You must set TARGET and DOXYGEN manually)
-    DOXYGEN=$(MY_DOXYGEN)
+    $(error Could not detect environment.  You must set TARGET and DOXYGEN manually)
   endif
 else
   $(info DOXYGEN set in environment.  Will not set TARGET variable.  You must set it manually.  DOXYGEN=$(DOXYGEN))

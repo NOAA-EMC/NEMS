@@ -1,8 +1,6 @@
 Mediator Reference {#mediator}
 =======================
 
-\version This page is updated for post-DREV73964 revisions.
-
 This page describes the main NEMS mediator. There is also a 
 \ref sw_mediator "NEMS space weather mediator".
 

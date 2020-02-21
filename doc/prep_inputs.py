@@ -225,68 +225,6 @@ def git_scan_app(app_dir):
 
 # ----------------------------------------------------------------------
 
-def order_milestones(a,b):
-    # Sort milestones by decreasing number.
-    return -cmp( re.sub('[a-zA-Z]+','',a),
-                 re.sub('[a-zA-Z]+','',b) )
-
-def get_milestones():
-    milestones=list()
-
-    md_file_list=set(glob.glob('DREV*.md'))|set(glob.glob('R[0-9]*.md'))
-    md_file_list=sorted(md_file_list,order_milestones)
-
-    print 'Reverse-sorting milestones:'
-
-    for mdfile in md_file_list:
-        mdbase=mdfile.replace('.md','')
-        expected_header_id='milestone_'+mdbase
-
-        # We're looking for this at the top of the mdfile:
-        #
-        # My Fancy Title     {#header_id}
-        # ==============
-
-        # Get the first non-blank line:
-        with open(mdfile,'rt') as mdf:
-            for line in mdf.readlines():
-                if line.split():
-                    break
-
-        # Get the header id:
-        m=re.search('\{#([A-Za-z][A-Za-z0-9_-]+)\}',line)
-        if not m:
-            error('%s: does not have a header with id {#%s} '
-                  'on first line\n'%(mdfile,expected_header_id))
-            continue
-        header_id=m.group(1)
-        if header_id != expected_header_id:
-            error('%s: header id %s should be %s'%(
-                mdfile,header_id,expected_header_id))
-            continue
-
-        # Get the title:
-        m=re.match('^(.*?)\s+\{#',line)
-        if not m:
-            error('%s: cannot get title from first line'%(mdfile,))
-            continue
-        title=m.group(1)
-        if not title:
-            error('%s: cannot get title from first line'%(mdfile,))
-            continue
-
-        print '%s = %s'%(header_id,title)
-
-        milestones.append('  + @subpage %s'%(header_id,))
-
-    if not milestones:
-        return ''
-
-    # 
-    return '\n'.join(milestones)+'\n'
-
-# ----------------------------------------------------------------------
-
 def get_app_list(app_info):
     return '' # FIXME: implement this
 

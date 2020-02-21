@@ -1,2 +1,4 @@
 *.pyc
 __pycache__
+/doc/html/
+/doc/webpage.tar.gz
