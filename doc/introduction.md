@@ -123,7 +123,7 @@ Quick Build and Run
 -------------------
 
 
-### 6.1.1   Download
+### Download
 
 Use the following git command to download the top of the master of a NEMS application
     
@@ -156,7 +156,7 @@ critical to keep track of the precise revision information.
 
 There are a few ways to find out more about specific revisions and the features that they contain. The links under the Milestone Revisions header on the left navigation bar describe revisions that are documented and tested for particular [application milestones](https://docs.google.com/spreadsheets/d/1RS-fTBYnfSIWrJYfalD2lAI-bUOGM0frNPEMIO_ND28/edit#gid=0). The development tasks completed for each revision are included in the [task prioritization spreadsheet](https://docs.google.com/spreadsheets/d/1C0k9AfH9DZHmJCW_bSdK2TzfFB9qLjyE8416nqqXjTM/edit#gid=0).
 
-### 6.1.2   Build
+### Build
 
 Change into the `<Application>` directory created by the git or svn command during download. Then build the app using:
 
@@ -168,7 +168,7 @@ level directory. The end result of the build process is a NEMS
 executable `(./NEMS/exe/NEMS.x)` that is configured to run the
 application.
 
-### 6.1.3   Run
+### Run
 
 Below are general instructions on how to run a NEMS application. There may be some special or additional directions for running a particular application configuration (for example, for the cold start in UGCS-Seasonal). Please see the links under specific Milestone Revisions for these instructions.
 

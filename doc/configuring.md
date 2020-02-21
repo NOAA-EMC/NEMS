@@ -136,7 +136,7 @@ ignored. Indentation in the formatting does not change the meaning of
 a line, but is purely used to increase readability.
 
 
-8.1  Changing the run sequence
+Changing the run sequence
 -------------------------------
 
 During run-time of the NEMS executable, it accesses a file called nems.configure, which it expects to find in the run directory. This file specifies the dynamic component selection, and the exact run sequence to be used. Only models built into the executable at build-time are accessible during run-time. An error will be triggered if an unavailable model is selected in nems.configure. The component selection is based on two variables:
