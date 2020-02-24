@@ -448,7 +448,7 @@
 !
       NEMS_EXP_STATE=ESMF_StateCreate(name='NEMS Export State', rc=RC)
       ESMF_ERR_ABORT(RC)
-!      
+!
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------

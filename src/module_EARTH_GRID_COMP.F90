@@ -214,6 +214,7 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
+!     integer, parameter       :: NumFields=253
       integer, parameter       :: NumFields=252
 !     integer, parameter       :: NumFields=251
 !     integer, parameter       :: NumFields=250
@@ -339,11 +340,12 @@
       "wind_speed_squared_10m                                      ", "m2 s-2                                                      ", &
       "friction_speed                                              ", "m s-1                                                       ", &
       "mean_lat_flx                                                ", "W m-2                                                       ", &
-      "mean_sens_flx                                               ", "W m-2                                                       ",&
+      "mean_sens_flx                                               ", "W m-2                                                       ", &
       "water_flux_into_sea_water                                   ", "kg m-2 s-1                                                  ", &
       "frozen_water_flux_into_sea_water                            ", "kg m-2 s-1                                                  ", &
       "surface_temperature                                         ", "K                                                           ", &
       "air_surface_temperature                                     ", "K                                                           ", &
+      "sea_surface_temperature                                     ", "K                                                           ", &
       "sea_ice_surface_temperature                                 ", "K                                                           ", &
       "temperature_2m                                              ", "K                                                           ", &
       "upward_sea_ice_basal_available_heat_flux                    ", "W m-2                                                       ", &
@@ -357,7 +359,7 @@
       "upward_sea_ice_basal_heat_flux                              ", "W m-2                                                       ", &
       "downward_sea_ice_basal_salt_flux                            ", "kg m-2 s-1                                                  ", &
       "downward_sea_ice_basal_water_flux                           ", "kg m-2 s-1                                                  ", &
-      "sea_ice_surface_temperature                                 ", "K                                                           ", &
+!     "sea_ice_surface_temperature                                 ", "K                                                           ", &
 !     "sea_ice_temperature                                         ", "K                                                           ", &
       "sea_ice_thickness                                           ", "m                                                           ", &
       "sea_ice_x_velocity                                          ", "m s-1                                                       ", &
@@ -513,7 +515,7 @@
       "dummyfield2                                                 ", "1                                                           "  &
 
        /)
-      
+
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -556,7 +558,7 @@
                                 specLabel=Driver_label_Finalize,         &
                                 specRoutine=Finalize, rc=RC)
       ESMF_ERR_RETURN(RC, RC_REG)
-      
+
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
                                            phaseLabelList=(/"IPDv04p2"/),           &
@@ -691,11 +693,11 @@
 
         call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-        
+
 ! dump the current field dictionary into the Log file
 ! ---------------------------------------------------
         call ESMF_AttributeGet(driver, name="DumpFieldDictionary", &
-                               value=value, defaultValue="false", &
+                               value=value, defaultValue="false",  &
                                convention="NUOPC", purpose="Instance", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
@@ -713,7 +715,7 @@
                              ESMF_LOGMSG_INFO, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
         endif
-        
+
 ! determine the generic component labels
 ! --------------------------------------
         componentCount = ESMF_ConfigGetLen(config, label="EARTH_component_list:", rc=rc)
@@ -728,7 +730,7 @@
                                      label="EARTH_component_list:", count=componentCount, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
 ! determine information for each component and add to the driver
 ! --------------------------------------------------------------
         do i=1, componentCount
@@ -764,7 +766,7 @@
           do j=petListBounds(1), petListBounds(2)
             petList(j-petListBounds(1)+1) = j ! PETs are 0 based
           enddo
-          
+
           if (trim(model) == "satm") then
 #ifdef FRONT_SATM
             call NUOPC_DriverAddComp(driver, trim(prefix), SATM_SS, &
@@ -1126,7 +1128,7 @@
             call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, file=__FILE__, rcToReturn=rc)
             return
           endif
-          
+
 ! read and ingest free format component attributes
 ! ------------------------------------------------
           attrFF = NUOPC_FreeFormatCreate(config, &
@@ -1139,11 +1141,11 @@
 
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-          
+
 ! clean-up
 ! --------
           deallocate(petList)
-          
+
         enddo
 
 #if ESMF_VERSION_MAJOR < 8        
@@ -1156,11 +1158,11 @@
 ! clean-up
 ! --------
         deallocate(compLabels)
-        
+
       end subroutine
 
      !-----------------------------------------------------------------------------
-  
+
       subroutine SetRunSequence(driver, rc)
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
@@ -1207,9 +1209,9 @@
            call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
         endif
-    
+
       end subroutine
-    
+
       !-----------------------------------------------------------------------------
 
 #if ESMF_VERSION_MAJOR < 8
@@ -1218,7 +1220,7 @@
         type(ESMF_GridComp)   :: driver
         character(len=*)      :: mode
         integer, intent(out)  :: rc
-    
+
 ! local variables
 ! ---------------
         character(ESMF_MAXSTR)          :: name
@@ -1246,7 +1248,7 @@
         !character(len=10)              :: defaultVerbosity = "max"
 
         rc = ESMF_SUCCESS
-    
+
 ! query the Component for info
 ! ----------------------------
         call ESMF_GridCompGet(driver, name=name, config=config, rc=rc)
@@ -1259,16 +1261,16 @@
 
         call ESMF_ConfigGetDim(config, lineCount, columnCount, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-    
+
         allocate(count(lineCount))
-    
+
         if (trim(mode)=="setServicesConnectors") then
           allocate(connectorInstance(lineCount))  ! max number of connectors
           connectorCount = 0                      ! reset
           write(msgString,'(a,i6)')'max number of connectors ',lineCount
           call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
         endif
-    
+
 ! reset config to beginning of runSeq:: block
 ! -------------------------------------------
         call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
@@ -1280,7 +1282,7 @@
           call ESMF_ConfigNextLine(config)
           count(i) = ESMF_ConfigGetLen(config) ! entries on line i
         enddo
-    
+
 ! reset config to beginning of runSeq:: block
 ! -------------------------------------------
         call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
@@ -1294,7 +1296,7 @@
           allocate(line(count(i)))
           call ESMF_ConfigGetAttribute(config, line, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-      
+
 ! process the configuration line
 ! ------------------------------
           if (size(line) == 1) then
@@ -1354,9 +1356,9 @@
         enddo
         slotCount = (slotCount+1) / 2
         slotCount = max(slotCount, 1) ! at least one slot
-    
+
         if (trim(mode) == "setRunSequence") then
-    
+
           allocate(slotStack(slotCount))
 
 ! Replace the default RunSequence with a customized one
@@ -1379,7 +1381,7 @@
             allocate(line(count(i)))
             call ESMF_ConfigGetAttribute(config, line, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-        
+
 ! process the configuration line
             if ((size(line) < 1) .or. (size(line) > 4)) then
               call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD,   &
@@ -1449,8 +1451,8 @@
                                              srcCompLabel=trim(line(1)), &
                                              dstCompLabel=trim(line(3)), rc=rc)
               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-            endif    
-        
+            endif
+
             deallocate(line)    ! clean-up
           enddo
           deallocate(slotStack) ! clean-up
@@ -1469,7 +1471,7 @@
       subroutine Finalize(driver, rc)
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
-    
+
 ! local variables
         integer                         :: localrc, stat
         type(WRAP_EARTH_INTERNAL_STATE) :: is
@@ -1481,22 +1483,22 @@
 ! query the Component for info
         call ESMF_GridCompGet(driver, name=name, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-    
+
 ! query Component for this internal State
         nullify(is%EARTH_INT_STATE)
         call ESMF_GridCompGetInternalState(driver, is, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-      
+
 ! deallocate internal state memory
         deallocate(is%EARTH_INT_STATE, stat=stat)
         if (ESMF_LogFoundDeallocError(statusToCheck=stat,      &
           msg="Deallocation of internal state memory failed.", &
           line=__LINE__, file=trim(name)//":"//__FILE__, rcToReturn=rc)) return
-      
+
       end subroutine
-      
+
       !-----------------------------------------------------------------------------
-  
+
       recursive subroutine ModifyCplLists(driver, importState, exportState, clock, rc)
         type(ESMF_GridComp)  :: driver
         type(ESMF_State)     :: importState, exportState
@@ -1511,7 +1513,7 @@
         type(WRAP_EARTH_INTERNAL_STATE) :: is
 
         rc = ESMF_SUCCESS
-    
+
 ! query Component for this internal State
 
         nullify(is%EARTH_INT_STATE)
@@ -1520,16 +1522,16 @@
 
         call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    
+
         nullify(connectorList)
         call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-    
+
         write (msg,*) "Found ", size(connectorList), " Connectors."// &
                       " Modifying CplList Attribute...."
         call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-      
+
         do i=1, size(connectorList)
 ! query Connector i for its name
           call ESMF_CplCompGet(connectorList(i), name=name, rc=rc)
@@ -1559,9 +1561,9 @@
             deallocate(cplList)
           endif
         enddo
-      
+
         deallocate(connectorList)
-    
+
       end subroutine
 
 !

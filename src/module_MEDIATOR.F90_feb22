@@ -278,20 +278,18 @@ module module_MEDIATOR
   type(ESMF_Clock)   :: clock_invalidTimeStamp
   real(ESMF_KIND_R8), parameter :: const_lhvap = 2.501e6_ESMF_KIND_R8  ! latent heat of evaporation ~ J/kg
   integer            :: srcTermProcessing_Value = 0
-
-! logical            :: read_rest_FBaccumAtm = .false.
-! logical            :: read_rest_FBaccumOcn = .false.
-! logical            :: read_rest_FBaccumIce = .false.
-! logical            :: read_rest_FBaccumLnd = .false.
-! logical            :: read_rest_FBaccumHyd = .false.
-! logical            :: read_rest_FBaccumAtmOcn = .false.
-! logical            :: read_rest_FBAtm_a    = .false.
-! logical            :: read_rest_FBIce_i    = .false.
-! logical            :: read_rest_FBOcn_o    = .false.
-! logical            :: read_rest_FBLnd_l    = .false.
-! logical            :: read_rest_FBHyd_h    = .false.
-! logical            :: read_rest_FBAtmOcn_o = .false.
-
+  logical            :: read_rest_FBaccumAtm = .false.
+  logical            :: read_rest_FBaccumOcn = .false.
+  logical            :: read_rest_FBaccumIce = .false.
+  logical            :: read_rest_FBaccumLnd = .false.
+  logical            :: read_rest_FBaccumHyd = .false.
+  logical            :: read_rest_FBaccumAtmOcn = .false.
+  logical            :: read_rest_FBAtm_a    = .false.
+  logical            :: read_rest_FBIce_i    = .false.
+  logical            :: read_rest_FBOcn_o    = .false.
+  logical            :: read_rest_FBLnd_l    = .false.
+  logical            :: read_rest_FBHyd_h    = .false.
+  logical            :: read_rest_FBAtmOcn_o = .false.
 ! real(ESMF_KIND_R8), parameter :: spval_init = -9.99999e6_ESMF_KIND_R8  ! spval for initialization
 ! real(ESMF_KIND_R8), parameter :: spval = -1.0e36_ESMF_KIND_R8  ! spval
   real(ESMF_KIND_R8), parameter :: spval_init = 0.0_ESMF_KIND_R8 ! spval for initialization
@@ -4199,6 +4197,21 @@ module module_MEDIATOR
     !--- custom calculations to atm
     !---------------------------------------
 
+    !---  ocn and ice fraction for merges
+
+!   call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, 'ice_fraction', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   jl=lbound(icewgt,2) ; ju=ubound(icewgt,2)
+!   il=lbound(icewgt,1) ; iu=ubound(icewgt,1)
+!   allocate(ocnwgt(il:iu, jl:ju))
+!!$omp parallel do default(shared) private(i,j)
+!   do j=jl,ju
+!     do i=il,iu
+!       ocnwgt(i,j) = cone - icewgt(i,j)
+!     enddo
+!   enddo
+
     !--- fill land mask every coupling from initial computation
 
 !   if (generate_landmask) then
@@ -4253,6 +4266,38 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_sensi_heat_flx'             , 2,      & 
+!                               is_local%wrap%FBAtmOcn_a,'mean_sensi_heat_flx_atm_into_ocn', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'mean_sensi_heat_flx_atm_into_ice', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_laten_heat_flx'             , 2,      &
+!                               is_local%wrap%FBAtmOcn_a,'mean_laten_heat_flx_atm_into_ocn', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'mean_laten_heat_flx_atm_into_ice', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_up_lw_flx'    , 2,      &
+!                               is_local%wrap%FBAtmOcn_a,'mean_up_lw_flx_ocn', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'mean_up_lw_flx_ice', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_evap_rate'             , 2,      &
+!                               is_local%wrap%FBAtmOcn_a,'mean_evap_rate_atm_into_ocn', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'mean_evap_rate_atm_into_ice', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_zonal_moment_flx'  , 2,      &
+!                               is_local%wrap%FBAtmOcn_a,'stress_on_air_ocn_zonal', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'stress_on_air_ice_zonal', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   call fieldBundle_FieldMerge(is_local%wrap%FBforAtm  ,'mean_merid_moment_flx'  , 2,      &
+!                               is_local%wrap%FBAtmOcn_a,'stress_on_air_ocn_merid', ocnwgt, &
+!                               is_local%wrap%FBIce_a   ,'stress_on_air_ice_merid', icewgt, rc=rc)
+!   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   deallocate(ocnwgt)
+
     !---------------------------------------
     !--- set export State to special value for testing
     !---------------------------------------
@@ -4276,11 +4321,11 @@ module module_MEDIATOR
 
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields_tiles('write', trim(fname), is_local%wrap%FBforAtm, rc=rc)
+      call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
       write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBforAtm, rc=rc)
+      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBforAtm,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 
@@ -5192,11 +5237,11 @@ module module_MEDIATOR
       ! write the fields imported from atm to file
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields_tiles('write', trim(fname), is_local%wrap%FBAtm_a, rc=rc)
+      call FieldBundle_RWFields_tiles('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
       write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBAtm_a, rc=rc)
+      call FieldBundle_RWFields('write',trim(fname),is_local%wrap%FBAtm_a,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 #ifndef FRONT_FV3
@@ -5624,6 +5669,7 @@ module module_MEDIATOR
     character(ESMF_MAXSTR)      :: fieldname1(10),fieldname2(10),fieldname3(10)
     real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:)
     real(ESMF_KIND_R8), pointer :: atmwgt(:,:),icewgt(:,:),customwgt(:,:)
+    real(ESMF_KIND_R8), pointer :: atmwgt1(:,:),icewgt1(:,:),wgtp01(:,:),wgtm01(:,:)
     real(ESMF_KIND_R8), pointer :: tmp_n1(:,:),tmp_n2(:,:)
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
     integer                     :: fieldCount
@@ -5855,22 +5901,41 @@ module module_MEDIATOR
 
       allocate(atmwgt   (il:iu, jl:ju))
       allocate(customwgt(il:iu, jl:ju))
+      allocate(atmwgt1  (il:iu, jl:ju))
+      allocate(icewgt1  (il:iu, jl:ju))
+      allocate(wgtp01   (il:iu, jl:ju))
+      allocate(wgtm01   (il:iu, jl:ju))
 
+      if (atmocn_flux_from_atm) then
 !$omp parallel do default(shared) private(i,j)
-      do j=jl,ju
-        do i=il,iu
-          icewgt(i,j)    = max(czero, min(icewgt(i,j), cone))
-          atmwgt(i,j)    = cone - icewgt(i,j)
-          customwgt(i,j) = abs(atmwgt(i,j) + icewgt(i,j) - cone)
+        do j=jl,ju
+          do i=il,iu
+            icewgt(i,j)  = max(czero, min(icewgt(i,j), cone))
+            atmwgt(i,j)  = cone - icewgt(i,j)
+            icewgt1(i,j) =  icewgt(i,j)
+            atmwgt1(i,j) =  czero
+            wgtp01(i,j)  =  atmwgt(i,j)
+            wgtm01(i,j)  = -atmwgt(i,j)
+          enddo
         enddo
-      enddo
-!     write(0,*)' icewgt=',icewgt(il:il+5,jl), ' atmwgt=',atmwgt(il:il+5,jl), &
-!               'customwgt=',customwgt(i,j)
+      else
+!$omp parallel do default(shared) private(i,j)
+        do j=jl,ju
+          do i=il,iu
+            atmwgt(i,j)  = cone - icewgt(i,j)
+            atmwgt1(i,j) = atmwgt(i,j)
+            icewgt1(i,j) = icewgt(i,j)
+            wgtp01(i,j)  = czero
+            wgtm01(i,j)  = czero
+          enddo
+        enddo
+      endif
       do j=jl,ju
         do i=il,iu
-          if (customwgt(i,j) > epsln) then                     ! check wgts do add to 1 as expected
-!           write(0,*)' i=',i,' j=',j,' atmwgt=',atmwgt(i,j),' icewgt=',icewgt(i,j),&
-!                     'cone=',cone,' czero=',czero,' customwgt=',customwgt(i,j)
+      ! check wgts do add to 1 as expected
+          if (abs(atmwgt(i,j)  + icewgt(i,j)                - cone) > epsln .or.  &
+              abs(atmwgt1(i,j) + icewgt1(i,j) + wgtp01(i,j) - cone) > epsln .or.  &
+              abs(atmwgt1(i,j) + icewgt1(i,j) - wgtm01(i,j) - cone) > epsln) then
             call ESMF_LogWrite(trim(subname)//": ERROR atm + ice fracs inconsistent", ESMF_LOGMSG_ERROR, line=__LINE__, file=__FILE__, rc=dbrc)
             rc = ESMF_FAILURE
             return
@@ -5878,144 +5943,102 @@ module module_MEDIATOR
         enddo
       enddo
 
-      if (atmocn_flux_from_atm) then
     !-------------
     ! mean_evap_rate = mean_laten_heat_flux * (1-ice_fraction)/const_lhvap
     !-------------
 
-        customwgt = - atmwgt / const_lhvap
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'      , 1,         &
-                                    is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx' , customwgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-! not used by mom, mom uses evap
-! hycom uses latent heat flux
-        customwgt = - atmwgt
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'  , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'   , customwgt,  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'    , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'    , customwgt,  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'   , atmwgt,  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
-!       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , 2,      & 
-!                                   is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1,&
-!                                   is_local%wrap%FBAtm_o      , 'mean_up_lw_flx'    , wgtp01, rc=rc)
-!       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    !-------------
-    ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
-    !-------------
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,       &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt,  &
-                                    is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , customwgt,  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 2,      &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt, &
-                                    is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , customwgt,  rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-      else
-
-    !-------------
-    ! mean_evap_rate = mean_laten_heat_flux * (1-ice_fraction)/const_lhvap
-    !-------------
-
-        customwgt = - atmwgt
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'      , 1,         &
-                                    is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-! not used by mom, mom uses evap
-! hycom uses latent heat flux
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , 1,      &
-                                    is_local%wrap%FBAccumAtmOcn, 'mean_laten_heat_flx_atm_into_ocn', atmwgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , 1,      &
-                                    is_local%wrap%FBAccumAtmOcn, 'mean_sensi_heat_flx_atm_into_ocn', atmwgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx' , 2,        &
-                                    is_local%wrap%FBAtm_o      , 'mean_down_lw_flx'  , atmwgt, &
-                                    is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
-!      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx' , 1,      &
-!                                  is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt, rc=rc)
-  !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    !-------------
-    ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
-    !-------------
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,      &
-                                    is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_zonal', atmwgt, &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 2,      &
-                                    is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_merid', atmwgt, &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-      endif
+      customwgt = wgtm01 / const_lhvap
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , 2,         &
+                                  is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt1,   &
+                                  is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'        , customwgt, &
+                                  rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !-------------
     ! field_for_ocn = field_from_atm * (1-ice_fraction)
     !-------------
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_fprec_rate', 1,      &
-                                  is_local%wrap%FBAtm_o , 'mean_fprec_rate', atmwgt, rc=rc)
+                                  is_local%wrap%FBAtm_o , 'mean_fprec_rate', atmwgt, &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_prec_rate', 1,       &
-                                  is_local%wrap%FBAtm_o , 'mean_prec_rate', atmwgt,  rc=rc)
+                                  is_local%wrap%FBAtm_o , 'mean_prec_rate', atmwgt,  &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    !-------------
+   !-------------
     ! field_for_ocn = field_from_ice * ice_fraction
     !-------------
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'net_heat_flx_to_ocn', 1,      &
-                                  is_local%wrap%FBIce_o , 'net_heat_flx_to_ocn', icewgt, rc=rc)
+                                  is_local%wrap%FBIce_o , 'net_heat_flx_to_ocn', icewgt, &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_fresh_water_to_ocean_rate', 1,      &
-                                  is_local%wrap%FBIce_o , 'mean_fresh_water_to_ocean_rate', icewgt, rc=rc)
+                                  is_local%wrap%FBIce_o , 'mean_fresh_water_to_ocean_rate', icewgt, &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_salt_rate', 1,     &
-                                  is_local%wrap%FBIce_o , 'mean_salt_rate', icewgt, rc=rc)
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_salt_rate' , 1,     &
+                                  is_local%wrap%FBIce_o , 'mean_salt_rate', icewgt, &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 
 ! not used by mom, mom uses net, also mean_down_lw_flx not connected to ocn
-!     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_down_lw_flx', & 
-!                                 is_local%wrap%FBAtm_o , 'mean_down_lw_flx', atmwgt, rc=rc)
-!     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_down_lw_flx', & 
+!                                is_local%wrap%FBAtm_o , 'mean_down_lw_flx', atmwgt, &
+!                                rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+! not used by mom, mom uses evap
+! hycom uses latent heat flux
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , 2,       & 
+                                  is_local%wrap%FBAccumAtmOcn, 'mean_laten_heat_flx_atm_into_ocn', atmwgt1, &
+                                  is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'             , wgtm01,  &
+                                  rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , 2,       &
+                                  is_local%wrap%FBAccumAtmOcn, 'mean_sensi_heat_flx_atm_into_ocn', atmwgt1, &
+                                  is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'             , wgtm01,  &
+                                  rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , 3,       & 
+                                  is_local%wrap%FBAtm_o      , 'mean_down_lw_flx'  , atmwgt1, &
+                                  is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1, &
+                                  is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'   , wgtp01,  &
+                                  rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , 2,      & 
+!                                is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1,&
+!                                is_local%wrap%FBAtm_o      , 'mean_up_lw_flx'    , wgtp01, &
+!                                rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !-------------
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
-      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,       &
-                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt,  &
-                                  is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , customwgt,  rc=rc)
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 3,       &
+                                  is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_zonal', atmwgt1, &
+                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt1, &
+                                  is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , wgtm01,  &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 2,      &
-                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt, &
-                                  is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , customwgt,  rc=rc)
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 3,       &
+                                  is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_merid', atmwgt1, &
+                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt1, &
+                                  is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , wgtm01,  &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !-------------
@@ -6025,27 +6048,32 @@ module module_MEDIATOR
       customwgt = atmwgt * (cone - albocn)
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_flx'   , 2,         &
                                   is_local%wrap%FBAtm_o ,'mean_down_sw_flx'  , customwgt, &
-                                  is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn', icewgt,    rc=rc)
+                                  is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn', icewgt,    &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dir_flx' , 2,         &
                                   is_local%wrap%FBAtm_o ,'mean_down_sw_vis_dir_flx', customwgt, &
-                                  is_local%wrap%FBIce_o ,'mean_net_sw_vis_dir_flx' , icewgt,    rc=rc)
+                                  is_local%wrap%FBIce_o ,'mean_net_sw_vis_dir_flx' , icewgt,    &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dif_flx' , 2,         &
                                   is_local%wrap%FBAtm_o ,'mean_down_sw_vis_dif_flx', customwgt, &
-                                  is_local%wrap%FBIce_o ,'mean_net_sw_vis_dif_flx' , icewgt,    rc=rc)
+                                  is_local%wrap%FBIce_o ,'mean_net_sw_vis_dif_flx' , icewgt,    &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dir_flx' , 2,         &
                                   is_local%wrap%FBAtm_o ,'mean_down_sw_ir_dir_flx', customwgt, &
-                                  is_local%wrap%FBIce_o ,'mean_net_sw_ir_dir_flx' , icewgt,    rc=rc)
+                                  is_local%wrap%FBIce_o ,'mean_net_sw_ir_dir_flx' , icewgt,    &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dif_flx' , 2,         & 
                                   is_local%wrap%FBAtm_o ,'mean_down_sw_ir_dif_flx', customwgt, &
-                                  is_local%wrap%FBIce_o ,'mean_net_sw_ir_dif_flx' , icewgt,    rc=rc)
+                                  is_local%wrap%FBIce_o ,'mean_net_sw_ir_dif_flx' , icewgt,    &
+                                  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 
@@ -6053,7 +6081,7 @@ module module_MEDIATOR
     ! End merges
     !-------------
 
-      deallocate(atmwgt,customwgt)
+      deallocate(atmwgt,customwgt,atmwgt1,icewgt1,wgtp01,wgtm01)
 
       if (dbug_flag > 1) then
         call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFmrg ', rc=rc)
@@ -6319,76 +6347,62 @@ module module_MEDIATOR
 !
 #ifdef FV3_CPLD
     fname = trim(bfname)//'_FBaccumAtm_restart.nc'
-    call FieldBundle_RWFields_tiles(mode, fname, is_local%wrap%FBaccumAtm, rc=rc)
-!   call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
+    call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
     fname = trim(bfname)//'_FBaccumAtm_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumAtm, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumAtm,read_rest_FBaccumAtm,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 
     fname = trim(bfname)//'_FBaccumOcn_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumOcn, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumOcn,read_rest_FBaccumOcn,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumOcn,read_rest_FBaccumOcn,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBaccumIce_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumIce, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumIce,read_rest_FBaccumIce,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumIce,read_rest_FBaccumIce,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBaccumLnd_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumLnd, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumLnd,read_rest_FBaccumLnd,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumLnd,read_rest_FBaccumLnd,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBaccumHyd_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumHyd, rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumHyd,read_rest_FBaccumHyd,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumHyd,read_rest_FBaccumHyd,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBaccumAtmOcn_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBaccumAtmOcn, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumAtmOcn,read_rest_FBaccumAtmOcn,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBaccumAtmOcn,read_rest_FBaccumAtmOcn,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 #ifdef FV3_CPLD
     fname = trim(bfname)//'_FBAtm_a_restart.nc'
-    call FieldBundle_RWFields_tiles(mode, fname, is_local%wrap%FBAtm_a, rc=rc)
-!   call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
+    call FieldBundle_RWFields_tiles(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
     fname = trim(bfname)//'_FBAtm_a_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBAtm_a, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBAtm_a,read_rest_FBAtm_a,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 
     fname = trim(bfname)//'_FBIce_i_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBIce_i, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBIce_i,read_rest_FBIce_i,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBIce_i,read_rest_FBIce_i,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBOcn_o_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBOcn_o, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBOcn_o,read_rest_FBOCN_o,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBOcn_o,read_rest_FBOCN_o,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBLnd_l_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBLnd_l, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBLnd_l,read_rest_FBLnd_l,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBLnd_l,read_rest_FBLnd_l,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBHyd_h_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBHyd_h, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBHyd_h,read_rest_FBHyd_h,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBHyd_h,read_rest_FBHyd_h,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     fname = trim(bfname)//'_FBAtmOcn_o_restart.nc'
-    call FieldBundle_RWFields(mode, fname, is_local%wrap%FBAtmOcn_o, rc=rc)
-!   call FieldBundle_RWFields(mode,fname,is_local%wrap%FBAtmOcn_o,read_rest_FBAtmOcn_o,rc=rc)
+    call FieldBundle_RWFields(mode,fname,is_local%wrap%FBAtmOcn_o,read_rest_FBAtmOcn_o,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     if (mode == 'read') then
@@ -6440,13 +6454,13 @@ module module_MEDIATOR
 !       read (funit,*) is_local%wrap%accumcntLnd
 !       read (funit,*) is_local%wrap%accumcntHyd
         close(funit)
-!     else
-!       read_rest_FBaccumAtm    = .false.
-!       read_rest_FBaccumOcn    = .false.
-!       read_rest_FBaccumIce    = .false.
-!       read_rest_FBaccumLnd    = .false.
-!       read_rest_FBaccumHyd    = .false.
-!       read_rest_FBaccumAtmOcn = .false.
+      else
+        read_rest_FBaccumAtm    = .false.
+        read_rest_FBaccumOcn    = .false.
+        read_rest_FBaccumIce    = .false.
+        read_rest_FBaccumLnd    = .false.
+        read_rest_FBaccumHyd    = .false.
+        read_rest_FBaccumAtmOcn = .false.
       endif
     endif
 
@@ -6458,12 +6472,11 @@ module module_MEDIATOR
 
   !-----------------------------------------------------------------------------
 
-  subroutine FieldBundle_RWFields(mode,fname,FB,rc)
-! subroutine FieldBundle_RWFields(mode,fname,FB,flag,rc)
+  subroutine FieldBundle_RWFields(mode,fname,FB,flag,rc)
     character(len=*) :: mode
     character(len=*) :: fname
     type(ESMF_FieldBundle) :: FB
-!   logical,optional :: flag
+    logical,optional :: flag
     integer,optional :: rc
 
     ! local variables
@@ -6509,7 +6522,7 @@ module module_MEDIATOR
         enddo
 
         call fieldBundle_diagnose(FB, 'read '//trim(fname), rc)
-!       if (present(flag)) flag = .true.
+        if (present(flag)) flag = .true.
       endif
     else
       call ESMF_LogWrite(trim(subname)//": mode WARNING "//trim(fname)//" mode="//trim(mode), ESMF_LOGMSG_INFO, rc=dbrc)
@@ -6524,12 +6537,11 @@ module module_MEDIATOR
 
 ! This subroutine requires ESMFv8 - for coupled FV3
 #ifdef FV3_CPLD
-  subroutine FieldBundle_RWFields_tiles(mode,fname,FB,rc)
-! subroutine FieldBundle_RWFields_tiles(mode,fname,FB,flag,rc)
+  subroutine FieldBundle_RWFields_tiles(mode,fname,FB,flag,rc)
     character(len=*)       :: mode
     character(len=*)       :: fname
     type(ESMF_FieldBundle) :: FB
-!   logical,optional       :: flag
+    logical,optional       :: flag
     integer,optional       :: rc
 
     ! local variables
@@ -6598,7 +6610,7 @@ module module_MEDIATOR
         call ESMFIO_Read(IOComp, fname, flds, filePath='./', rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-!       if (present(flag)) flag = .true.
+        if (present(flag)) flag = .true.
       endif
     else
       call ESMF_LogWrite(trim(subname)//": mode WARNING "//trim(fname)//" mode="//trim(mode), ESMF_LOGMSG_INFO, rc=dbrc)
