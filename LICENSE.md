@@ -99,7 +99,7 @@ the following:
 
  - d) Do one of the following:
 
-     - 0) Convey the Minimal Corresponding Source under the terms of this
+     - 0\) Convey the Minimal Corresponding Source under the terms of this
        License, and the Corresponding Application Code in a form
        suitable for, and under terms that permit, the user to
        recombine or relink the Application with a modified version of
@@ -107,7 +107,7 @@ the following:
        manner specified by section 6 of the GNU GPL for conveying
        Corresponding Source.
 
-     - 1) Use a suitable shared library mechanism for linking with the
+     - 1\) Use a suitable shared library mechanism for linking with the
        Library.  A suitable mechanism is one that (a) uses at run time
        a copy of the Library already present on the user's computer
        system, and (b) will operate properly with a modified version
