@@ -3608,7 +3608,7 @@ module module_MEDIATOR
 
     if (is_local%wrap%o2a_active) then
 
-      if (localpet == 176) write(0,*)' in medphase_prep_atm in o2a_active at kdt=', kdt
+!     if (localpet == 176) write(0,*)' in medphase_prep_atm in o2a_active at kdt=', kdt
 
       call Fieldbundle_Regrid(fldsFrOcn, is_local%wrap%FBOcn_o, is_local%wrap%FBOcn_a, &
                               consfmap=is_local%wrap%RH_o2a_consf,                     &
@@ -5864,13 +5864,9 @@ module module_MEDIATOR
           customwgt(i,j) = abs(atmwgt(i,j) + icewgt(i,j) - cone)
         enddo
       enddo
-!     write(0,*)' icewgt=',icewgt(il:il+5,jl), ' atmwgt=',atmwgt(il:il+5,jl), &
-!               'customwgt=',customwgt(i,j)
       do j=jl,ju
         do i=il,iu
           if (customwgt(i,j) > epsln) then                     ! check wgts do add to 1 as expected
-!           write(0,*)' i=',i,' j=',j,' atmwgt=',atmwgt(i,j),' icewgt=',icewgt(i,j),&
-!                     'cone=',cone,' czero=',czero,' customwgt=',customwgt(i,j)
             call ESMF_LogWrite(trim(subname)//": ERROR atm + ice fracs inconsistent", ESMF_LOGMSG_ERROR, line=__LINE__, file=__FILE__, rc=dbrc)
             rc = ESMF_FAILURE
             return
@@ -5892,29 +5888,28 @@ module module_MEDIATOR
 ! hycom uses latent heat flux
         customwgt = - atmwgt
         call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'  , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'   , customwgt,  rc=rc)
+                                    is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'  , customwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'    , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'    , customwgt,  rc=rc)
+        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'  , 1,       &
+                                    is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'  , customwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , 1,       &
-                                    is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'   , atmwgt,  rc=rc)
+        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'     , 1,        &
+                                    is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'     , atmwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 ! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
-!       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , 2,      & 
-!                                   is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1,&
-!                                   is_local%wrap%FBAtm_o      , 'mean_up_lw_flx'    , wgtp01, rc=rc)
+!       call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'      , 1     ,   & 
+!                                   is_local%wrap%FBAtm_o      , 'mean_up_lw_flx'      , atmwgt, rc=rc)
 !       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !-------------
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,       &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt,  &
+        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,      &
+                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt, &
                                     is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , customwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -5949,7 +5944,7 @@ module module_MEDIATOR
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 ! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
-!      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx' , 1,      &
+!      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , 1     ,      &
 !                                  is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt, rc=rc)
   !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
