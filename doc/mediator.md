@@ -10,9 +10,6 @@ a modeling system.  For example, it may handle transfer of coupling
 fields, regridding, merging, treatments of coastlines or custom field
 transformations.
 
-For mediator diagrams and additional description, see the 
-[NEMS mediator overview presentation (Craig, Feb. 6 2015)] (https://esgf.esrl.noaa.gov/site_media/projects/couplednems/pres_1502_NEMS_mediator.pdf)
-
 Overview
 --------
 
@@ -67,12 +64,6 @@ components as well as in the mediator. Field names that match between
 components are automaticallly coupled in the system.  Any field that
 is exported from one component and imported to another component with
 the same standard name is coupled between those components.
-
-Separately, there is an ability for the mediator to customize the
-coupling interactions via merges or custom calculations where coupling
-fields are derived on the fly from each other.  This is not done
-automatically and require implementation of the custom calculations in
-the mediator.  Typically, these are done in the prep phases.
 
 Coupling Periods
 ----------------
@@ -192,7 +183,7 @@ The land mask implementation is described in more detail here.
 
 ### Exchange Field Sign and Direction Conventions
 
-The NEMS mediator uses the convention that heat/water/momentum flux is
+The NEMS mediator uses the convention that heat/water/momentum flux and wind stress is
 positive downward. There is also a hierachy of "down" with respect to
 models, which from top to bottom is:
 
@@ -206,44 +197,8 @@ If a flux in the coupler is positive, that means it's transferring
 heat/water/momentum downward from a higher component to a lower
 component.
 
-Some examples:
-
- * Precip will always be positive from the atm->lnd/ocn/ice
-
- * Downward shortwave will always be positive from the atm->lnd/ocn/ice
-
- * Evap will always be negative from the lnd/ocn/ice->atm, that means
-   water is transferred from the surface models to the atmosphere.
-
- * Precip+runoff will always be positive from \c "atm->lnd->rof->ocn"
-
- * Atm/ocn fluxes are computed in the mediator and are positive into
-   the ocean.  So, the same sign of fluxes is passed to both the atm
-   and ocean.  For the ocean, positive means heat/water/momentum into
-   the ocean and for the atm, positive means heat/water/momentum out
-   of the atm.
-
- * The ice computes atm/ice stresses and ocn/ice stresses.  The
-   stresses it computes are stresses on the ice model.  So to meet the
-   convention, it has to pass out the atm/ice stress and -ocn/ice
-   stress because the sign convention says the flux in the coupler is
-   the stress on the ice from the atm and the stress on the ocn from
-   the ice.
-
-Models have to adhere to this convention for fluxes that are exported.  They also have to be aware of this convention for fluxes that are imported. 
-
-This sign convention has some problems.  For instance, if the atm/ice
-and ocn/ice fluxes were computed OUTSIDE the ice model and passed in
-as a merged field, the sign convention would break down.  The sign
-convention in NEMS can be changed in the future but a standard has to
-be defined.  Custom Field Derivations
-
-There is a section of the mediator that allows for custom coupling
-interactions.  In general, coupling fields can be derived and set
-there.  This can be used to derive fields from other fields or to
-change signs or units.  Custom calculations are used to derive the
-downward solar to the ocean component from atmosphere shortwave and
-albedo fields.
+Model components have to have consistent conventions for fluxes that NEMS mediator knows about
+so that it can adjust signs when passing data from one component to another.
 
 Flux Field Treatment
 --------------------
@@ -262,15 +217,6 @@ the relative coupling frequency, the amount of information required to
 be coupled to compute the fluxes, the sophistication of the flux
 calculation, the relative grid resolution, and whether an exchange
 grid is used.
-
-In NEMS, fluxes are computed in a number of places currently.  The
-atmosphere model currently computes the atmosphere/ocean,
-atmosphere/ice, and atmosphere/land fluxes.  The sea ice model
-computes atmosphere/ice fluxes and ocean/ice fluxes.  The mediator is
-able to compute atmosphere/ocean fluxes.  Normally, it's important for
-the same flux to be used in the components associated with the flux
-interface and for the fluxes to be computed in one place, but this is
-not a requirement.  Again, this is a science issue.
 
 For some components, fluxes need to be merged.  For instance, on the
 atmosphere grid, the ice fraction might evolve in time and the land
@@ -291,110 +237,3 @@ To compute fluxes,
    mediator about what fields are coupled and where computations are
    carried out
 
-In the current implementation, the mediator interpolates the time
-evolving ice fraction from the sea ice model and that is sent to the
-atmosphere model as a coupling field.  The sea ice model computes both
-atmosphere/ice fluxes and ice/ocean fluxes.  The mediator merges the
-atmosphere/ocean fluxes computed in the mediator and the ice/ocean
-fluxes using the ice fraction and passes those fields to the ocean
-model. The mediator also merges the atmosphere/ice fluxes computed in
-the ice model and the atmosphere/ocean fluxes computed in the mediator
-and sends those fluxes to the atmosphere model.  The atmosphere model
-receives the merged atmosphere/ocean and atmosphere/ice fluxes and ice
-fraction and then somehow merges that with the atmosphere/ocean fluxes
-and atmosphere/land fluxes computed within the gsm.
-
-In particular, the fluxes that are computed at the interface are the
-latent and sensible heat flux, evaporation, momentum stress, and
-upward longwave flux.  The atmosphere computes the downward longwave,
-downward shortwave, and precipitation.  The albedos are also critical
-in the computation of the shortwave as it's the net shortwave that has
-to match across the flux interface.  To compute these fluxes in
-various components, states from the atmosphere, ocean, and sea ice
-models such as SST, ocean currents, surface temperature and humidity,
-density, surface winds and others are coupled between the relevant
-models.
-
-In the current implementation, the atmosphere/ocean flux in the
-mediator is computed on the ocean grid.  But again, the location of
-these computations and the appropriate grid is a science issue.
-Fluxes are computed in the components on their native grid.
-Generally, the merges occur on the destination grid after
-interpolation.  All coupling is explicit in the current implementation
-but implicit coupling may be desired in the future.
-
-The atmosphere/ice and atmosphere/ocean fluxes are merged in the
-mediator as follows.  First, we interpolate the ice fraction and
-fluxes onto the atmosphere grid using interpolation weights generated
-at initialization,
-
-    F_ice2atm_a = WM_i2a * F_ice2atm_i
-    F_ocn2atm_a = WM_i2a * F_ocn2atm_i
-    ice_fraction_a = WM_i2a * ice_fraction_i
-
-Then In the mediator, the atmosphere/ice and atmosphere/ocn fluxes are
-merged such that:
-
-    F_iceocn2atm_a = ice_fraction_a*F_ice2atm_a + (1-ice_fraction_a)*F_ocn2atm_a
-
-That flux is passed to the atmosphere model.  In the atmosphere model,
-the land flux, ice flux, and ocn flux are then merged again,
-
-    F_atm_a = ocn_fraction_a * F_iceocn2atm_a + (1 - ocn_fraction_a) * F_lnd2atm_a
-
-where ocn_fraction_a is the clipping destination fraction associated
-with the mapped ocean mask.
-
-While this approach is efficient and simple to implement, this suffers
-from land-ocean masking problem when land and ocean have different
-resolution. One approach to resolve the masking problem is to
-introduce an exchange grid where the ambiguous or unclaimed
-intersection cells between the land and ocean grids can have exclusive
-ownership.  
-
-\todo (NOTE: But I thought we were explicitly specifying the land mask
-as the complement of the ocean mask to avoid any missing areas?)
-
-Field Merging
--------------
-
-The mediator contains a generic merge method that allows multiple
-fields to be merged together into a destination field. The source
-field(s) can be weighted by fractions or other arrays.  The merging
-method is used to convert mean_laten_heat_flux to mean_evap_rate in
-the atmosphere to ocean coupling.  It is also used to apply fraction
-weighting to merge atm and/or ice fields for the ocean component for
-\c mean_prec_rate, \c mean_fprec_rate, \c mean_evap_rate, \c mean_sensi_heat_flx,
-\c mean_laten_heat_flx, \c mean_down_lw_flx, \c mean_zonal_moment_flx, and
-\c mean_merid_moment_flx.
-
-The following are the field merge calls in the mediator:
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_evap_rate' , &
-                                is%wrap%FBAtm_o, 'mean_latent_heat_flux' ,customwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_prec_rate' , &
-                                is%wrap%FBAtm_o, 'mean_prec_rate' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_fprec_rate' , &
-                                is%wrap%FBAtm_o, 'mean_fprec_rate' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_evap_rate' , &
-                                is%wrap%FBAtm_o, 'mean_evap_rate' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_sensi_heat_flx' , &
-                                is%wrap%FBAtm_o, 'mean_sensi_heat_flx' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_laten_heat_flx' , &
-                                is%wrap%FBAtm_o, 'mean_laten_heat_flx' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_down_lw_flx' , &
-                                is%wrap%FBAtm_o, 'mean_down_lw_flx' ,atmwgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_zonal_moment_flx' , &
-                                is%wrap%FBAtm_o, 'mean_zonal_moment_flx'  ,atmwgt, &
-                                is%wrap%FBIce_o, 'stress_on_air_ice_zonal',icewgt, rc=rc)
-
-    call fieldBundle_FieldMerge(is%wrap%FBforOcn,'mean_merid_moment_flx' , &
-                                is%wrap%FBAtm_o, 'mean_merid_moment_flx'  ,atmwgt, &
-                                is%wrap%FBIce_o, 'stress_on_air_ice_merid',icewgt, rc=rc) 
