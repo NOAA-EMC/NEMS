@@ -4,9 +4,9 @@
 #
 ########################################################################
 
-ifneq (,$(and $(wildcard /scratch4),$(wildcard /scratch3)))
+ifneq (,$(and $(wildcard /scratch1),$(wildcard /scratch2)))
   NEMS_COMPILER?=intel
-  $(call add_build_env,theia.$(NEMS_COMPILER),env/rdhpcs/theia.$(NEMS_COMPILER).mk)
+  $(call add_build_env,hera.$(NEMS_COMPILER),env/rdhpcs/hera.$(NEMS_COMPILER).mk)
 else
   ifneq (,$(and $(wildcard /lfs1),$(wildcard /lfs3)))
     NEMS_COMPILER?=intel

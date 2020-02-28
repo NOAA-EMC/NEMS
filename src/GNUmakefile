@@ -74,6 +74,10 @@ $(foreach COMP,$(COMP_LINK_ORDER),$(eval $(call comp_template,$(COMP))))
 
 CPPFLAGS += $(DEP_FRONTS)
 
+ifneq (,$(findstring CMEPS,$(COMPONENTS)))
+CPPFLAGS += -DCMEPS
+endif
+
 TARGET = ../exe/NEMS.x
 
 ifneq (,$(findstring MACOSX,$(CPPDEFS)))

@@ -2,7 +2,7 @@
 #
 # This is the main driver for the build environment decision logic.
 # It walks throught the known build environments (WCOSS Phase 3, Linux
-# GNU, Theia + Intel compiler, etc.)  For each one, if the environment
+# GNU, Hera + Intel compiler, etc.)  For each one, if the environment
 # is detected on this machine, it is added to the known list.  The
 # first detected is chosen as the default, unless the user chooses one
 # through the BUILD_ENV variable.
