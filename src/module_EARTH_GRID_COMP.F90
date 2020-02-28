@@ -258,10 +258,10 @@
       "inst_down_sw_vis_dif_flx                                    ", "W m-2                                                       ", &
       "inst_down_sw_ir_dir_flx                                     ", "W m-2                                                       ", &
       "inst_down_sw_ir_dif_flx                                     ", "W m-2                                                       ", &
-      "mean_net_sw_vis_dir_flx                                     ", "W m-2                                                       ", &
-      "mean_net_sw_vis_dif_flx                                     ", "W m-2                                                       ", &
-      "mean_net_sw_ir_dir_flx                                      ", "W m-2                                                       ", &
-      "mean_net_sw_ir_dif_flx                                      ", "W m-2                                                       ", &
+      "mean_sw_pen_to_ocn_vis_dir_flx                              ", "W m-2                                                       ", &
+      "mean_sw_pen_to_ocn_vis_dif_flx                              ", "W m-2                                                       ", &
+      "mean_sw_pen_to_ocn_ir_dir_flx                               ", "W m-2                                                       ", &
+      "mean_sw_pen_to_ocn_ir_dif_flx                               ", "W m-2                                                       ", &
       "inst_net_sw_vis_dir_flx                                     ", "W m-2                                                       ", &
       "inst_net_sw_vis_dif_flx                                     ", "W m-2                                                       ", &
       "inst_net_sw_ir_dir_flx                                      ", "W m-2                                                       ", &
