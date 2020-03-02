@@ -2,24 +2,23 @@ Introduction to NEMS {#introduction}
 ====================
 
 The NOAA Environmental Modeling System (NEMS) is the infrastructure
-underlying a **coupled modeling system** that supports predictions of
+underlying NOAA's [Unified Forecast System (UFS)] (https://ufscommunity.org/) a fully coupled modeling framework that supports predictions of
 Earth's environment at a range of time scales. Examples of other
 coupled modeling systems are the 
 [Community Earth System Model (CESM)](http://www.cesm.ucar.edu)
 and the
 [Met Office Unified Model] (http://www.metoffice.gov.uk/research/modelling-systems/unified-model)
 
+NEMS includes infrastructure for coupling model components
+representing major Earth system domains and processes.  
 **A model component** is a software representation of a physical
 domain or process, for example sea ice. It is often developed by a
 team of specialists in that domain. Model coupling is a software
 representation of feedbacks between physical processes. It involves
 modifying the exported fields of a component through grid, unit,
 temporal, and other transformations so that they can be used as the
-inputs for another component.
+inputs for another component. These components are managed through repositories, primarily on GitHub.
 
-NEMS includes infrastructure for coupling model components
-representing major Earth system domains and processes.  **External
-model components** have a primary repository on GitHub.
 In general, model components are
 coupled through the NEMS mediator (in other coupled modeling systems
 this is often called the "coupler").  NEMS also includes some

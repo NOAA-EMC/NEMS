@@ -63,7 +63,15 @@ There are a number of format options for each line:
   supported values of the connection options is documented in the
   NUOPC reference manual.
 
-Here is an example of a run sequence specification with two time scales:
+A very simple run sequence is running only the atmospheric uncoupled model.
+The run sequence looks like:
+
+    # Run Sequence #
+    runSeq::
+        ATM
+    ::
+
+A more complex example is when components are exchanging information at two time scales:
 
     # Run Sequence #
     runSeq::
