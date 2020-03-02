@@ -3,7 +3,7 @@ NEMS Documentation
 
 This website describes the coupling infrastructure and
 techniques used in the
-[NOAA Environmental Modeling System (NEMS)](https://www.emc.ncep.noaa.gov/emc/pages/infrastructure/nems.php).
+[NOAA Environmental Modeling System (NEMS)](https://www.emc.ncep.noaa.gov/emc/pages/infrastructure/nems.php) which forms the back bone of the Unified Forecast System (UFS).
 NEMS coupling infrastructure is based on the
 [Earth System Modeling Framework (ESMF)](http://www.earthsystemmodeling.org/)
 and
