@@ -226,14 +226,14 @@ science issue.
 
 To compute fluxes,
 
- * a specific flux method and implementation have to exist or be developed
+ * A specific flux method and implementation have to exist or be developed.
 
- * the required coupling fields to compute the flux have to be
-   interpolated and passed into the flux calculation
+ * The required coupling fields to compute the flux have to be
+   interpolated and passed into the flux calculation.
 
- * the computed fluxes have to be interpolated and passed to the relevant components
+ * The computed fluxes have to be interpolated and passed to the relevant components.
 
- * there needs to be some coordination between components and the
+ * There needs to be some coordination between components and the
    mediator about what fields are coupled and where computations are
-   carried out
+   carried out.
 

@@ -3,7 +3,7 @@ Architecture {#architecture}
 
 The NEMS architecture is based on an ESMF component hierarchy with the
 application driver `MAIN_NEMS` at the top, calling into the
-`NEMS_COMP` component which in turn drives the `EARTH_COMP`
+`NEMS_COMP` component, which in turn drives the `EARTH_COMP`
 component. The `EARTH_COMP` drives the `ATM` and other components.
 The architecture allows for multiple `EARTH_COMP` instances.
 

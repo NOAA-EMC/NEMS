@@ -7,7 +7,7 @@ Earth's environment at a range of time scales. Examples of other
 coupled modeling systems are the 
 [Community Earth System Model (CESM)](http://www.cesm.ucar.edu)
 and the
-[Met Office Unified Model] (http://www.metoffice.gov.uk/research/modelling-systems/unified-model)
+[Met Office Unified Model] (http://www.metoffice.gov.uk/research/modelling-systems/unified-model).
 
 NEMS includes infrastructure for coupling model components
 representing major Earth system domains and processes.  
@@ -61,7 +61,7 @@ Architecture
 
 The NEMS architecture is based on an ESMF component hierarchy with the
 application driver `MAIN_NEMS` at the top, calling into the
-`NEMS_COMP` component which in turn drives the `EARTH_COMP`
+`NEMS_COMP` component, which in turn drives the `EARTH_COMP`
 component. The `EARTH_COMP` drives the `ATM` and other components.
 The architecture allows for
 multiple `EARTH_COMP` instances, supporting ensemble applications such
