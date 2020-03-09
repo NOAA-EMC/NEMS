@@ -32,6 +32,14 @@ $(NEMSDIR)/src/ESMFVersionDefine.h:
 ifneq ($(CHOSEN_MODULE),)
 $(CONFDIR)/modules.nems: $(MODULE_DIR)/$(CHOSEN_MODULE)
 	cp $(MODULE_DIR)/$(CHOSEN_MODULE) $@
+ifeq ($(FV3_MAKEOPT),DEBUG=Y)
+ifeq ($(MOM6_MAKEOPT),DEBUG=Y)
+ifeq ($(CICE_MAKEOPT),DEBUG=Y)
+	sed -i 's;esmf/8.0.0;esmf/8.0.0g;' $@
+endif
+endif
+endif
+
 else
 $(CONFDIR)/modules.nems:
 	cat /dev/null > $@
