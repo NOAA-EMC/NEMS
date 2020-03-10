@@ -63,11 +63,11 @@ module module_MED_SWPC_methods
     rhType
 
   public :: &
+    ConfigGet,                         &
     FieldGet,                          &
     FieldPrintMinMax,                  &
     FieldRegrid,                       &
     GridAddNewCoord,                   &
-    initGrids,                         &
     MeshGetBounds,                     &
     NamespaceAdd,                      &
     NamespaceAdjustFields,             &
@@ -87,6 +87,7 @@ module module_MED_SWPC_methods
     NamespaceSetLocalMesh,             &
     NamespaceSetRemoteLevelsFromField, &
     NamespaceUpdateFields,             &
+    ReducedT62MeshCreate,              &
     RouteHandleCreate,                 &
     RouteHandleListGet,                &
     RouteHandleListIsCreated,          &
@@ -2702,35 +2703,37 @@ contains
 
   end subroutine NamespaceSetLocalGridFromField
 
-  subroutine NamespaceSetLocalMesh(name, mesh3d, mesh2d, levArray, rc)
-    character(len=*),           intent(in)  :: name
-    type(ESMF_Mesh),  optional, intent(in)  :: mesh2d, mesh3d
-    type(ESMF_Array), optional, intent(in)  :: levArray
-    integer,          optional, intent(out) :: rc
+  subroutine NamespaceSetLocalMesh(name, mesh3d, mesh2d, levArray, levCoord, rc)
+    character(len=*),             intent(in)  :: name
+    type(ESMF_Mesh),    optional, intent(in)  :: mesh2d, mesh3d
+    type(ESMF_Array),   optional, intent(in)  :: levArray
+    real(ESMF_KIND_R8), optional, intent(in)  :: levCoord(:)
+    integer,            optional, intent(out) :: rc
 
     ! -- local variables
-    type(compType),  pointer :: p
-    type(stateType), pointer :: s
-    logical                  :: proceed, isCreated
-    integer                  :: localrc, item
-    integer, dimension(1)    :: lb, ub
+    type(compType),  pointer    :: p
+    type(stateType), pointer    :: s
+    logical                     :: proceed, isCreated
+    integer                     :: localrc, item
+    integer                     :: localDe, localDeCount
+    integer, dimension(1)       :: lb, ub
+    real(ESMF_KIND_R8), pointer :: fptr(:,:)
+    type(ESMF_DistGrid)         :: distgrid
 
     ! -- begin
     if (present(rc)) rc = ESMF_SUCCESS
 
-    proceed = (     present(mesh2d) .and. .not.present(levArray)) .or. &
-              (.not.present(mesh2d) .and.      present(levArray))
+    proceed = present(mesh3d) .or. &
+              (present(mesh2d) .and. (present(levArray) .or. present(levCoord)))
 
-    if (proceed) then
+    if (.not.proceed) then
       call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="both mesh2d and levArray must be provided if one of them is present", &
+        msg="mesh3d or mesh2d and either levArray or levCoord must be provided", &
         line=__LINE__, &
         file=__FILE__, &
         rcToReturn=rc)
       return ! bail out
     end if
-
-    proceed = (present(mesh2d) .or. present(mesh3d) .or. present(levArray))
 
     if (proceed) then
       p => compList
@@ -2771,12 +2774,47 @@ contains
                   rcToReturn=rc)) return  ! bail out
               end if
             end if
-            if (present(mesh2d) .and. present(levArray)) then
-              call ESMF_ArrayGet(levArray, undistLBound=lb, undistUBound=ub, rc=localrc)
-              if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__,  &
-                file=__FILE__,  &
-                rcToReturn=rc)) return  ! bail out
+            if (present(mesh2d)) then
+              if (present(levCoord)) then
+                call ESMF_MeshGet(mesh2d, nodalDistgrid=distgrid, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+                lb(1) = 1
+                ub(1) = size(levCoord)
+                s % localLevels = ESMF_ArrayCreate(distgrid, ESMF_TYPEKIND_R8, &
+                  undistLBound=lb, undistUBound=ub, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+                call ESMF_ArrayGet(s % localLevels, localDeCount=localDeCount, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+                do localDe = 0, localDeCount-1
+                  nullify(fptr)
+                  call ESMF_ArrayGet(s % localLevels, localDe=localDe, &
+                    farrayPtr=fptr, rc=localrc)
+                  if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                    line=__LINE__,  &
+                    file=__FILE__,  &
+                    rcToReturn=rc)) return  ! bail out
+                  do item = lb(1), ub(1)
+                    fptr(:,item) = levCoord(item)
+                  end do
+                end do
+              else if (present(levArray)) then
+                s % localLevels = levArray
+                call ESMF_ArrayGet(levArray, undistLBound=lb, undistUBound=ub, rc=localrc)
+                if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+                  line=__LINE__,  &
+                  file=__FILE__,  &
+                  rcToReturn=rc)) return  ! bail out
+              end if
+
               do item = 1, s % fieldMaxRank
                 ! -- if local field exists, destroy and recreate
                 isCreated = ESMF_FieldIsCreated(s % localIntField(item), rc=localrc)
@@ -2799,7 +2837,6 @@ contains
                   file=__FILE__,  &
                   rcToReturn=rc)) return  ! bail out
               end do
-              s % localLevels = levArray
             end if
             s => s % next
           end do
@@ -4837,911 +4874,6 @@ contains
 
   ! -- RouteHandle: end definition --
 
-
-  !-----------------------------------------------------------------------------
-  !-----------------------------------------------------------------------------
-  ! Peggy's routines below....
-  !-----------------------------------------------------------------------------
-  !-----------------------------------------------------------------------------
-
-  subroutine initGrids(model, wam2dMesh, wamMesh, minheight, heights, hArray, rc)
-
-#ifdef HAVE_NETCDF
-    use netcdf
-#endif
-    
-    type(ESMF_GridComp)  :: model
-    type(ESMF_MESH) :: wam2dmesh, wamMesh
-    real(ESMF_KIND_R8), optional, intent(in) :: minheight
-    real(ESMF_KIND_R8), optional, intent(in) :: heights(:)
-    type(ESMF_Array),   optional, intent(out) :: hArray
-    integer, intent(out) :: rc
-
-
-  type(ESMF_VM) :: vm
-#if 0
-  type(InternalState)     :: is
-  type(ESMF_MESH) :: wammesh
-#endif
-  real(ESMF_KIND_R8), pointer :: wamlon(:,:), wamlat(:,:), wamhgt(:)
-  real(ESMF_KIND_R8), pointer :: ipelon(:,:), ipelat(:,:), ipehgt(:), ipedata(:)
-  real(ESMF_KIND_R8), pointer :: hgtbuf(:,:,:), varbuf(:,:,:,:)
-  real(ESMF_KIND_R8), pointer :: databuf(:)
-  integer(ESMF_KIND_I4), pointer :: maxlevs(:)
-  integer(ESMF_KIND_I4), pointer :: numPerRow(:), shuffleOrder(:)
-  integer :: nc1, ncid
-  integer :: varid, dimid1, dimid2, dimid3
-  integer :: ndims, dimids(3)
-  integer :: wamdims(3), ipedims(3)
-  integer :: PetNo, PetCnt
-  integer(ESMF_KIND_I4), pointer :: elementIds(:), elementTypes(:), elementConn(:)
-  integer(ESMF_KIND_I4), pointer :: nodeIds(:), nodeOwners(:)
-  real(ESMF_KIND_R8), pointer :: nodeCoords(:)
-  integer(ESMF_KIND_I4), pointer :: southind(:), northind(:), totallats(:), gap(:)
-! integer :: minheight, maxheight, halo, neighbor, remind
-  integer :: halo, neighbor, remind
-  integer(ESMF_KIND_I4), pointer :: totalheight(:)
-  real(ESMF_KIND_R8) :: lon, lat, hgt, lon1, lat1, hgt1
-  real(ESMF_KIND_R4) :: interval
-  integer :: i,j, k, l, ii, jj, kk, count1, count3, count8, localcount, countup, save, base, base1
-  logical :: even, isInd
-  integer :: start, count, diff, lastlat, totalelements, totalnodes, localnodes, startid
-  integer :: wamtotalnodes
-  integer :: elmtcount, increment
-  integer :: startlevel, next, ind, ind1, totalnodes2d, totallevels, myrows, trigs
-  integer :: reminder, steps, startrow, startnode
-  integer, pointer :: rowinds(:), petTable(:), baseind(:)
-  integer(ESMF_KIND_I4), pointer :: elementCnt(:), nodeCnt(:), sendbuf(:), recvbuf(:)
-  integer(ESMF_KIND_I4), allocatable :: indList(:)
-  real(ESMF_KIND_R8), pointer :: conntbl(:), globalCoords(:,:), fptr2d(:,:), fptr1d(:)
-  type(ESMF_Arrayspec) :: arrayspec
-  type(ESMF_Array) :: array, array1, array2
-  real(ESMF_KIND_R8) :: maxerror, minerror, totalerrors, deg2rad
-  real(ESMF_KIND_R8) :: starttime, endtime, timesend(1), timereport(1)
-  real(ESMF_KIND_R8) :: differr
-  real(ESMF_KIND_R8) :: lminheight
-  real(ESMF_KIND_R8), pointer :: varout(:), lonbuf(:),latbuf(:)
-  real(ESMF_KIND_R8), pointer :: weights(:)
-  integer(ESMF_KIND_I4), pointer :: indices(:,:)
-  character(len=ESMF_MAXSTR) :: wamfilename
-  character(len=ESMF_MAXSTR) :: filename
-  integer :: wgtcount(1)
-  integer :: count2(1), start2(1)
-  integer, pointer :: allCounts(:), connectbase(:)
-  real, parameter :: PI=3.1415927
-  integer :: j1
-  integer :: localrc, status
-  real, parameter :: earthradius=6371.0  !in kilometers
-
-  ! For output
-  real(ESMF_KIND_R8), pointer :: lontbl(:), lattbl(:), hgttbl(:)
-  integer :: lonid, latid, hgtid, vertid, elmtid, nodeid, numid, connid, timeid
-  integer :: data1id, data2id, wgtid, wamid, ipeid
-  integer :: globalTotal, globalTotalelmt, nodestartid, totalwgts
-  type(ESMF_Distgrid) :: nodalDistgrid, distgrid
-  integer :: localDe, localDeCount
-  type(ESMF_Field) :: field
-
-  rc = ESMF_SUCCESS
-
-  !------------------------------------------------------------------------
-  ! get global vm information
-  !
-  call ESMF_VMGetCurrent(vm, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-  ! set up local pet info
-  call ESMF_VMGet(vm, localPet=PetNo, petCount=PetCnt, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-#if 0
-  !------------------------------------------------------------------------
-  ! Allocate memory for the internal state and set it in the Component.
-    allocate(is%wrap, stat=rc)
-    if (ESMF_LogFoundAllocError(statusToCheck=rc, &
-      msg="Allocation of the internal state memory failed.", &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_GridCompSetInternalState(model, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
-
-  !wamfilename = 'data/wam3dgridnew.nc'
-  wamfilename = 'wam3dgridnew_20160427.nc'
-  filename = 'wam2dmesh.nc'
-! minheight = 90.
-! maxheight = 782.
-  deg2rad = PI/180.0
-
-#ifdef HAVE_NETCDF
-  !!-------------------------------------
-  !! Create WAM mesh
-  !!-------------------------------------
-  ! We need to create a 2D mesh with distgrid only and use it to get the data
-  ! from the DATAWAM
-  ! we also need to create the 3D intermediate WAM mesh to be used to regrid
-  ! with IPE grid
- 
-  ! Read in WAM grid from wam3dgrid.nc
-  !!
-  status = nf90_open(path= wamfilename, mode=nf90_nowrite, ncid=nc1)
-  call CheckNCError(status, wamfilename)
-  status = nf90_inq_varid(nc1,'lons', varid)
-  call CheckNCError(status, 'lons')
-  status = nf90_inquire_variable(nc1, varid, ndims=ndims, dimids = dimids)
-  call CheckNCError(status, 'lons')
-  status = nf90_inquire_dimension(nc1,dimids(1), len=wamdims(1))
-  call CheckNCError(status, 'lons 1st dimension')
-  status = nf90_inquire_dimension(nc1,dimids(2), len=wamdims(2))
-  call CheckNCError(status, 'lons 2nd dimension')
-
-  ! WAM dimension order:  lons, lats (192, 94)
-  allocate(wamlon(wamdims(1), wamdims(2)), &
-           wamlat(wamdims(1), wamdims(2)))
-  status = nf90_get_var(nc1, varid, wamlon)
-  call CheckNCError(status, 'lons')
-  status = nf90_inq_varid(nc1,'lats', varid)
-  call CheckNCError(status, 'lats')
-  status = nf90_get_var(nc1, varid, wamlat)
-  call CheckNCError(status, 'lats')
-
-  ! intermediate height fields
-  if (present(heights)) then
-    wamdims(3) = size(heights)
-    allocate(wamhgt(wamdims(3)))
-    wamhgt = heights
-  else
-    status = nf90_inq_varid(nc1,'height', varid)
-    call CheckNCError(status, 'height')
-    status = nf90_inquire_variable(nc1, varid, ndims=ndims, dimids = dimids)
-    call CheckNCError(status, 'height')
-    status = nf90_inquire_dimension(nc1,dimids(1), len=wamdims(3))
-    call CheckNCError(status, 'height 1st dimension')
-
-    allocate(wamhgt(wamdims(3)))
-    status = nf90_get_var(nc1, varid, wamhgt)
-    call CheckNCError(status, 'height')
-  end if
-
-  allocate(NumPerRow(wamdims(2)), ShuffleOrder(wamdims(2)))
-  status = nf90_inq_varid(nc1,'NumPerRow', varid)
-  call CheckNCError(status, 'NumPerRow')
-  status = nf90_get_var(nc1, varid, NumPerRow)
-  call CheckNCError(status, 'NumPerRow')
-  status = nf90_inq_varid(nc1,'ShuffleOrder', varid)
-  call CheckNCError(status, 'ShuffleOrder')
-  status = nf90_get_var(nc1, varid, ShuffleOrder)
-  call CheckNCError(status, 'ShuffleOrder')
-  status= nf90_close(nc1)
-  call CheckNCError(status, wamfilename)
-
-  ! Use the shuffle order to create the 2D mesh first
-  ! find the total number of nodes in each processor and create local index table
-  localnodes=0
-  myrows = wamdims(2)/PetCnt
-#if 0
-  if ((wamdims(2)-myrows*PetCnt) > PetNo) myrows = myrows+1
-  allocate(rowinds(myrows))      !my local row index
-  allocate(petTable(wamdims(2))) !the owner PET for each row
-  next = 0
-  ind1 = 0
-  do i=1,wamdims(2)
-    ind=ShuffleOrder(i)
-    petTable(ind)=next
-    if (next == PetNo) then
-       ind1=ind1+1
-       rowinds(ind1)=ind
-       localnodes=localnodes + numPerRow(ind)
-    endif
-    next=next+1
-    if (next == PetCnt) next=0
-  enddo
-#else
-  reminder = wamdims(2)-myrows*PetCnt
-  if (reminder > PetNo)  then
-     myrows = myrows+1
-     startrow = myrows*PetNo+1
-  else
-     startrow = myrows*PetNo + reminder+1
-  endif
-  allocate(rowinds(myrows))      !my local row index
-  allocate(petTable(wamdims(2))) !the owner PET for each row
-  do i=1,myrows
-    rowinds(i)=ShuffleOrder(startrow+i-1)
-    localnodes = localnodes + numPerRow(rowinds(i))
-  enddo
-  ind1 = 1
-  steps = wamdims(2)/PetCnt
-  do next=0,PetCnt-1
-    if (next<reminder) then
-       do i=ind1, ind1+steps
-          PetTable(ShuffleOrder(i))=next
-       enddo
-       ind1 = ind1+steps+1
-    else
-       do i=ind1, ind1+steps-1
-          PetTable(ShuffleOrder(i))=next
-       enddo
-       ind1 = ind1+steps
-    endif
-  enddo
-  if (ind1 /= wamdims(2)+1) then
-     print *, 'MEDIATOR Wrong ind1 ', ind1, wamdims(2)
-  endif
-#endif
-  
-  ! sort rowinds
-  call ESMF_UtilSort(rowinds, ESMF_SORTFLAG_ASCENDING, rc)
-
-  ! Save the lat/lon in the order the distgrid
-  allocate(lonbuf(localnodes), latbuf(localnodes))
-
-  ! Create a distgrid using a collapsed 1D index array based on the local row index
-  allocate(indList(localnodes))
-  k=1
-  do i=1,myrows
-    ind=rowinds(i)
-    do j=1,numPerRow(ind)
-       indList(k)=(ind-1)*wamdims(1)+j
-       lonbuf(k)=wamlon(j,ind)
-       latbuf(k)=wamlat(j,ind)
-       k=k+1
-    enddo
-  enddo
-
-  ! write out the index into a NetCDF file
-  ! find the total nodes first
-  totalnodes = sum(numPerRow)
-  ! find out starting node id
-  startnode = 1
-  do i=1,startrow-1
-    startnode = startnode+numPerRow(ShuffleOrder(i))
-  enddo
-  call ESMF_VMBarrier(vm)
-
-  distgrid = ESMF_DistGridCreate(indList, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-  ! Create mesh using the distgrid as the nodaldistgrid,  no elemdistgrid available
-  ! just use nodeldistgrid for both
-  wam2dmesh = ESMF_MeshCreate(distgrid,distgrid,rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-  
-  ! Create the 3D mesh with fixed height
-  ! find the lower height level where height > minheight
-#ifdef LEGACY
-  do i=1,wamdims(3)
-     if (wamhgt(i) > 90) then
-        startlevel = i-1
-        exit
-     endif
-  enddo
-#else
-  lminheight = 0._ESMF_KIND_R8
-  if (present(minheight)) lminheight = minheight
-
-  allocate(nodeCoords(3))
-#if 1
-  ! ------- TEST
-  call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, 90._ESMF_KIND_R8, nodeCoords)
-  lminheight = nodeCoords(3)
-  ! ------- END TEST
-#endif
-  do i=1,wamdims(3)
-     call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, wamhgt(i), nodeCoords)
-!    if (wamhgt(i) > minheight) then
-     if (nodeCoords(3) > lminheight) then
-    	startlevel = i-1
-	exit
-     endif
-  enddo
-#endif
-! deallocate(nodeCoords)
-  totallevels = wamdims(3)-startlevel+1
-
-  ! -- create height Array if requested
-  if (present(hArray)) then
-    field = ESMF_FieldCreate(wam2dmesh, ESMF_TYPEKIND_R8, &
-          meshloc=ESMF_MESHLOC_NODE, &
-          ungriddedLBound=(/1/), ungriddedUBound=(/totallevels/), &
-          rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_FieldGet(field, localDeCount=localdeCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    do localDe = 0, localDeCount - 1
-      call ESMF_FieldGet(field, localDe=localDe, farrayPtr=fptr2d, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-      do i = 1, totallevels
-#ifdef LEGACY
-        fptr2d(:,i) = wamhgt(i+startlevel-1)
-#else
-        call convert2Cart(0._ESMF_KIND_R8, 0._ESMF_KIND_R8, &
-          wamhgt(i+startlevel-1), nodeCoords)
-        fptr2d(:,i) = nodeCoords(3)
-#endif
-      end do
-    end do
-    call ESMF_FieldGet(field, array=hArray, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-  end if
-
-#ifndef LEGACY
-  deallocate(nodeCoords)
-#endif
-
-  if (PetNo == 0) then
-    ! create the output file
-    status = nf90_create(filename, NF90_CLOBBER, ncid)
-    call CheckNCError(status, filename)
-    status = nf90_def_dim(ncid, 'nodes', totalnodes, dimid1)
-    call CheckNCError(status, 'dimension nodes')
-    status = nf90_def_dim(ncid, 'levels', totallevels, dimid2)
-    call CheckNCError(status, 'dimension nodes')
-    status = nf90_def_dim(ncid, 'vars', 7, dimid3)
-    call CheckNCError(status, 'dimension nodes')
-    status = nf90_def_var(ncid, 'lons', NF90_FLOAT, (/dimid1/), varid)
-    call CheckNCError(status, 'variable lons')
-    status = nf90_def_var(ncid, 'lats', NF90_FLOAT, (/dimid1/), varid)
-    call CheckNCError(status, 'variable lats')
-    status = nf90_def_var(ncid, 'wamdata', NF90_FLOAT, (/dimid1, dimid2, dimid3/), varid)
-    call CheckNCError(status, 'variable wamdata')
-    status = nf90_close(ncid)
-    call CheckNCError(status, filename)
-  endif
-
-  ! write out the lat/lon from each processor
-  do i=0, PetCnt-1
-    if (PetNo == i) then
-      status = nf90_open(filename, NF90_WRITE, ncid)
-      call CheckNCError(status, filename)
-      count2(1)=localnodes
-      start2(1)=startnode
-      status = nf90_inq_varId(ncid, 'lons', varid)
-      call CheckNCError(status, 'lons')
-      status = nf90_put_var(ncid, varid, lonbuf, & 
-		    start2, count2)
-      call CheckNCError(status, 'lons')
-      status = nf90_inq_varId(ncid, 'lats', varid)
-      call CheckNCError(status, 'lats')
-      status = nf90_put_var(ncid, varid, latbuf, & 
-		    start2, count2)
-      call CheckNCError(status, 'lats')
-      status = nf90_close(ncid)
-      call CheckNCError(status, filename)
-    endif
-    call ESMF_VMBarrier(vm)
-  enddo
-  deallocate(lonbuf, latbuf)
-
-  ! create the node table, find the total number of nodes in each processor, including the not-owned node
-  totalnodes=0
-  totalelements=0 
-  allocate(baseind(myrows))
-  do i=1,myrows
-     ind=rowinds(i)
-     baseind(i)=totalnodes
-     ! Add the neighbor nodes
-     ! If PetCnt==1, no need to add neighbor node
-     ! If last row, no need to add neighbors
-     ! If the neighbor is local, no need to add
-     if (ind < wamdims(2)) then
-       if (PetCnt>1) then
-        isInd = (i < myrows)
-        if (isInd) isInd = (rowinds(i+1) /= ind+1)
-        if (isInd .or. i==myrows) then
-!       if ((i < myrows .and. rowinds(i+1) /= ind+1) .or. i==myrows) then
-          totalnodes=totalnodes+numPerRow(ind)+numPerRow(ind+1)
-        else
-          totalnodes=totalnodes+numPerRow(ind)
-        endif
-       endif
-       if (numPerRow(ind) >= numPerRow(ind+1)) then
-         totalelements = totalelements + numPerRow(ind)
-       else
-         totalelements = totalelements + numPerRow(ind+1)
-       endif
-     else
-       totalnodes=totalnodes+numPerRow(ind)
-       !Add extra elements at the top
-       totalelements = totalelements+numPerRow(ind)-2
-     endif
-
-     ! Add extra elements for south pole
-      if (ind==1) then 
-        totalelements = totalelements+numPerRow(ind)-2
-     endif
-  enddo
-  if (PetCnt == 1) then
-     baseind(1)=0
-     do i=2,wamdims(2)
-       baseind(i)=baseind(i-1)+numPerRow(i-1)
-     enddo
-  endif
-
-  totalnodes2d=totalnodes  ! totalnodes includes neighboring nodes and my own nodes
-  totalnodes = totalnodes * totallevels 
-  localnodes = localnodes * totallevels  ! localnodes are locally owned nodes
-  totalelements = totalelements * (totallevels-1)
-  allocate(nodeIds(totalnodes), nodeOwners(totalnodes), nodeCoords(totalnodes*3))
-
-  ! Fill nodeIds, nodeOwners, and nodeCoords arrays, longitude first, latitude, then height
-  count1=1
-  localcount=1
-  count3=1
-  if (PetCnt > 1) then
-  do k=1, totallevels
-    do i=1,myrows
-       ind=rowinds(i)
-       do j=1,numPerRow(ind)
-          ! Global id based on the 3D indices
-       	  nodeIds(count1)= j+wamdims(1)*(ind-1)+wamdims(1)*wamdims(2)*(k-1)
-          nodeOwners(count1)=PetNo
-	  lon = wamlon(j,ind)
-          lat  = wamlat(j,ind)
-          hgt = wamhgt(startlevel+k-1)
-          call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
-          count1=count1+1
-          localcount=localcount+1
-          count3=count3+3
-       enddo
-       ! if not the last row, add the neighbor row's nodes and the neighbor
-       ! is not local
-       if (ind < wamdims(2)) then
-         isInd = (i < myrows)
-         if (isInd) isInd = (rowinds(i+1) /= ind+1)
-         if (isInd .or. i==myrows) then
-!        if (i==myrows .or. (i < myrows .and. rowinds(i+1)/= ind+1)) then
-       	  do j=1, numPerRow(ind+1)
-            ! Global id based on the 3D indices
-            nodeIds(count1)= j+wamdims(1)*ind+wamdims(1)*wamdims(2)*(k-1)
-	    if (PetTable(ind+1) == PetNo) then
-	       print *, PetNo, 'wrong neighbor ', count1, PetTable(ind+1)
-            endif
-            nodeOwners(count1)=PetTable(ind+1)
-	    lon = wamlon(j,ind+1)
-            lat  = wamlat(j,ind+1)
-            hgt = wamhgt(k+startlevel-1)
-            call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
-            count1=count1+1
-            count3=count3+3
-          enddo
-         endif
-	endif
-     enddo
-  enddo
-  else ! PetCnt==1
-  ! For sequential case, store the rows in its order, do not shuffle
-  do k=1, totallevels
-    do ind=1,myrows
-       do j=1,numPerRow(ind)
-          ! Global id based on the 3D indices
-       	  nodeIds(count1)= j+wamdims(1)*(ind-1)+wamdims(1)*wamdims(2)*(k-1)
-          nodeOwners(count1)=PetNo
-	  lon = wamlon(j,ind)
-          lat  = wamlat(j,ind)
-          hgt = wamhgt(k+startlevel-1)
-          call convert2Cart(lon, lat, hgt, nodeCoords(count3:count3+2))
-          count1=count1+1
-          localcount=localcount+1
-          count3=count3+3
-       enddo
-     enddo
-  enddo
-  endif ! PetCnt > 1
-
-  if (count1-1 /= totalnodes .or. localcount-1 /= localnodes) then
-     print *, 'totalcount mismatch ', count1-1, totalnodes, localcount-1, localnodes
-  endif
-
-#ifdef USE_CART3D_COORDSYS
-  wamMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_CART, rc=rc)
-#else
-  wamMesh = ESMF_MeshCreate(3,3,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
-#endif
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-  call ESMF_MeshAddNodes(wamMesh, nodeIds, nodeCoords, nodeOwners, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-  
-  deallocate(wamlon, wamlat)
-  deallocate(nodeIds, nodeCoords, nodeOwners)
-
-  allocate(elementIds(totalelements), elementTypes(totalelements), &
-           elementConn(totalelements*8))
-
-  elementTypes(:)=ESMF_MESHELEMTYPE_HEX
-
-  ! find out the starting global id of the local element
-  allocate(elementCnt(PetCnt),sendbuf(1))
-  sendbuf(1)=totalelements
-  call ESMF_VMAllGather(vm, sendbuf, elementCnt, 1, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-  
-  ! find the starting elementID
-  startid=0
-  do i=1,PetNo
-    startid=startid+elementCnt(i)
-  enddo
-  globaltotalelmt = 0
-  do i=1,PetCnt
-    globaltotalelmt=globaltotalelmt+elementCnt(i)
-  enddo
-  deallocate(elementCnt, sendbuf)
-
-  ! Build the local elementConn table using local node indices
-  ! If PetCnt=1, no shuffle, the rows are in order
-  count1=1
-  count8=1
-  do k=1, totallevels-1
-    do i=1,myrows
-       if (PetCnt > 1) then
-           ind=rowinds(i)
-       else
-	   ind = i
-       endif
-       base = baseind(i)+totalnodes2d*(k-1)
-       if (ind == wamdims(2)) then
-#if 0
-         ! create dummy elements by connecting every other nodes to form a triangle to cover the pole
-         do j=1, numPerRow(ind)-2, 2
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+j+2
-	   elementConn(count8+3)=base+j+2
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+totalnodes2d+j+2
-	   elementConn(count8+7)=base+totalnodes2d+j+2
-	   count1=count1+1
-	   count8=count8+8
-         enddo
-         ! Last one, connect it back to the first node 
-     	 elementIds(count1)=startid+count1
-	 elementConn(count8)= base+j
-	 elementConn(count8+1)=base+j+1
-	 elementConn(count8+2)=base+1
-	 elementConn(count8+3)=base+1
-	 elementConn(count8+4)=base+totalnodes2d+j
-	 elementConn(count8+5)=base+totalnodes2d+j+1
-	 elementConn(count8+6)=base+totalnodes2d+1
-	 elementConn(count8+7)=base+totalnodes2d+1
-	 count1=count1+1
-	 count8=count8+8
-         cycle       
-#else
-         ! using the zigzag method to create triangles that covers the pole
-         ! First half
-         do j=1, numPerRow(ind)/2-1
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+numPerRow(ind)-j
-	   elementConn(count8+3)=base+numPerRow(ind)-j
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
-	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
-	   count1=count1+1
-	   count8=count8+8
-         enddo
-         ! second half
-         do j=numPerRow(ind)/2+1, numPerRow(ind)-1
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+numPerRow(ind)-j
-	   elementConn(count8+3)=base+numPerRow(ind)-j
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
-	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
-	   count1=count1+1
-	   count8=count8+8
-         enddo	   
-         cycle
-#endif
-       endif
-
-      ! South pole
-      if (ind == 1) then
-         ! using the zigzag method to create triangles that covers the pole
-         ! First half
-         do j=1, numPerRow(ind)/2-1
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+numPerRow(ind)-j
-	   elementConn(count8+3)=base+numPerRow(ind)-j
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
-	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
-	   count1=count1+1
-	   count8=count8+8
-         enddo
-
-	 ! Second half
-         do j=numPerRow(ind)/2+1, numPerRow(ind)-1
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+numPerRow(ind)-j
-	   elementConn(count8+3)=base+numPerRow(ind)-j
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+totalnodes2d+numPerRow(ind)-j
-	   elementConn(count8+7)=base+totalnodes2d+numPerRow(ind)-j
-	   count1=count1+1
-	   count8=count8+8
-         enddo	   
-       endif
-
-       ! the two adjacent rows have the same number of points, elements are cubes
-       if (numPerRow(ind+1) == numPerRow(ind)) then
-         do j=1,numPerRow(ind)-1
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+j+1
-	   elementConn(count8+2)=base+numPerRow(ind)+j+1
-	   elementConn(count8+3)=base+numPerRow(ind)+j
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+j+1
-	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
-	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
-	   count1=count1+1
-	   count8=count8+8
-         enddo
-         ! last one in the row, wrap around
-       	 elementIds(count1)=startid+count1
-	 elementConn(count8)= base+j
-	 elementConn(count8+1)=base+1
-	 elementConn(count8+2)=base+numPerRow(ind)+1
-	 elementConn(count8+3)=base+numPerRow(ind)+j
-	 elementConn(count8+4)=base+totalnodes2d+j
-	 elementConn(count8+5)=base+totalnodes2d+1
-	 elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
-	 elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
-	 count1=count1+1
-	 count8=count8+8
-       else
-         ! the number of nodes are different, make prism elements
-	 diff=numPerRow(ind)-numPerRow(ind+1)
-	 if (diff > 0) then 
-          ! make triangles with base at lower row
-          ! triangles will be evenly distributed
-	  interval = real(numPerRow(ind))/(diff+1)
-	  jj=1
-          trigs=1
-          do j=1,numPerRow(ind)-1
- 	     if (j > trigs*interval) then
-!	     if (mod(j,increment)==0) then
-               ! triangles - base at bottom
-               trigs=trigs+1
-               elementIds(count1)=startid+count1
-	       elementConn(count8)= base+j
-	       elementConn(count8+1)=base+j+1
-	       elementConn(count8+2)=base+numPerRow(ind)+jj
-	       elementConn(count8+3)=base+numPerRow(ind)+jj
-	       elementConn(count8+4)=base+totalnodes2d+j
-	       elementConn(count8+5)=base+totalnodes2d+j+1
-	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+jj
-	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
-             else
-               elementIds(count1)=startid+count1
-	       elementConn(count8)= base+j
-	       elementConn(count8+1)=base+j+1
-	       elementConn(count8+2)=base+numPerRow(ind)+jj+1
-	       elementConn(count8+3)=base+numPerRow(ind)+jj
-	       elementConn(count8+4)=base+totalnodes2d+j
-	       elementConn(count8+5)=base+totalnodes2d+j+1
-	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+jj+1
-	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
-	       jj=jj+1
-	     endif
-	     count1=count1+1
-	     count8=count8+8
-           enddo
-           ! last one in the row, wrap around
-           elementIds(count1)=startid+count1
-	   elementConn(count8)= base+j
-	   elementConn(count8+1)=base+1
-	   elementConn(count8+2)=base+numPerRow(ind)+1
-	   elementConn(count8+3)=base+numPerRow(ind)+jj
-	   elementConn(count8+4)=base+totalnodes2d+j
-	   elementConn(count8+5)=base+totalnodes2d+1
-	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
-	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+jj
-   	   count1=count1+1
-	   count8=count8+8
-	   if (k==1 .and. (jj /= numPerRow(ind+1))) then
-	      print *, PetNo, 'Upper row index mismatch', ind, jj, numPerRow(ind+1)
-           endif
-        else  ! diff < 0 
-          ! make triangles with base at upper row
-          ! triangles will be evenly distributed
-	  interval = real(numPerRow(ind+1))/(-1*diff+1)
-	  jj=1
-	  trigs=1
-          do j=1,numPerRow(ind+1)-1
-	     if (j > trigs*interval) then
-	       trigs = trigs+1              
-               ! triangles - base at bottom
-               elementIds(count1)=startid+count1
-	       elementConn(count8)= base+jj
-	       elementConn(count8+1)=base+jj
-	       elementConn(count8+2)=base+numPerRow(ind)+j+1
-	       elementConn(count8+3)=base+numPerRow(ind)+j
-	       elementConn(count8+4)=base+totalnodes2d+jj
-	       elementConn(count8+5)=base+totalnodes2d+jj
-	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
-	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
-             else
-               elementIds(count1)=startid+count1
-	       elementConn(count8)= base+jj
-	       elementConn(count8+1)=base+jj+1
-	       elementConn(count8+2)=base+numPerRow(ind)+j+1
-	       elementConn(count8+3)=base+numPerRow(ind)+j
-	       elementConn(count8+4)=base+totalnodes2d+jj
-	       elementConn(count8+5)=base+totalnodes2d+jj+1
-	       elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+j+1
-	       elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
-	       jj=jj+1
-	     endif
-	     count1=count1+1
- 	     count8=count8+8
-           enddo
-           ! last one in the row, wrap around
-       	   elementIds(count1)=startid+count1
-	   elementConn(count8)= base+jj
-	   elementConn(count8+1)=base+1
-	   elementConn(count8+2)=base+numPerRow(ind)+1
-	   elementConn(count8+3)=base+numPerRow(ind)+j
-	   elementConn(count8+4)=base+totalnodes2d+jj
-	   elementConn(count8+5)=base+totalnodes2d+1
-	   elementConn(count8+6)=base+numPerRow(ind)+totalnodes2d+1
-	   elementConn(count8+7)=base+numPerRow(ind)+totalnodes2d+j
- 	   count1=count1+1
-	   count8=count8+8
-	   if (k==1 .and. (jj /= numPerRow(ind))) then
-	      print *, PetNo, 'Lower row index mismatch', ind, jj, numPerRow(ind)
-           endif
-        endif
-       endif         	            
-    enddo
-  enddo 
-
-  if (count1-1 /= totalelements) then
-     print *, 'total element mismatch ', count1-1, totalelements
-  endif
-
-  do i=1, totalelements*8
-     if (elementConn(i) > totalnodes) then
-          print *, PetNo, 'node id out of bound', i/8, elementConn(i)
-     endif
-  enddo  
-  call ESMF_MeshAddElements(wamMesh, elementIds, elementTypes, elementConn,rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-  deallocate(NumPerRow, ShuffleOrder, rowinds, petTable)
-  deallocate(indList, baseind)
-  deallocate(elementIds, elementTypes, elementConn)
-
-#if 0
-  ! Info passed to the run routine
-  is%wrap%wamdims = wamdims
-  is%wrap%wamhgt => wamhgt
-  is%wrap%startlevel = startlevel
-  is%wrap%totallevels = totallevels
-  is%wrap%wamtotalnodes = totalnodes
-  is%wrap%localnodes = localnodes
-  is%wrap%startnode = startnode
-  is%wrap%wam2dMesh = wam2dMesh
-  is%wrap%wamMesh = wamMesh
-  is%wrap%PetNo = PetNo
-  is%wrap%PetCnt = PetCnt
-#endif
-
-  return 
-#else
-    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, & 
-                 msg="- HAVE_NETCDF not defined when lib was compiled") 
-    return
-#endif
-
-contains
-
-  subroutine convert2Cart (lon, lat, hgt, coords, rc)
-    real(ESMF_KIND_R8):: lon, lat, hgt
-    real(ESMF_KIND_R8):: coords(3)
-    integer, optional :: rc
-
-    real(ESMF_KIND_R8) :: earthradius, nhgt
-    integer :: localrc
-
-    if (present(rc)) rc=ESMF_FAILURE
-    earthradius = 6371.0
-    nhgt = 1+hgt/earthradius
-
-    coords(1)=lon
-    coords(2)=lat
-    coords(3)=nhgt
-
-    if (present(rc)) rc=ESMF_SUCCESS
-
-  end subroutine convert2Cart
-!
-!  check CDF file error code
-!
-#undef  ESMF_METHOD
-#define ESMF_METHOD "CheckNCError"
-  subroutine CheckNCError (ncStatus, errmsg)
-
-    integer,          intent(in)  :: ncStatus
-    character(len=*), intent(in)  :: errmsg
-
-    integer, parameter :: nf90_noerror = 0
-
-#ifdef HAVE_NETCDF
-    if ( ncStatus .ne. nf90_noerror) then
-      print '("NetCDF Error: ", A, " : ", A)', &
-                trim(errmsg),trim(nf90_strerror(ncStatus))
-      call ESMF_LogSetError(ESMF_RC_NETCDF_ERROR, &
-        msg=trim(errmsg) // " : " // trim(nf90_strerror(ncStatus)), &
-        line=__LINE__, &
-        file=__FILE__, &
-        rcToReturn=rc)
-      return ! bail out
-    end if
-#else
-    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, &
-                 msg="- HAVE_NETCDF not defined when SWPC mediator was compiled")
-    return
-#endif
-
-  end subroutine CheckNCError
-
-end subroutine initGrids
-
-
 ! Fill a Field with 3D Cartesian unit vectors corresponding to cardinal directions
 ! This assumes that the incoming fields are built on the same Mesh, and have an undistributed dim of 3
 subroutine Set_Field_Cardinal_UVecs(north_field, east_field, rc)
@@ -6351,5 +5483,1517 @@ subroutine StateFilterField(state, fieldName, threshold, rc)
     end select
 
 end subroutine StateFilterField
+
+  ! -- Intermediate mesh: begin definition ----------------------------
+
+  function MeshCreateReducedGaussian(ipt_lats_node_a, lats_node_a, &
+    lonsperlat, global_lats_a, colrad_a, vm, rc) result (mesh)
+
+    integer,                       intent(in)  :: ipt_lats_node_a
+    integer,                       intent(in)  :: lats_node_a
+    integer,                       intent(in)  :: lonsperlat(:)
+    integer,                       intent(in)  :: global_lats_a(:)
+    real(ESMF_KIND_R8),            intent(in)  :: colrad_a(:)
+    type(ESMF_VM),       optional, intent(in)  :: vm
+    integer,             optional, intent(out) :: rc
+
+    type(ESMF_Mesh) :: mesh
+
+    ! -- local variables
+    integer :: localrc, stat
+    integer :: localPet, petCount
+    integer :: latg, latg2, long
+    integer :: i, iHemi, ip1, j, jb, jm1, js, k, kk, kp1, l, l1, m, n
+    integer :: id, id1, id2, id3, id4
+    integer :: lats_nodes, lats_start
+    integer :: lnumNodes, numNodes, numElems, numQuads, numTris
+    logical :: isVMCreated
+    logical, dimension(:),   allocatable :: localNodes
+    integer, dimension(:),   allocatable :: nodeIds, nodeOwners
+    integer, dimension(:),   allocatable :: globalToLocalIdMap
+    integer, dimension(:),   allocatable :: lnodeIds, lnodeOwners
+    integer, dimension(:),   allocatable :: elemIds, elemType, elemConn
+    integer, dimension(:),   allocatable :: nodeToPetMap
+    integer, dimension(:,:), allocatable :: indexToIdMap
+    real(ESMF_KIND_R8) :: dx, x1, x2, x3, x4
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: nodeCoords
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: lnodeCoords
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: y
+    real(ESMF_KIND_R8), dimension(:,:), allocatable :: x
+    type(ESMF_VM) :: localVM
+
+    ! -- local parameters
+    real(ESMF_KIND_R8), parameter :: rad2deg = &
+      57.29577951308232087721_ESMF_KIND_R8
+
+    ! begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! perform sanity check on input array sizes
+    latg = size(lonsperlat)
+    latg2 = latg / 2
+
+    if (size(global_lats_a) /= latg) then
+      call ESMF_LogSetError(ESMF_RC_ARG_SIZE, &
+        msg="sizes of global lats and lonsperlats arrays must be the same", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return
+    end if
+
+    if (size(colrad_a) /= latg2) then
+      call ESMF_LogSetError(ESMF_RC_ARG_SIZE, &
+        msg="size of colatitude array is inconsistent", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return
+    end if
+
+    ! get information on parallel environment
+    if (present(vm)) then
+      isVMCreated = ESMF_VMIsCreated(vm, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return
+      if (isVMCreated) then
+        ! - use provided VM
+        localVM = vm
+      else
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="provided VM was not created", &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)
+        return
+      end if
+    else
+      ! - retrieve VM from context
+      call ESMF_VMGetCurrent(localVM, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return
+    end if
+
+    ! - retrieve grid decomposition across PETs
+    call ESMF_VMGet(localVM, localPet=localPet, petCount=petCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - build node-to-PET map on all PETs
+    allocate(nodeToPetMap(2*petCount), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+
+    nodeToPetMap = 0
+
+    call ESMF_VMAllGather(localVM, (/ ipt_lats_node_a, lats_node_a /), &
+      nodeToPetMap, 2, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! pre-compute global mesh coordinates, including 2-point halo region
+    long = maxval(lonsperlat)
+
+    n = long + 2
+    allocate(x(n,latg), y(latg), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    x = 0._ESMF_KIND_R8
+    y = 0._ESMF_KIND_R8
+    do j = 1, latg2
+      y(j) =  90._ESMF_KIND_R8 - rad2deg * colrad_a(j)
+      dx    = 360._ESMF_KIND_R8 / lonsperlat(j)
+      do i = 1, lonsperlat(j) + 2
+        x(i,j) = (i-1)*dx
+      end do
+    end do
+    x(:,latg:latg2+1:-1) =  x(:,1:latg2)
+    y(  latg:latg2+1:-1) = -y(  1:latg2)
+
+    ! compute global nodes
+    numNodes = sum(lonsperlat)
+
+    ! - allocate workspace
+    allocate(indexToIdMap(long,latg), nodeIds(numNodes), &
+      nodeCoords(2*numNodes), nodeOwners(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - define global node ids and coordinates
+    k = 0
+    l = 0
+    do j = 1, latg
+      do i = 1, lonsperlat(j)
+        k = k + 1
+        indexToIdMap(i,j) = k
+        nodeIds(k) = k
+        nodeCoords(l+1) = x(i,j)
+        nodeCoords(l+2) = y(j)
+        l = l + 2
+      end do
+    end do
+
+    ! - assign node ownership
+    k = 0
+    do n = 0, petCount-1
+      lats_start = nodeToPetMap(k+1)
+      lats_nodes = nodeToPetMap(k+2)
+      k = k + 2
+      do j = 1, lats_nodes
+        l = global_lats_a(lats_start+j-1)
+        do i = 1, lonsperlat(l)
+          nodeOwners(indexToIdMap(i,l)) = n
+        end do
+      end do
+    end do
+
+    deallocate(nodeToPetMap, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    allocate(localNodes(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - assign local nodes based on node ownership first
+    do i = 1, numNodes
+      id = nodeIds(i)
+      localNodes(id) = (nodeOwners(id) == localPet)
+    end do
+
+    ! compute global number and type of elements
+    numElems = 0
+    numQuads = 0
+    numTris = 0
+    do iHemi = 0, 1
+      jb = (latg-1)*iHemi + 2*(1-iHemi)
+      js = 1 - 2*iHemi
+      do j = jb, latg2, js
+        k = 1
+        jm1 = j-js
+        l  = lonsperlat(j)
+        l1 = lonsperlat(jm1)
+        do i = 1, l
+          x1 = x(i  ,j)
+          x2 = x(i+1,j)
+          x3 = x(k+1,jm1)
+          x4 = x(k  ,jm1)
+          ip1 = mod(i  ,l)+1
+          kk  = mod(k-1,l1)+1
+          kp1 = mod(k  ,l1)+1
+          id1 = indexToIdMap(i  ,j)
+          id2 = indexToIdMap(ip1,j)
+          id3 = indexToIdMap(kp1,jm1)
+          id4 = indexToIdMap(kk ,jm1)
+          if (x3 > x2) then
+            ! - elements are triangles
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              ! - assign all element's nodes to the local PET
+              numElems = numElems + 1
+              numTris = numTris + 1
+              localNodes(id1) = .true.
+              localNodes(id2) = .true.
+              localNodes(id4) = .true.
+            end if
+            if (x4 < x2) then
+              k = k + 1
+              if ((nodeOwners(id2) == localPet) .or. &
+                  (nodeOwners(id3) == localPet) .or. &
+                  (nodeOwners(id4) == localPet)) then
+                numElems = numElems + 1
+                numTris = numTris + 1
+                localNodes(id2) = .true.
+                localNodes(id3) = .true.
+                localNodes(id4) = .true.
+              end if
+            end if
+          else
+            ! - elements are quadrilaters
+            k = k + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id3) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              numElems = numElems + 1
+              numQuads = numQuads + 1
+              ! - assign all element's nodes to the local PET
+              localNodes(id1) = .true.
+              localNodes(id2) = .true.
+              localNodes(id3) = .true.
+              localNodes(id4) = .true.
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    ! now compute local nodes
+    lnumNodes = count(localNodes)
+
+    ! - allocate local node arrays and global to local node id map
+    allocate(lnodeIds(lnumNodes), lnodeCoords(2*lnumNodes), &
+      lnodeOwners(lnumNodes), globalToLocalIdMap(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    globalToLocalIdMap = 0
+
+    k = 0
+    l = 0
+    n = 0
+    do i = 1, numNodes
+      id = nodeIds(i)
+      n = 2*(id-1)
+      if (localNodes(id)) then
+        k = k + 1
+        globalToLocalIdMap(id) = k
+        lnodeIds(k) = id
+        lnodeOwners(k) = nodeOwners(id)
+        lnodeCoords(l+1) = nodeCoords(n+1)
+        lnodeCoords(l+2) = nodeCoords(n+2)
+        l = l + 2
+      end if
+    end do
+
+    ! free up memory used by nodes
+    deallocate(nodeIds, nodeCoords, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! create Mesh object
+    mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, &
+      coordSys=ESMF_COORDSYS_SPH_DEG, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! add local nodes
+    call ESMF_MeshAddNodes(mesh, nodeIds=lnodeIds, &
+      nodeCoords=lnodeCoords, nodeOwners=lnodeOwners, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! free up memory used by nodes
+    deallocate(lnodeIds, lnodeCoords, lnodeOwners, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! define local elements
+    ! - allocate work arrays for local elements
+    allocate(elemIds(numElems), elemType(numElems), &
+      elemConn(3*numTris+4*numQuads), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+   ! - define Mesh elementa and connectivity
+    m = 0
+    n = 0
+    id = 0
+    do iHemi = 0, 1
+      jb = (latg-1)*iHemi + 2*(1-iHemi)
+      js = 1 - 2*iHemi
+      do j = jb, latg2, js
+        k = 1
+        jm1 = j-js
+        l  = lonsperlat(j)
+        l1 = lonsperlat(jm1)
+        do i = 1, l
+          x1 = x(i  ,j)
+          x2 = x(i+1,j)
+          x3 = x(k+1,jm1)
+          x4 = x(k  ,jm1)
+          ip1 = mod(i  ,l)+1
+          kk  = mod(k-1,l1)+1
+          kp1 = mod(k  ,l1)+1
+          id1 = indexToIdMap(i  ,j)
+          id2 = indexToIdMap(ip1,j)
+          id3 = indexToIdMap(kp1,jm1)
+          id4 = indexToIdMap(kk ,jm1)
+          if (x3 > x2) then
+            ! - create triangles
+            id = id + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              n = n + 1
+              elemIds(n) = id
+              elemType(n) = ESMF_MESHELEMTYPE_TRI
+              elemConn(m + 1) = id1
+              elemConn(m + 2) = id2
+              elemConn(m + 3) = id4
+              m = m + 3
+            end if
+            if (x4 < x2) then
+              k = k + 1
+              id = id + 1
+              if ((nodeOwners(id2) == localPet) .or. &
+                  (nodeOwners(id3) == localPet) .or. &
+                  (nodeOwners(id4) == localPet)) then
+                n = n + 1
+                elemIds(n) = id
+                elemType(n) = ESMF_MESHELEMTYPE_TRI
+                elemConn(m + 1) = id4
+                elemConn(m + 2) = id2
+                elemConn(m + 3) = id3
+                m = m + 3
+              end if
+            end if
+          else
+            ! - create quadrilaters
+            k = k + 1
+            id = id + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id3) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              n = n + 1
+              elemIds(n) = id
+              elemType(n) = ESMF_MESHELEMTYPE_QUAD
+              elemConn(m + 1) = id1
+              elemConn(m + 2) = id2
+              elemConn(m + 3) = id3
+              elemConn(m + 4) = id4
+              m = m + 4
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    ! - convert local element id to local element id
+    do i = 1, size(elemConn)
+      elemConn(i) = globalToLocalIdMap(elemConn(i))
+    end do
+
+    ! - free up memory used for elements definition
+    deallocate(globalToLocalIdMap, indexToIdMap, localNodes, &
+      nodeOwners, x, y, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - add elements to Mesh object
+    call ESMF_MeshAddElements(mesh, elementIds=elemIds, &
+      elementTypes=elemType, elementConn=elemConn, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - free up memory used for local element arrays
+    deallocate(elemIds, elemType, elemConn, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+  end function MeshCreateReducedGaussian
+
+  !-----------------------------------------------------------------------------
+
+  function MeshCreate3DReducedGaussian(ipt_lats_node_a, lats_node_a, &
+    lonsperlat, global_lats_a, colrad_a, vlevs, vm, rc) result (mesh)
+
+    integer,                       intent(in)  :: ipt_lats_node_a
+    integer,                       intent(in)  :: lats_node_a
+    integer,                       intent(in)  :: lonsperlat(:)
+    integer,                       intent(in)  :: global_lats_a(:)
+    real(ESMF_KIND_R8),            intent(in)  :: colrad_a(:)
+    real(ESMF_KIND_R8),            intent(in)  :: vlevs(:)
+    type(ESMF_VM),       optional, intent(in)  :: vm
+    integer,             optional, intent(out) :: rc
+
+    type(ESMF_Mesh) :: mesh
+
+    ! -- local variables
+    integer :: localrc, stat
+    integer :: localPet, petCount
+    integer :: latg, latg2, long, levs
+    integer :: i, iHemi, ip1, j, jb, jm1, js, k, kk, kp1, l, l1, m, n, v
+    integer :: id, id1, id2, id3, id4, idOffset
+    integer :: lats_nodes, lats_start
+    integer :: lnumNodes, numNodes, numElems
+    integer :: numNodes2D, numElems2D
+    logical :: isVMCreated
+    logical, dimension(:),   allocatable :: localNodes
+    integer, dimension(:),   allocatable :: nodeIds, nodeOwners
+    integer, dimension(:),   allocatable :: globalToLocalIdMap
+    integer, dimension(:),   allocatable :: lnodeIds, lnodeOwners
+    integer, dimension(:),   allocatable :: elemIds, elemType, elemConn
+    integer, dimension(:),   allocatable :: nodeToPetMap
+    integer, dimension(:,:), allocatable :: indexToIdMap
+    real(ESMF_KIND_R8) :: dx, x1, x2, x3, x4
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: nodeCoords
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: lnodeCoords
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: y
+    real(ESMF_KIND_R8), dimension(:,:), allocatable :: x
+    type(ESMF_VM) :: localVM
+
+    ! -- local parameters
+    real(ESMF_KIND_R8), parameter :: rad2deg = &
+      57.29577951308232087721_ESMF_KIND_R8
+
+    ! begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    ! perform sanity check on input array sizes
+    latg = size(lonsperlat)
+    latg2 = latg / 2
+
+    if (size(global_lats_a) /= latg) then
+      call ESMF_LogSetError(ESMF_RC_ARG_SIZE, &
+        msg="sizes of global lats and lonsperlats arrays must be the same", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return
+    end if
+
+    if (size(colrad_a) /= latg2) then
+      call ESMF_LogSetError(ESMF_RC_ARG_SIZE, &
+        msg="size of colatitude array is inconsistent", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return
+    end if
+
+    ! get information on parallel environment
+    if (present(vm)) then
+      isVMCreated = ESMF_VMIsCreated(vm, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return
+      if (isVMCreated) then
+        ! - use provided VM
+        localVM = vm
+      else
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="provided VM was not created", &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)
+        return
+      end if
+    else
+      ! - retrieve VM from context
+      call ESMF_VMGetCurrent(localVM, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return
+    end if
+
+    ! - retrieve grid decomposition across PETs
+    call ESMF_VMGet(localVM, localPet=localPet, petCount=petCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - build node-to-PET map on all PETs
+    allocate(nodeToPetMap(2*petCount), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+
+    nodeToPetMap = 0
+
+    call ESMF_VMAllGather(localVM, (/ ipt_lats_node_a, lats_node_a /), &
+      nodeToPetMap, 2, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! pre-compute global mesh coordinates, including 2-point halo region
+    long = maxval(lonsperlat)
+
+    n = long + 2
+    allocate(x(n,latg), y(latg), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    x = 0._ESMF_KIND_R8
+    y = 0._ESMF_KIND_R8
+    do j = 1, latg2
+      y(j) =  90._ESMF_KIND_R8 - rad2deg * colrad_a(j)
+      dx    = 360._ESMF_KIND_R8 / lonsperlat(j)
+      do i = 1, lonsperlat(j) + 2
+        x(i,j) = (i-1)*dx
+      end do
+    end do
+    x(:,latg:latg2+1:-1) =  x(:,1:latg2)
+    y(  latg:latg2+1:-1) = -y(  1:latg2)
+
+    ! compute global nodes
+    levs = size(vlevs)
+    numNodes2D = sum(lonsperlat)
+    numNodes = levs*numNodes2D
+
+    ! - allocate workspace
+    allocate(indexToIdMap(long,latg), nodeIds(numNodes), &
+      nodeCoords(3*numNodes), nodeOwners(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - define global node ids and coordinates
+    k = 0
+    l = 0
+    do j = 1, latg
+      do i = 1, lonsperlat(j)
+        k = k + 1
+        indexToIdMap(i,j) = k
+        do v = 1, levs
+          kk = k + (v-1)*numNodes2D
+          nodeIds(kk) = kk
+          l = 3*(kk-1)
+          nodeCoords(l+1) = x(i,j)
+          nodeCoords(l+2) = y(j)
+          nodeCoords(l+3) = vlevs(v)
+        end do
+      end do
+    end do
+
+    ! - assign node ownership
+    k = 0
+    do n = 0, petCount-1
+      lats_start = nodeToPetMap(k+1)
+      lats_nodes = nodeToPetMap(k+2)
+      k = k + 2
+      do j = 1, lats_nodes
+        l = global_lats_a(lats_start+j-1)
+        do i = 1, lonsperlat(l)
+          do v = 1, levs
+            id = indexToIdMap(i,l)+(v-1)*numNodes2D
+            nodeOwners(id) = n
+          end do
+        end do
+      end do
+    end do
+
+    deallocate(nodeToPetMap, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    allocate(localNodes(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - assign local nodes based on node ownership first
+    do i = 1, numNodes
+      id = nodeIds(i)
+      localNodes(id) = (nodeOwners(id) == localPet)
+    end do
+
+    ! compute global number and type of elements
+    numElems = 0
+    numElems2D = 0
+    do iHemi = 0, 1
+      jb = (latg-1)*iHemi + 2*(1-iHemi)
+      js = 1 - 2*iHemi
+      do j = jb, latg2, js
+        k = 1
+        jm1 = j-js
+        l  = lonsperlat(j)
+        l1 = lonsperlat(jm1)
+        do i = 1, l
+          x1 = x(i  ,j)
+          x2 = x(i+1,j)
+          x3 = x(k+1,jm1)
+          x4 = x(k  ,jm1)
+          ip1 = mod(i  ,l)+1
+          kk  = mod(k-1,l1)+1
+          kp1 = mod(k  ,l1)+1
+          id1 = indexToIdMap(i  ,j)
+          id2 = indexToIdMap(ip1,j)
+          id3 = indexToIdMap(kp1,jm1)
+          id4 = indexToIdMap(kk ,jm1)
+          if (x3 > x2) then
+            ! - elements are collapsed hexahedrons with triangular faces
+            numElems2D = numElems2D + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              ! - assign all element's nodes to the local PET
+              numElems = numElems + 1
+              localNodes(id1) = .true.
+              localNodes(id2) = .true.
+              localNodes(id4) = .true.
+            end if
+            if (x4 < x2) then
+              k = k + 1
+              numElems2D = numElems2D + 1
+              if ((nodeOwners(id2) == localPet) .or. &
+                  (nodeOwners(id3) == localPet) .or. &
+                  (nodeOwners(id4) == localPet)) then
+                numElems = numElems + 1
+                localNodes(id2) = .true.
+                localNodes(id3) = .true.
+                localNodes(id4) = .true.
+              end if
+            end if
+          else
+            ! - elements are hexahedrons
+            k = k + 1
+            numElems2D = numElems2D + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id3) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              numElems = numElems + 1
+              ! - assign all element's nodes to the local PET
+              localNodes(id1) = .true.
+              localNodes(id2) = .true.
+              localNodes(id3) = .true.
+              localNodes(id4) = .true.
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    ! now compute local nodes
+    do i = 1, numNodes2D
+      do v = 2, levs
+        id = i + (v-1)*numNodes2D
+        localNodes(id) = localNodes(i)
+      end do
+    end do
+    lnumNodes = count(localNodes)
+
+    ! - allocate local node arrays and global to local node id map
+    allocate(lnodeIds(lnumNodes), lnodeCoords(3*lnumNodes), &
+      lnodeOwners(lnumNodes), globalToLocalIdMap(numNodes), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    globalToLocalIdMap = 0
+
+    k = 0
+    l = 0
+    n = 0
+    do i = 1, numNodes
+      id = nodeIds(i)
+      n = 3*(id-1)
+      if (localNodes(id)) then
+        k = k + 1
+        globalToLocalIdMap(id) = k
+        lnodeIds(k) = id
+        lnodeOwners(k) = nodeOwners(id)
+        lnodeCoords(l+1) = nodeCoords(n+1)
+        lnodeCoords(l+2) = nodeCoords(n+2)
+        lnodeCoords(l+3) = nodeCoords(n+3)
+        l = l + 3
+      end if
+    end do
+
+    ! free up memory used by nodes
+    deallocate(nodeIds, nodeCoords, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! create Mesh object
+    mesh = ESMF_MeshCreate(parametricDim=3, spatialDim=3, &
+      coordSys=ESMF_COORDSYS_SPH_DEG, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! add local nodes
+    call ESMF_MeshAddNodes(mesh, nodeIds=lnodeIds, &
+      nodeCoords=lnodeCoords, nodeOwners=lnodeOwners, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! free up memory used by nodes
+    deallocate(lnodeIds, lnodeCoords, lnodeOwners, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! define local elements
+    ! - allocate work arrays for local elements
+    numElems = numElems * (levs-1)
+    allocate(elemIds(numElems), elemType(numElems), &
+      elemConn(8*numElems), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+   ! - define Mesh elementa and connectivity
+    m = 0
+    n = 0
+    id = 0
+    do iHemi = 0, 1
+      jb = (latg-1)*iHemi + 2*(1-iHemi)
+      js = 1 - 2*iHemi
+      do j = jb, latg2, js
+        k = 1
+        jm1 = j-js
+        l  = lonsperlat(j)
+        l1 = lonsperlat(jm1)
+        do i = 1, l
+          x1 = x(i  ,j)
+          x2 = x(i+1,j)
+          x3 = x(k+1,jm1)
+          x4 = x(k  ,jm1)
+          ip1 = mod(i  ,l)+1
+          kk  = mod(k-1,l1)+1
+          kp1 = mod(k  ,l1)+1
+          id1 = indexToIdMap(i  ,j)
+          id2 = indexToIdMap(ip1,j)
+          id3 = indexToIdMap(kp1,jm1)
+          id4 = indexToIdMap(kk ,jm1)
+          if (x3 > x2) then
+            ! - elements are collapsed hexahedrons with triangular faces
+            id = id + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              do v = 1, levs-1
+                n = n + 1
+                idOffset = (v-1)*numNodes2D
+                elemIds(n) = id + (v-1)*numElems2D
+                elemType(n) = ESMF_MESHELEMTYPE_HEX
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id4 + idOffset
+                elemConn(m + 4) = id4 + idOffset
+                m = m + 4
+                idOffset = idOffset + numNodes2D
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id4 + idOffset
+                elemConn(m + 4) = id4 + idOffset
+                m = m + 4
+              end do
+            end if
+            if (x4 < x2) then
+              k = k + 1
+              id = id + 1
+              if ((nodeOwners(id2) == localPet) .or. &
+                  (nodeOwners(id3) == localPet) .or. &
+                  (nodeOwners(id4) == localPet)) then
+                do v = 1, levs-1
+                  n = n + 1
+                  idOffset = (v-1)*numNodes2D
+                  elemIds(n) = id + (v-1)*numElems2D
+                  elemType(n) = ESMF_MESHELEMTYPE_HEX
+                  elemConn(m + 1) = id4 + idOffset
+                  elemConn(m + 2) = id2 + idOffset
+                  elemConn(m + 3) = id3 + idOffset
+                  elemConn(m + 4) = id3 + idOffset
+                  m = m + 4
+                  idOffset = idOffset + numNodes2D
+                  elemConn(m + 1) = id4 + idOffset
+                  elemConn(m + 2) = id2 + idOffset
+                  elemConn(m + 3) = id3 + idOffset
+                  elemConn(m + 4) = id3 + idOffset
+                  m = m + 4
+                end do
+              end if
+            end if
+          else
+            ! - elements are hexahedrons
+            k = k + 1
+            id = id + 1
+            if ((nodeOwners(id1) == localPet) .or. &
+                (nodeOwners(id2) == localPet) .or. &
+                (nodeOwners(id3) == localPet) .or. &
+                (nodeOwners(id4) == localPet)) then
+              do v = 1, levs-1
+                n = n + 1
+                idOffset = (v-1)*numNodes2D
+                elemIds(n) = id + (v-1)*numElems2D
+                elemType(n) = ESMF_MESHELEMTYPE_HEX
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id3 + idOffset
+                elemConn(m + 4) = id4 + idOffset
+                m = m + 4
+                idOffset = idOffset + numNodes2D
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id3 + idOffset
+                elemConn(m + 4) = id4 + idOffset
+                m = m + 4
+              end do
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    ! - convert local element id to local element id
+    do i = 1, size(elemConn)
+      elemConn(i) = globalToLocalIdMap(elemConn(i))
+    end do
+
+    ! - free up memory used for elements definition
+    deallocate(globalToLocalIdMap, indexToIdMap, localNodes, &
+      nodeOwners, x, y, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - add elements to Mesh object
+    call ESMF_MeshAddElements(mesh, elementIds=elemIds, &
+      elementTypes=elemType, elementConn=elemConn, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+    ! - free up memory used for local element arrays
+    deallocate(elemIds, elemType, elemConn, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
+
+  end function MeshCreate3DReducedGaussian
+
+  !-----------------------------------------------------------------------------
+
+  subroutine ReducedT62MeshCreate(gcomp, levels, mesh2d, mesh3d, levArray, rc)
+
+    type(ESMF_GridComp)                     :: gcomp
+    real(ESMF_KIND_R8),         intent(in)  :: levels(:)
+    type(ESMF_Mesh)                         :: mesh3d
+    type(ESMF_Mesh)                         :: mesh2d
+    type(ESMF_Array), optional              :: levArray
+    integer,          optional, intent(out) :: rc
+
+    ! -- local variables
+    logical :: configIsPresent, meshWrite
+    integer :: localrc, stat
+    integer :: localPet, petCount
+    integer :: localDe, localDeCount
+    integer :: levelCount, columnCount
+    integer :: iprint, item, n, pet
+    integer :: lats_node_a
+    integer :: ipt_lats_node_a
+    integer, dimension(:), allocatable :: nlats
+    integer, dimension(:), allocatable :: global_lats_a
+    integer, dimension(:), allocatable :: lonsperlat
+    real(ESMF_KIND_R8), dimension(:),   allocatable :: colrad_a, wgt_a, wgtcs_a, rcs2_a
+    real(ESMF_KIND_R8), dimension(:,:), pointer     :: fptr
+    character(len=ESMF_MAXSTR) :: meshFile
+    type(ESMF_Config)   :: config
+    type(ESMF_DistGrid) :: distgrid
+    type(ESMF_VM)       :: vm
+
+    ! -- local parameters
+    integer, parameter :: latg2 = 47
+    integer, parameter :: latg  = 2*latg2
+    integer, parameter :: lonf  = 192
+    real(ESMF_KIND_R8), parameter :: earthRadius = 6371.2_ESMF_KIND_R8
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+#if 0
+
+    ! -- get vertical levels
+    call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (configIsPresent) then
+      call ESMF_GridCompGet(gcomp, config=config, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      ! -- retrieve number of vertical levels in configuration file
+      call ESMF_ConfigGetDim(config, levelCount, columnCount, &
+        label="interpolation_levels::", rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      if (levelCount == 0) then
+        call ESMF_LogSetError(ESMF_RC_FILE_READ, msg="missing vertical levels", &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)
+        return  ! bail out
+      end if
+      allocate(levels(levelCount), stat=stat)
+      if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return
+      levels = 0._ESMF_KIND_R8
+      ! -- read levels
+      call ESMF_ConfigFindLabel(config, "interpolation_levels::", rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      do item = 1, levelCount
+        call ESMF_ConfigNextLine(config, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+        call ESMF_ConfigGetAttribute(config, levels(item), rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+      end do
+      ! -- verify that vertical coordinate is monotonically increasing
+      if (any(levels(2:)-levels(1:levelCount-1) <= 0._ESMF_KIND_R8)) then
+        call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+          msg="level values must increase strictly monotonically", &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)
+        deallocate(levels, stat=stat)
+        return
+      end if
+      ! -- check if mesh needs to beb written
+      call ESMF_ConfigGetAttribute(config, meshWrite, &
+        label="mesh_write:", default=.false., rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      if (meshWrite) then
+        call ESMF_ConfigGetAttribute(config, meshFile, &
+          label="mesh_file_prefix:", default="med.mesh", rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+      end if
+    else
+      call ESMF_LogSetError(ESMF_RC_NOT_FOUND, &
+        msg="config object required to read in vertical levels", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return  ! bail out
+    end if
+#endif
+
+    ! -- reduced T62 definitions
+    allocate(lonsperlat(latg), global_lats_a(latg), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Unable to allocate memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    nlats = 0
+
+    lonsperlat(1:latg2) = (/ &
+       30,   30,   30,   40,   48,   56,   60,   72,   72,   80, &
+       90,   90,   96,  110,  110,  120,  120,  128,  144,  144, &
+      144,  144,  154,  160,  160,  168,  168,  180,  180,  180, &
+      180,  180,  180,  192,  192,  192,  192,  192,  192,  192, &
+      192,  192,  192,  192,  192,  192,  192 /)
+    lonsperlat(latg:latg2+1:-1) = lonsperlat(1:latg2)
+
+    global_lats_a = (/ &
+      47, 16, 80, 46, 78, 81, 45, 17, 14, 44, 79, 15, 43, 18, 13, &
+      42, 77, 82, 41, 76, 83, 40, 74, 12, 39, 75, 11, 38, 22, 84, 37, 73, 85, &
+      36, 21, 10, 35, 19, 9, 48, 20, 8, 49, 23, 87, 61, 72, 86, 60, 24, 88, 59, &
+      25, 7, 58, 71, 6, 57, 70, 89, 56, 26, 90, 55, 68, 5, 54, 69, 91, 53, 27, &
+      4, 52, 30, 93, 51, 31, 92, 50, 32, 1, 34, 33, 3, 29, 28, 2, 64, 63, 94, &
+      65, 62, 66, 67 /)
+
+    call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! -- distribute latitudes across PETs using a round-robin algorithm
+    allocate(nlats(petCount), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Unable to allocate memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    nlats = 0
+    n = 0
+    do while (n < latg)
+      do pet = 1, petCount
+        if (n < latg) then
+          nlats(pet) = nlats(pet) + 1
+          n = n + 1
+        else
+          exit
+        end if
+      end do
+    end do
+
+    lats_node_a = nlats(localPet+1)
+    ipt_lats_node_a = 1 + sum(nlats(1:localPet))
+    deallocate(nlats, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Unable to free up memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    iprint = 0
+    if (localPet == 0) iprint = 1
+
+    allocate(colrad_a(latg2), wgt_a(latg2), wgtcs_a(latg2), &
+      rcs2_a(latg2), stat=stat)
+    if (ESMF_LogFoundAllocError(statusToCheck=stat, &
+      msg="Unable to allocate memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    call gfs_dyn_glats(latg2, colrad_a, wgt_a, wgtcs_a, rcs2_a, iprint)
+
+    deallocate(wgt_a, wgtcs_a, rcs2_a, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Unable to free up memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    mesh2d = MeshCreateReducedGaussian(ipt_lats_node_a, lats_node_a, &
+      lonsperlat, global_lats_a, colrad_a, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return
+
+    if (meshWrite) then
+      call ESMF_MeshWrite(mesh2d, trim(meshFile)//".2d", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__)) &
+        return
+    end if
+
+    ! -- create levels Array object if requested
+    if (present(levArray)) then
+      call ESMF_MeshGet(mesh2d, nodalDistgrid=distgrid, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      levelCount = size(levels)
+      levArray = ESMF_ArrayCreate(distgrid, ESMF_TYPEKIND_R8, &
+        undistLBound=(/ 1 /), undistUBound=(/ levelCount /), rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      call ESMF_ArrayGet(levArray, localDeCount=localDeCount, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      do localDe = 0, localDeCount-1
+        nullify(fptr)
+        call ESMF_ArrayGet(levArray, localDe=localDe, &
+          farrayPtr=fptr, rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+        do item = 1, levelCount
+          fptr(:,item) = levels(item)
+        end do
+      end do
+    end if
+
+    mesh3d = MeshCreate3DReducedGaussian(ipt_lats_node_a, &
+      lats_node_a, lonsperlat, global_lats_a, colrad_a, &
+      levels, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return
+
+    deallocate(lonsperlat, global_lats_a, colrad_a, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Unable to free up memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (meshWrite) then
+      call ESMF_MeshWrite(mesh3d, trim(meshFile)//".3d", rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__)) &
+        return
+    end if
+
+  end subroutine ReducedT62MeshCreate
+
+  subroutine gfs_dyn_glats(lgghaf,colrad,wgt,wgtcs,rcs2,iprint)
+!
+! Jan 2013   Henry Juang  increase precision by kind_qdt_prec=16
+!                         to help wgt (Gaussian weighting)
+
+      implicit none
+      integer                  iter,k,k1,l2,lgghaf,iprint
+!
+! increase precision for more significant digit to help wgt
+      real(kind=16) drad,dradz,p1,p2,phi,pi,rad,rc
+      real(kind=16) rl2,scale,si,sn,w,x
+!
+      real(kind=8), dimension(lgghaf) ::  colrad, wgt, &
+                                                      wgtcs,  rcs2
+!
+      real(kind=8), parameter :: cons0 = 0.d0, cons1 = 1.d0, &
+                                 cons2 = 2.d0, cons4 = 4.d0, &
+                                 cons180 = 180.d0, &
+                                 cons360 = 360.d0, &
+                                 cons0p25 = 0.25d0
+      real(kind=16), parameter :: eps = 1.d-20
+!
+! for better accuracy to select smaller number
+!     eps = 1.d-12
+!     eps = 1.d-20
+!
+      if(iprint == 1) print 101
+ 101  format ('   i   colat   colrad     wgt', 12x, 'wgtcs',10x, 'iter  res')
+      si    = cons1
+      l2    = 2*lgghaf
+      rl2   = l2
+      scale = cons2/(rl2*rl2)
+      k1    = l2-1
+      pi    = atan(si)*cons4
+!     dradz = pi / cons360 / 10.0
+!  for better accuracy to start iteration
+      dradz = pi / float(lgghaf) / 200.0
+      rad   = cons0
+      do k=1,lgghaf
+        iter = 0
+        drad = dradz
+1       call gfs_dyn_poly(l2,rad,p2)
+2       p1 = p2
+        iter = iter + 1
+        rad = rad + drad
+        call gfs_dyn_poly(l2,rad,p2)
+        if(sign(si,p1) == sign(si,p2)) go to 2
+        if(drad < eps)go to 3
+        rad  = rad-drad
+        drad = drad * cons0p25
+        go to 1
+3       continue
+        colrad(k) = rad
+        phi = rad * cons180 / pi
+        call gfs_dyn_poly(k1,rad,p1)
+        x        = cos(rad)
+        w        =  scale * (cons1 - x*x)/ (p1*p1)
+        wgt(k)   = w
+        sn       = sin(rad)
+        w        = w/(sn*sn)
+        wgtcs(k) = w
+        rc       = cons1/(sn*sn)
+        rcs2(k)  = rc
+        call gfs_dyn_poly(l2,rad,p1)
+        if(iprint == 1) &
+             print 102,k,phi,colrad(k),wgt(k),wgtcs(k),iter,p1
+ 102    format(1x,i3,2x,f6.2,2x,f10.7,2x,e14.7,2x,e14.7,2x,i4,2x,e14.7)
+      enddo
+      if(iprint == 1) print 100,lgghaf
+100   format(1h ,'shalom from 0.0e0 gfs_dyn_glats for ',i3)
+!
+      return
+  end subroutine
+
+  subroutine gfs_dyn_poly(n,rad,p)
+!
+      implicit none
+!
+      integer                  i,n
+!
+! increase precision for more significant digit to help wgt
+      real(kind=16) floati,g,p,rad,x,y1,y2,y3
+!
+      real(kind=8), parameter ::  cons1 = 1.d0
+!
+      x  = cos(rad)
+      y1 = cons1
+      y2 = x
+      do i=2,n
+        g = x*y2
+        floati = i
+        y3 = g - y1 + g - (g-y1)/floati
+        y1 = y2
+        y2 = y3
+      enddo
+      p = y3
+      return
+  end subroutine
+
+  ! -- Intermediate mesh: end definition ------------------------------
+
+  ! -- Config: begin definition ---------------------------------------
+
+  subroutine ConfigGet(gcomp, levels, meshWrite, filePrefix, rc)
+
+    type(ESMF_GridComp)                                :: gcomp
+    real(ESMF_KIND_R8), pointer, optional              :: levels(:)
+    logical,                     optional, intent(out) :: meshWrite
+    character(len=ESMF_MAXSTR),  optional, intent(out) :: filePrefix
+    integer,                     optional, intent(out) :: rc
+
+    ! -- local variables
+    logical :: configIsPresent
+    integer :: localrc, stat
+    integer :: levelCount, columnCount
+    integer :: item
+    type(ESMF_Config) :: config
+
+
+    ! -- begin
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    configIsPresent = present(levels) .or. present(meshWrite) &
+      .or. present(filePrefix)
+    if (.not.configIsPresent) return
+
+    if (present(levels)) then
+      if (associated(levels)) then
+        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+          msg="levels pointer must not be associated",&
+          line=__LINE__, &
+          file=__FILE__, &
+          rcToReturn=rc)
+        return
+      end if
+    end if
+
+    ! -- get vertical levels
+    call ESMF_GridCompGet(gcomp, configIsPresent=configIsPresent, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return  ! bail out
+
+    if (configIsPresent) then
+      call ESMF_GridCompGet(gcomp, config=config, rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
+        return  ! bail out
+      if (present(levels)) then
+        ! -- retrieve number of vertical levels in configuration file
+        call ESMF_ConfigGetDim(config, levelCount, columnCount, &
+          label="interpolation_levels::", rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+        if (levelCount == 0) then
+          call ESMF_LogSetError(ESMF_RC_FILE_READ, msg="missing vertical levels", &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)
+          return  ! bail out
+        end if
+        allocate(levels(levelCount), stat=stat)
+        if (ESMF_LogFoundAllocError(statusToCheck=stat, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return
+        levels = 0._ESMF_KIND_R8
+        ! -- read levels
+        call ESMF_ConfigFindLabel(config, "interpolation_levels::", rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+        do item = 1, levelCount
+          call ESMF_ConfigNextLine(config, rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+          call ESMF_ConfigGetAttribute(config, levels(item), rc=localrc)
+          if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+        end do
+        ! -- verify that vertical coordinate is monotonically increasing
+        if (any(levels(2:)-levels(1:levelCount-1) <= 0._ESMF_KIND_R8)) then
+          call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
+            msg="level values must increase strictly monotonically", &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)
+          deallocate(levels, stat=stat)
+          return
+        end if
+      end if
+      if (present(meshWrite)) then
+        ! -- check if mesh needs to be written
+        call ESMF_ConfigGetAttribute(config, meshWrite, &
+          label="mesh_write:", default=.false., rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+      end if
+      if (present(filePrefix)) then
+        call ESMF_ConfigGetAttribute(config, filePrefix, &
+          label="mesh_file_prefix:", default="med.mesh", rc=localrc)
+        if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__,  &
+          rcToReturn=rc)) &
+          return  ! bail out
+      end if
+    else
+      call ESMF_LogSetError(ESMF_RC_NOT_FOUND, msg="missing config object", &
+        line=__LINE__,  &
+        file=__FILE__,  &
+        rcToReturn=rc)
+      return  ! bail out
+    end if
+
+  end subroutine ConfigGet
+
+  ! -- Config: end definition -----------------------------------------
 
 end module module_MED_SWPC_methods

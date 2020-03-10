@@ -109,7 +109,54 @@ module module_MED_SWPC
     type(ESMF_Clock)      :: clock
     integer, intent(out)  :: rc
     
+    ! -- local variables
+    integer                    :: verbosity
+    character(len=ESMF_MAXSTR) :: name, value
+    type(ESMF_Config)          :: config
+
     rc = ESMF_SUCCESS
+
+    ! -- get mediator information
+    call NUOPC_CompGet(mediator, name=name, verbosity=verbosity, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! -- get name of config file
+    call ESMF_AttributeGet(mediator, name="ConfigFile", value=value, &
+      defaultValue="med.rc", convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return  ! bail out
+    if (btest(verbosity,8)) then
+      call ESMF_LogWrite(trim(name)//": ConfigFile = "//trim(value), &
+        ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__)) &
+        return  ! bail out
+    end if
+
+    ! -- load configuration
+    config = ESMF_ConfigCreate(rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ConfigLoadFile(config, value, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! -- store Config object into mediator's object
+    call ESMF_GridCompSet(mediator, config=config, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return  ! bail out
 
     ! Switch to IPDv03 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(mediator, ESMF_METHOD_INITIALIZE, &
@@ -129,7 +176,7 @@ module module_MED_SWPC
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     rc = ESMF_SUCCESS
 
     call NamespaceAdd("ATM",importState, &
@@ -215,34 +262,14 @@ module module_MED_SWPC
     integer, intent(out) :: rc
     
     ! -- local variables
-    type(ESMF_GeomType_Flag) :: geomtype, localGeomType
-    type(ESMF_Grid)          :: grid, localGrid
-    type(ESMF_Mesh)          :: mesh, localMesh
-    type(ESMF_Array)         :: array
-    real(ESMF_KIND_R8), dimension(2) :: coordBounds
-
-    integer, parameter :: numLevels = 188
-    real(ESMF_KIND_R8), dimension(numLevels), parameter :: verticalLevels = (/ &
-      0.34, 0.39, 0.44, 0.51, 0.58, 0.66, 0.75, 0.86, 0.97, 1.11, 1.26, &
-      1.42, 1.61, 1.82, 2.05, 2.31, 2.59, 2.91, 3.25, 3.62, 4.03, 4.46, 4.93, &
-      5.42, 5.95, 6.51, 7.09, 7.7, 8.33, 8.99, 9.66, 10.35, 11.04, 11.75, &
-      12.47, 13.2, 13.93, 14.67, 15.42, 16.19, 16.97, 17.76, 18.58, 19.42, &
-      20.27, 21.15, 22.05, 22.97, 23.92, 24.88, 25.87, 26.88, 27.91, 28.96, &
-      30.04, 31.15, 32.29, 33.46, 34.66, 35.9, 37.18, 38.49, 39.85, 41.25, &
-      42.68, 44.15, 45.65, 47.18, 48.74, 50.31, 51.9, 53.49, 55.09, 56.69, &
-      58.29, 59.88, 61.46, 63.03, 64.58, 66.13, 67.66, 69.18, 70.69, 72.2, &
-      73.72, 75.2, 76.69, 78.16, 79.63, 81.1, 82.57, 84.02, 85.48, 86.93, &
-      88.37, 89.81, 91.25, 92.68, 94.11, 95.54, 96.97, 98.41, 99.86, 101.33, &
-      102.83, 104.38, 105.99, 107.66, 109.44, 111.33, 113.36, 115.61, 118.11, &
-      120.92, 124.09, 127.6, 131.47, 135.68, 140.25, 145.17, 150.44, 156.05, &
-      161.98, 168.24, 174.8, 181.66, 188.81, 196.24, 203.93, 211.9, 220.13, &
-      228.61, 237.34, 246.32, 255.54, 265., 274.69, 284.6, 294.72, 305.04, &
-      315.56, 326.27, 337.22, 348.31, 359.6, 371.08, 382.77, 394.69, 406.85, &
-      418., 430., 440., 450., 460., 470., 480., 490., 500., 510., 520., 530., 540., 550., &
-      560., 570., 580., 590., 600., 610., 620., 630., 640., 650., 660., 670., 680., 690., &
-      700., 710., 720., 730., 740., 750., 760., 770., 780., 790., 800. /)
-
-    real(ESMF_KIND_R8),    parameter :: earthRadius = 6371.0088_ESMF_KIND_R8 !  IUGG Earth Mean Radius (Moritz, 2000)
+    logical                     :: meshWrite
+    integer                     :: stat
+    character(len=ESMF_MAXSTR)  :: filePrefix
+    real(ESMF_KIND_R8), pointer :: levels(:)
+    type(ESMF_GeomType_Flag)    :: geomtype, localGeomType
+    type(ESMF_Grid)             :: grid, localGrid
+    type(ESMF_Mesh)             :: mesh, localMesh
+    type(ESMF_Array)            :: array
 
     ! -- begin
     rc = ESMF_SUCCESS
@@ -255,12 +282,6 @@ module module_MED_SWPC
       file=__FILE__)) &
       return  ! bail out
 
-    call MeshGetBounds(mesh, 3, coordBounds, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
     call NamespaceGet("ATM", importState, geomtype=geomtype, &
       grid=grid, mesh=mesh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -268,14 +289,36 @@ module module_MED_SWPC
       file=__FILE__)) &
       return  ! bail out
 
+    nullify(levels)
+    call ConfigGet(mediator, levels=levels, meshWrite=meshWrite, &
+      filePrefix=filePrefix, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     if (geomtype == ESMF_GEOMTYPE_GRID) then
 
-      localGrid = GridAddNewCoord(grid, coord=verticalLevels, &
-        scale=1._ESMF_KIND_R8/earthRadius, offset=1._ESMF_KIND_R8, rc=rc)
+      localGrid = GridAddNewCoord(grid, coord=levels, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+
+      if (meshWrite) then
+        call ESMF_GridWriteVTK(grid, &
+          filename=trim(filePrefix)//".2d", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+        call ESMF_GridWriteVTK(localGrid, &
+          filename=trim(filePrefix)//".3d", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+      end if
 
       call NamespaceSetLocalGrid("ATM", localGrid, rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -285,13 +328,25 @@ module module_MED_SWPC
 
     else if (geomtype == ESMF_GEOMTYPE_MESH) then
 
-      call initGrids(mediator, mesh, localMesh, minheight=coordBounds(1), &
-        hArray=array, rc=rc)
-!       heights=verticalLevels, rc=rc)
+      call ReducedT62MeshCreate(mediator, levels, mesh, localMesh, &
+        levArray=array, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+
+      if (meshWrite) then
+        call ESMF_MeshWrite(mesh, trim(filePrefix)//".2d", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+        call ESMF_MeshWrite(localMesh, trim(filePrefix)//".3d", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__,  &
+          file=__FILE__)) &
+          return
+      end if
 
       call NamespaceUpdateFields("ATM", importState, mesh=mesh, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -304,13 +359,22 @@ module module_MED_SWPC
         file=__FILE__)) &
         return  ! bail out
 
-      call NamespaceSetLocalMesh("ATM", mesh3d=localMesh, mesh2d=mesh, levArray=array, rc=rc)
+      call NamespaceSetLocalMesh("ATM", mesh3d=localMesh, mesh2d=mesh, &
+        levArray=array, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
 
     end if
+
+    deallocate(levels, stat=stat)
+    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+      msg="Unable to free up memory", &
+      line=__LINE__,  &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
+      return
    
     call NamespaceRealizeFields(rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -538,6 +602,8 @@ module module_MED_SWPC
     integer, intent(out) :: rc
 
     ! -- local variables
+    logical           :: configIsPresent
+    type(ESMF_Config) :: config
 
     ! -- begin
     rc = ESMF_SUCCESS
@@ -558,6 +624,28 @@ module module_MED_SWPC
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    ! -- check config object
+    call ESMF_GridCompGet(mediator, configIsPresent=configIsPresent, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__,  &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (configIsPresent) then
+      ! -- get mediator's config object
+      call ESMF_GridCompGet(mediator, config=config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__)) &
+        return  ! bail out
+      ! -- destroy config
+      call ESMF_ConfigDestroy(config, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__,  &
+        file=__FILE__)) &
+        return  ! bail out
+    end if
     
   end subroutine Finalize
 
