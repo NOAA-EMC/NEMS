@@ -2877,6 +2877,174 @@
       endif
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "O_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="O_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "H_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="H_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "He_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="He_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "N_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="N_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "NO_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="NO_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "O2_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="O2_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "N2_plus_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="N2_plus_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "O_plus_2D_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="O_plus_2D_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "O_plus_2P_density")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="O_plus_2P_density", &
+          canonicalUnits="m-3", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "ion_temperature")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="ion_temperature", &
+          canonicalUnits="K", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "electron_temperature")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="electron_temperature", &
+          canonicalUnits="K", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "eastward_exb_velocity")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="eastward_exb_velocity", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "northward_exb_velocity")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="northward_exb_velocity", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "upward_exb_velocity")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="upward_exb_velocity", &
+          canonicalUnits="m s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "height")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="height", &
