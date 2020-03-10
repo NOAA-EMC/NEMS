@@ -57,9 +57,9 @@ override COMPONENTS := $(override_components)
 
 ########################################################################
 # If FV3 MOM6 CICE all specify DEBUG=Y, set NEMS_BUILDOPT to DEBUG=Y
-ifeq ($(FV3_MAKEOPT),DEBUG=Y)
-ifeq ($(MOM6_MAKEOPT),DEBUG=Y)
-ifeq ($(CICE_MAKEOPT),DEBUG=Y)
+ifneq (,$(findstring DEBUG=Y,$(FV3_MAKEOPT)))
+ifneq (,$(findstring DEBUG=Y,$(MOM6_MAKEOPT)))
+ifneq (,$(findstring DEBUG=Y,$(CICE_MAKEOPT)))
   NEMS_BUILDOPT:=DEBUG=Y
 endif
 endif
