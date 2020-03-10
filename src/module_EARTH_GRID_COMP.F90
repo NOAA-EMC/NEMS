@@ -4446,7 +4446,6 @@
           return  ! bail out
         ! go through all of the entries in the cplList and add options
         do j=1, cplListSize
-          cplList(j) = trim(cplList(j))//":DumpWeights=true"
           cplList(j) = trim(cplList(j))//":SrcTermProcessing=1:TermOrder=SrcSeq"
           ! add connection options read in from configuration file
           call ESMF_AttributeGet(connectorList(i), name="ConnectionOptions", &
