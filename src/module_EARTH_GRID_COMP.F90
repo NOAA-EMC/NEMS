@@ -255,9 +255,11 @@
       ESMF_ERR_RETURN(RC,RC_REG)
       
       ! register an internal initialization method
+#if 0
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
         phaseLabelList=(/"IPDv04p2"/), userRoutine=ModifyCplLists, rc=rc)
       ESMF_ERR_RETURN(RC,RC_REG)
+#endif
 
       ! create, open, and set the config
       config = ESMF_ConfigCreate(rc=RC)
