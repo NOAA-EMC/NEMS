@@ -686,7 +686,7 @@ contains
           return
        endif
        hash=c_crc32c
-     
+
        call MPI_Comm_Split(commin,hash,rank_world,comm_name,error)
        if(error/=0) then
           ierr=2
