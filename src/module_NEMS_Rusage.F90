@@ -678,7 +678,7 @@ contains
        c_name1(1) = ctry(itry:itry)
        c_length=namelen+1
        c_error=-999
-       c_crc32c=nems_c_crc32(c_name1,c_length,c_error)
+       c_crc32c=abs(nems_c_crc32(c_name1,c_length,c_error))
        if(c_error/=0) then
           ! Should never get here.  This indicates the name is
           ! empty or beyond 2**31-3 bytes.
