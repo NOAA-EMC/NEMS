@@ -1,4 +1,4 @@
-
+NCP="/bin/cp"
 $(CONFDIR)/test-results.mk:
 	+$(MAKE) -f $(NEMSDIR)/src/incmake/tests.mk    \
 	      MODULE_LOGIC="$(MODULE_LOGIC)"           \
@@ -10,18 +10,18 @@ $(CONFDIR)/test-results.mk:
 # Copy the configure.nems, externals.nems, and ESMFVersionDefine.h
 
 $(CONFDIR)/configure.nems: $(CONFIGURE_NEMS_FILE)
-	cp $(CONFIGURE_NEMS_FILE) $@
+	$(NCP) $(CONFIGURE_NEMS_FILE) $@
 
 ifneq ($(EXTERNALS_NEMS_FILE),)
 $(CONFDIR)/externals.nems: $(EXTERNALS_NEMS_FILE)
-	cp $(EXTERNALS_NEMS_FILE) $@
+	$(NCP) $(EXTERNALS_NEMS_FILE) $@
 else
 $(CONFDIR)/externals.nems:
 	cat /dev/null > $@
 endif
 
 $(NEMSDIR)/src/ESMFVersionDefine.h:
-	cp $(ESMF_VERSION_DEFINE) $@
+	$(NCP) $(ESMF_VERSION_DEFINE) $@
 
 ########################################################################
 
@@ -31,7 +31,7 @@ $(NEMSDIR)/src/ESMFVersionDefine.h:
 
 ifneq ($(CHOSEN_MODULE),)
 $(CONFDIR)/modules.nems: $(MODULE_DIR)/$(CHOSEN_MODULE)
-	cp $(MODULE_DIR)/$(CHOSEN_MODULE) $@
+	$(NCP) $(MODULE_DIR)/$(CHOSEN_MODULE) $@
 else
 $(CONFDIR)/modules.nems:
 	cat /dev/null > $@

@@ -265,6 +265,7 @@ module module_MEDIATOR
   integer            :: dbug_flag = 5
   integer            :: restart_interval = 0
   logical            :: statewrite_flag = .true.      ! diagnostics output, default
+  logical            :: overwrite_flag = .true.       !
   logical            :: rhprint_flag = .false.        ! diagnostics output, default
   logical            :: profile_memory = .true.       ! diagnostics output, default
   logical            :: coldstart = .false.           ! coldstart flag
@@ -1041,13 +1042,20 @@ module module_MEDIATOR
     write(msgString,'(A,l6)') trim(subname)//' generate_landmask = ',generate_landmask
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
-    call ESMF_AttributeGet(gcomp, name="DumpFields", value=value, defaultValue="true", &
+    call ESMF_AttributeGet(gcomp, name="DumpFields_MED", value=value, defaultValue="true", &
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     statewrite_flag = (trim(value)=="true")
     write(msgString,'(A,l6)') trim(subname)//' statewrite_flag = ',statewrite_flag
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
+
+    call ESMF_AttributeGet(gcomp, name="OverwriteSlice_MED", value=value, defaultValue="true", &
+                           convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    overwrite_flag = (trim(value) /= "false")
+    write(msgString,'(A,l6)')'CICE_CAP: Overwrite_Flag = ',overwrite_flag
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     
     call ESMF_AttributeGet(gcomp, name="DumpRHs", value=value, defaultValue="false", &
                            convention="NUOPC", purpose="Instance", rc=rc)
@@ -2138,13 +2146,13 @@ module module_MEDIATOR
 
           ! write out masks
 
-          call ESMF_FieldWrite(fieldOcnMask,'field_med_ocn_a_ocnice_mask.nc',overwrite=.true.,rc=rc)
+          call ESMF_FieldWrite(fieldOcnMask,'field_med_ocn_a_ocnice_mask.nc',overwrite=overwrite_flag,rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
           write (msgString,*) trim(subname)//"ocean_mask = ",minval(dataPtr_fieldOcn),maxval(dataPtr_fieldOcn)
           call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 
 !#ifndef FRONT_FV3
-!         call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=.true.,rc=rc)
+!         call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=overwrite_flag,rc=rc)
 !         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
 !         write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
 !         call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
@@ -4176,13 +4184,13 @@ module module_MEDIATOR
       ! write the fields imported from ocn to file
 #ifndef FRONT_FV3
       call ESMF_FieldBundleWrite(is_local%wrap%FBOcn_a, 'fields_med_ocn_a.nc', &
-                                 singleFile=.true., overwrite=.true.,          &
+                                 singleFile=.true., overwrite=overwrite_flag,  &
                                  timeslice=is_local%wrap%fastcntr,             &
                                  iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       call ESMF_FieldBundleWrite(is_local%wrap%FBIce_a, 'fields_med_ice_a.nc', &
-                                 singleFile=.true., overwrite=.true.,          &
+                                 singleFile=.true., overwrite=overwrite_flag,  &
                                  timeslice=is_local%wrap%fastcntr,             &
                                  iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -4379,7 +4387,7 @@ module module_MEDIATOR
                               termorderflag=ESMF_TERMORDER_SRCSEQ, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call ESMF_FieldWrite(outField, fileName, overwrite=.true., timeslice=timeslice, rc=rc)
+        call ESMF_FieldWrite(outField, fileName, overwrite=overwrite_flag, timeslice=timeslice, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         rc = ESMF_SUCCESS
@@ -5555,7 +5563,7 @@ module module_MEDIATOR
     if (statewrite_flag) then
       ! write the fields imported from ocn to file
       call ESMF_FieldBundleWrite(is_local%wrap%FBAtmOcn_o, 'fields_med_atmocn.nc',                      &
-                                 singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
+                                 singleFile=.true., overwrite=overwrite_flag, timeslice=is_local%wrap%fastcntr, &
                                  iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
@@ -5675,7 +5683,7 @@ module module_MEDIATOR
       ! write the fields imported from ocn to file
       call NUOPC_Write(NState_OcnImp, fldsFrOcn%shortname(1:fldsFrOcn%num),    &
                       "field_med_from_ocn_", timeslice=is_local%wrap%slowcntr, &
-                       overwrite=.true., relaxedFlag=.true., rc=rc)
+                       overwrite=overwrite_flag, relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
 
@@ -5851,7 +5859,7 @@ module module_MEDIATOR
        call ESMF_FieldBundleGet(is_local%wrap%FBAccumAtmOcn, fieldname=fieldNameList(n), field=aofield, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
        call ESMF_FieldWrite(aofield,'field_aofield_to_ocn_'//trim(fieldnameList(n))//'.nc', &
-                            timeslice=is_local%wrap%slowcntr, overwrite=.true.,rc=rc)
+                            timeslice=is_local%wrap%slowcntr, overwrite=overwrite_flag,rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
       end do
       deallocate(fieldNameList)
@@ -6196,7 +6204,7 @@ module module_MEDIATOR
       call ESMF_TimeIntervalGet(elapsedTime,s_i8=sec8,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-      if (mod(sec8, restart_interval) == 0) then
+      if (mod(sec8, restart_interval) == 0 .and. sec8 > 0) then
         write(msgString,*) trim(subname)//' restart at sec8= ',sec8,restart_interval
         call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=dbrc)
 

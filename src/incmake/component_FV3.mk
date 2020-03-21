@@ -2,6 +2,8 @@
 fv3_mk=$(FV3_BINDIR)/fv3.mk
 all_component_mk_files+=$(fv3_mk)
 
+NCP="/bin/cp"
+
 # Location of source code and installation
 FV3_SRCDIR?=$(ROOTDIR)/FV3
 FV3_BINDIR?=$(ROOTDIR)/FV3/FV3_INSTALL
@@ -33,9 +35,9 @@ FV3_FULL_OPTS=\
 build_FV3: $(fv3_mk)
 
 $(fv3_mk): $(fms_mk) configure
-	cp -fp $(NEMSDIR)/src/conf/configure.nems \
+	$(NCP) -fp $(NEMSDIR)/src/conf/configure.nems \
 	       "$(FV3_SRCDIR)"/conf/configure.fv3
-	cp -fp $(NEMSDIR)/src/conf/modules.nems   \
+	$(NCP) -fp $(NEMSDIR)/src/conf/modules.nems   \
 	       "$(FV3_SRCDIR)"/conf/modules.fv3
 	$(info Compiling $(FV3_MAKEOPT) into $(FV3_BINDIR) on $(MACHINE_ID))
 	+$(MODULE_LOGIC) ; cd $(FV3_SRCDIR) ; \
