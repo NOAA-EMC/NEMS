@@ -295,11 +295,12 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config = CF_NEMS                     &  !<-- The NEMS configure object
-                                  ,value  = ENS_SPS                     &  !<-- Value of control flag for 
+      CALL ESMF_ConfigGetAttribute(config  = CF_NEMS                    &  !<-- The NEMS configure object
+                                  ,value   = ENS_SPS                    &  !<-- Value of control flag for 
                                                                            !    stochastic perturbation scheme
-                                  ,label  = 'ENS_SPS:'                  &  !<-- Flag's label in configure file
-                                  ,rc     = RC)
+                                  ,label   = 'ENS_SPS:'                 &  !<-- Flag's label in configure file
+                                  ,default = .false.                    &
+                                  ,rc      = RC)
       ESMF_ERR_RETURN(RC,RC_INIT)
 !
 !-----------------------------------------------------------------------
@@ -351,10 +352,11 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config = CF_NEMS                     &  !<-- The NEMS configure object
-                                  ,value  = TOTAL_MEMBER                &  !<-- Total # of ensemble members
-                                  ,label  = 'total_member:'             &  !<-- Flag in configure file 
-                                  ,rc     = RC)
+      CALL ESMF_ConfigGetAttribute(config  = CF_NEMS                    &  !<-- The NEMS configure object
+                                  ,value   = TOTAL_MEMBER               &  !<-- Total # of ensemble members
+                                  ,label   = 'total_member:'            &  !<-- Flag in configure file 
+                                  ,default = 1                          &
+                                  ,rc      = RC)
       ESMF_ERR_RETURN(RC,RC_INIT)
 !
 !-----------------------------------------------------------------------
@@ -618,7 +620,7 @@
       CALL ESMF_ConfigGetAttribute(config   = CF_NEMS  &
                                    ,value   = fhrot    &
                                    ,label   = 'fhrot:' &
-                                   ,default = 0 &
+                                   ,default = 0        &
                                    ,rc      = RC)
       ESMF_ERR_RETURN(RC, RC_INIT)
       if (fhrot > 0) then

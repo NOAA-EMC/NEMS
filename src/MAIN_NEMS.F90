@@ -504,10 +504,11 @@
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
-                                  ,value  = RUN_CONTINUE                &
-                                  ,label  = 'RUN_CONTINUE:'             &
-                                  ,rc     = RC)
+      CALL ESMF_ConfigGetAttribute(config  = CF_MAIN                    &
+                                  ,value   = RUN_CONTINUE               &
+                                  ,label   = 'RUN_CONTINUE:'            &
+                                  ,default = .false.                    &
+                                  ,rc      = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
@@ -528,7 +529,7 @@
                                     ,label  = 'HH_START:'               &
                                     ,rc     = RC)
         ESMF_ERR_ABORT(RC)
-!
+
         CALL ESMF_ConfigGetAttribute(config = CF_MAIN                   &
                                     ,value  = hh_final                  &
                                     ,label  = 'HH_FINAL:'               &
