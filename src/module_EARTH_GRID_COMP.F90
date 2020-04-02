@@ -1391,7 +1391,51 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_vis_dir_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_vis_dir_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_vis_dif_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_vis_dif_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_ir_dir_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_ir_dir_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_ir_dif_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_ir_dif_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ir_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -2695,7 +2739,7 @@
           return  ! bail out
       endif
       call NUOPC_FieldDictionarySetSyno( &
-        standardNames = (/"ice_fraction",&
+        standardNames = (/"ice_fraction         ",&
                           "sea_ice_concentration"/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
