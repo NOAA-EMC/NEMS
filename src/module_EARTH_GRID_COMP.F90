@@ -2684,7 +2684,7 @@
           return  ! bail out
       endif
       call NUOPC_FieldDictionarySetSyno( &
-        standardNames = (/"ice_fraction",&
+        standardNames = (/"ice_fraction         ",&
                           "sea_ice_concentration"/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
