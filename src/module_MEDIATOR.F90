@@ -563,8 +563,8 @@ module module_MEDIATOR
     ! Fields from ATM
     call fld_list_add(fldsFrAtm,"mean_zonal_moment_flx_atm"   , "cannot provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_merid_moment_flx_atm"   , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx_atm"     , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_laten_heat_flx_atm"     , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx"         , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_laten_heat_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_lw_flx"        , "will provide","conservefrac")
 !    call fld_list_add(fldsFrAtm,"mean_up_lw_flx"          , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_sw_flx"        , "will provide","conservefrac")
@@ -594,7 +594,7 @@ module module_MEDIATOR
     call fld_list_add(fldsFrAtm,"inst_pres_height_surface", "will provide","bilinear")
     call fld_list_add(fldsFrAtm,"inst_surface_height"     , "will provide","bilinear")
     ! new imports from GSM added 04/23/14:
-    call fld_list_add(fldsFrAtm,"mean_net_lw_flx_atm"     , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_net_lw_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_net_sw_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_net_lw_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"inst_net_sw_flx"         , "will provide","conservefrac")
@@ -5522,7 +5522,7 @@ module module_MEDIATOR
     customwgt = wgtm01 / const_lhvap
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , & 
                                 is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx_atm'    , customwgt, &
+                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'      , customwgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5578,7 +5578,7 @@ module module_MEDIATOR
 
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , & 
                                 is_local%wrap%FBAccumAtmOcn, 'mean_sensi_heat_flx_atm_into_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx_atm'         , wgtm01, &
+                                is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'             , wgtm01, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5586,7 +5586,7 @@ module module_MEDIATOR
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , & 
                                 is_local%wrap%FBAtm_o      , 'mean_down_lw_flx'  , atmwgt1, &
                                 is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_net_lw_flx_atm', wgtp01, &
+                                is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'   , wgtp01, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out

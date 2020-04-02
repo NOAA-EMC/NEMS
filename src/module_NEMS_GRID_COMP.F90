@@ -313,7 +313,6 @@
                                   ,value  = ENS_SPS                     &  !<-- Value of control flag for 
                                                                            !    stochastic perturbation scheme
                                   ,label  = 'ENS_SPS:'                  &  !<-- Flag's label in configure file
-                                  ,default= .false.                     &
                                   ,rc     = RC)
       ESMF_ERR_RETURN(RC,RC_INIT)
 !
@@ -369,7 +368,6 @@
       CALL ESMF_ConfigGetAttribute(config = CF_NEMS                     &  !<-- The NEMS configure object
                                   ,value  = TOTAL_MEMBER                &  !<-- Total # of ensemble members
                                   ,label  = 'total_member:'             &  !<-- Flag in configure file 
-                                  ,default= 1                           &
                                   ,rc     = RC)
       ESMF_ERR_RETURN(RC,RC_INIT)
 !
