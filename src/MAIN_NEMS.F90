@@ -200,7 +200,7 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       IF(PRINT_ESMF) THEN
-        CALL ESMF_LogSet(flush      =.true.                             &
+        CALL ESMF_LogSet(flush      =.false.                            &
                         ,trace      =.false.                            &
 ! --> do not abort inside of ESMF, or else no ESMF backtrace will be in Log!!!!
 !                        ,logmsgAbort=(/ ESMF_LOGMSG_ERROR /)            &
