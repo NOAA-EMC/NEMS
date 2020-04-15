@@ -5594,6 +5594,7 @@ end subroutine StateFilterField
       line=__LINE__,  &
       file=__FILE__,  &
       rcToReturn=rc)) &
+      return
 
     nodeToPetMap = 0
 
@@ -6056,6 +6057,7 @@ end subroutine StateFilterField
       line=__LINE__,  &
       file=__FILE__,  &
       rcToReturn=rc)) &
+      return
 
     nodeToPetMap = 0
 
@@ -6515,16 +6517,18 @@ end subroutine StateFilterField
       4, 52, 30, 93, 51, 31, 92, 50, 32, 1, 34, 33, 3, 29, 28, 2, 64, 63, 94, &
       65, 62, 66, 67 /)
 
-    call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    call ESMF_GridCompGet(gcomp, vm=vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
-      file=__FILE__)) &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
       return  ! bail out
 
-    call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
-      file=__FILE__)) &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
       return  ! bail out
 
     ! -- distribute latitudes across PETs using a round-robin algorithm
@@ -6582,17 +6586,19 @@ end subroutine StateFilterField
       return  ! bail out
 
     mesh2d = MeshCreateReducedGaussian(ipt_lats_node_a, lats_node_a, &
-      lonsperlat, global_lats_a, colrad_a, vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      lonsperlat, global_lats_a, colrad_a, vm=vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__,  &
-      file=__FILE__)) &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
       return
 
     if (meshWrite) then
-      call ESMF_MeshWrite(mesh2d, trim(meshFile)//".2d", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      call ESMF_MeshWrite(mesh2d, trim(meshFile)//".2d", rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__,  &
-        file=__FILE__)) &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
         return
     end if
 
@@ -6635,10 +6641,11 @@ end subroutine StateFilterField
 
     mesh3d = MeshCreate3DReducedGaussian(ipt_lats_node_a, &
       lats_node_a, lonsperlat, global_lats_a, colrad_a, &
-      levels, vm=vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      levels, vm=vm, rc=localrc)
+    if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__,  &
-      file=__FILE__)) &
+      file=__FILE__,  &
+      rcToReturn=rc)) &
       return
 
     deallocate(lonsperlat, global_lats_a, colrad_a, stat=stat)
@@ -6650,10 +6657,11 @@ end subroutine StateFilterField
       return  ! bail out
 
     if (meshWrite) then
-      call ESMF_MeshWrite(mesh3d, trim(meshFile)//".3d", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      call ESMF_MeshWrite(mesh3d, trim(meshFile)//".3d", rc=localrc)
+      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__,  &
-        file=__FILE__)) &
+        file=__FILE__,  &
+        rcToReturn=rc)) &
         return
     end if
 
