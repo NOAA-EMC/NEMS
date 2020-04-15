@@ -6871,6 +6871,13 @@ end subroutine StateFilterField
             file=__FILE__,  &
             rcToReturn=rc)
           deallocate(levels, stat=stat)
+          if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
+            msg="Unable to free up memory", &
+            line=__LINE__,  &
+            file=__FILE__,  &
+            rcToReturn=rc)) &
+            return  ! bail out
+          nullify(levels)
           return
         end if
       end if
