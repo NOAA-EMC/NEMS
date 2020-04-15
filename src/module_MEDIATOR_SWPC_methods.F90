@@ -6499,8 +6499,6 @@ end subroutine StateFilterField
       rcToReturn=rc)) &
       return  ! bail out
 
-    nlats = 0
-
     lonsperlat(1:latg2) = (/ &
        30,   30,   30,   40,   48,   56,   60,   72,   72,   80, &
        90,   90,   96,  110,  110,  120,  120,  128,  144,  144, &
