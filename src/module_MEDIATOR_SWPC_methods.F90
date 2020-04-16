@@ -5948,7 +5948,7 @@ end subroutine StateFilterField
   !-----------------------------------------------------------------------------
 
   function MeshCreate3DReducedGaussian(ipt_lats_node_a, lats_node_a, &
-    lonsperlat, global_lats_a, colrad_a, vlevs, vm, rc) result (mesh)
+    lonsperlat, global_lats_a, colrad_a, vlevs, fill_option, vm, rc) result (mesh)
 
     integer,                       intent(in)  :: ipt_lats_node_a
     integer,                       intent(in)  :: lats_node_a
@@ -5956,6 +5956,7 @@ end subroutine StateFilterField
     integer,                       intent(in)  :: global_lats_a(:)
     real(ESMF_KIND_R8),            intent(in)  :: colrad_a(:)
     real(ESMF_KIND_R8),            intent(in)  :: vlevs(:)
+    integer,             optional, intent(in)  :: fill_option
     type(ESMF_VM),       optional, intent(in)  :: vm
     integer,             optional, intent(out) :: rc
 
@@ -5970,6 +5971,8 @@ end subroutine StateFilterField
     integer :: lats_nodes, lats_start
     integer :: lnumNodes, numNodes, numElems
     integer :: numNodes2D, numElems2D
+    integer :: fillOption
+    integer, dimension(4) :: p, q
     logical :: isVMCreated
     logical, dimension(:),   allocatable :: localNodes
     integer, dimension(:),   allocatable :: nodeIds, nodeOwners
@@ -5991,6 +5994,24 @@ end subroutine StateFilterField
 
     ! begin
     if (present(rc)) rc = ESMF_SUCCESS
+
+    ! fill options are:
+    !  0 - no fill
+    !  1 - connect circumpolar nodes with triangular elements (zigzag)
+    !  2 - add polar nodes and connect them to circumpolar ones
+    ! polar gaps are filled with option 1 by default (no additional nodes)
+    fillOption = 1
+    if (present(fill_option)) then
+      if (fill_option < 0 .or. fill_option > 2) then
+        call ESMF_LogSetError(ESMF_RC_ARG_OUTOFRANGE, &
+          msg="fill_option can be 0, 1, or 2", &
+          line=__LINE__,  &
+          file=__FILE__,  &
+            rcToReturn=rc)
+        return
+      end if
+      fillOption = fill_option
+    end if
 
     ! perform sanity check on input array sizes
     latg = size(lonsperlat)
@@ -6097,6 +6118,9 @@ end subroutine StateFilterField
     numNodes2D = sum(lonsperlat)
     numNodes = levs*numNodes2D
 
+    ! - add polar nodes if requested
+    if (fillOption == 2) numNodes = numNodes + 2 * levs
+
     ! - allocate workspace
     allocate(indexToIdMap(long,latg), nodeIds(numNodes), &
       nodeCoords(3*numNodes), nodeOwners(numNodes), stat=stat)
@@ -6105,6 +6129,11 @@ end subroutine StateFilterField
       file=__FILE__,  &
       rcToReturn=rc)) &
       return
+
+    indexToIdMap = 0
+    nodeCoords   = 0._ESMF_KIND_R8
+    nodeIds      = 0
+    nodeOwners   = -1
 
     ! - define global node ids and coordinates
     k = 0
@@ -6141,6 +6170,25 @@ end subroutine StateFilterField
       end do
     end do
 
+    ! - add polar nodes and assign ownership
+    if (fillOption == 2) then
+      id = levs * numNodes2D
+      l  = 3*id
+      n = nodeOwners(indexToIdMap(1,1))
+      do iHemi = 1, -1, -2
+        do v = 1, levs
+          id = id + 1
+          nodeIds(id)     = id
+          nodeOwners(id)  = n
+          nodeCoords(l+1) =  0._ESMF_KIND_R8
+          nodeCoords(l+2) = 90._ESMF_KIND_R8 * iHemi
+          nodeCoords(l+3) = vlevs(v)
+          l = l + 3
+        end do
+        n = nodeOwners(indexToIdMap(1,latg))
+      end do
+    end if
+
     deallocate(nodeToPetMap, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg=ESMF_LOGERR_PASSTHRU, &
@@ -6155,6 +6203,8 @@ end subroutine StateFilterField
       file=__FILE__,  &
       rcToReturn=rc)) &
       return
+
+    localNodes = .false.
 
     ! - assign local nodes based on node ownership first
     do i = 1, numNodes
@@ -6229,6 +6279,24 @@ end subroutine StateFilterField
       end do
     end do
 
+    ! - add polar elements if requested
+    select case (fillOption)
+      case (1)
+        do j = 1, latg, latg-1
+          l = lonsperlat(j)
+          id1 = indexToIdMap(1,j)
+          numElems2D = numElems2D + l - 2
+          if (nodeOwners(id1) == localPet) numElems = numElems + l - 2
+        end do
+      case (2)
+        ! - polar nodes are assigned to the same PET as the circumpolar ones
+        id = levs * numNodes2D + 1
+        do j = 1, latg, latg-1
+          if (nodeOwners(id) == localPet) numElems = numElems + lonsperlat(j)
+          id = id + levs
+        end do
+    end select
+
     ! now compute local nodes
     do i = 1, numNodes2D
       do v = 2, levs
@@ -6248,6 +6316,9 @@ end subroutine StateFilterField
       return
 
     globalToLocalIdMap = 0
+    lnodeIds           = 0
+    lnodeCoords        = 0._ESMF_KIND_R8
+    lnodeOwners        = -1
 
     k = 0
     l = 0
@@ -6314,7 +6385,11 @@ end subroutine StateFilterField
       rcToReturn=rc)) &
       return
 
-   ! - define Mesh elementa and connectivity
+    elemIds  = 0
+    elemType = 0
+    elemConn = 0
+
+    ! - define Mesh elements and connectivity
     m = 0
     n = 0
     id = 0
@@ -6418,6 +6493,71 @@ end subroutine StateFilterField
       end do
     end do
 
+    ! - add polar elements if requested
+    select case (fillOption)
+      case (1)
+        do iHemi = 0, 1
+          id = numElems2D-lonsperlat(latg)+2+(iHemi-1)*(lonsperlat(1)-2)
+          j = (latg-1)*iHemi + 1
+          if (nodeOwners(indexToIdMap(1,j)) == localPet) then
+            l = lonsperlat(j)
+            p = (/ 1, 2, l, 1 /)
+            do k = 1, l-2
+              id = id + 1
+              do i = 1, 4
+               q(i) = indexToIdMap(p(i),j)
+              end do
+              do v = 0, levs-2
+                n = n + 1
+                idOffset    = v*numNodes2D
+                elemIds(n)  = id + v*numElems2D
+                elemType(n) = ESMF_MESHELEMTYPE_HEX
+                do kk = 1, 2
+                  do i = 1, 4
+                    elemConn(m + i) = q(i) + idOffset
+                  end do
+                  m = m + 4
+                  idOffset = idOffset + numNodes2D
+                end do
+              end do
+              p = perm(p)
+            end do
+          end if
+        end do
+      case (2)
+        do iHemi = 0, 1
+          j = latg*iHemi + (1-iHemi)
+          l  = lonsperlat(j)
+          id3 = levs * (numNodes2D + iHemi) + 1
+          if (nodeOwners(id3) == localPet) then
+            id = (levs-1) * (numElems2D + iHemi * lonsperlat(1))
+            do i = 1, l
+              ip1 = mod(i  ,l)+1
+              id1 = indexToIdMap(i  ,j)
+              id2 = indexToIdMap(ip1,j)
+              id = id + 1
+              do v = 1, levs-1
+                n = n + 1
+                idOffset = (v-1)*numNodes2D
+                elemIds(n) = id + (v-1)*l
+                elemType(n) = ESMF_MESHELEMTYPE_HEX
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id3 + v - 1
+                elemConn(m + 4) = id1 + idOffset
+                m = m + 4
+                idOffset = idOffset + numNodes2D
+                elemConn(m + 1) = id1 + idOffset
+                elemConn(m + 2) = id2 + idOffset
+                elemConn(m + 3) = id3 + v
+                elemConn(m + 4) = id1 + idOffset
+                m = m + 4
+              end do
+            end do
+          end if
+        end do
+    end select
+
     ! - convert local element id to local element id
     do i = 1, size(elemConn)
       elemConn(i) = globalToLocalIdMap(elemConn(i))
@@ -6450,6 +6590,19 @@ end subroutine StateFilterField
       file=__FILE__,  &
       rcToReturn=rc)) &
       return
+
+  contains
+
+    function perm(a) result (b)
+      integer, intent(in) :: a(4)
+      integer :: b(4)
+
+      b(1) = p(3)
+      b(3) = p(2)
+      b(2) = b(1) + sign(1,b(3)-b(1))
+      b(4) = b(1)
+
+    end function perm
 
   end function MeshCreate3DReducedGaussian
 
