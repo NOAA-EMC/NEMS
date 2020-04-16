@@ -509,6 +509,7 @@
       CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
                                   ,value  = RUN_CONTINUE                &
                                   ,label  = 'RUN_CONTINUE:'             &
+                                  ,default= .false.                     &
                                   ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
