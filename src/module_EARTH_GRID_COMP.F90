@@ -238,6 +238,12 @@
 
       ! specializations:
 
+      ! Disable the hierarchy protocol by default to prevent NUOPC from
+      ! adding unnecessary connectors
+      call NUOPC_CompAttributeSet(EARTH_GRID_COMP, "HierarchyProtocol", &
+        "disable", rc=RC)
+      ESMF_ERR_RETURN(RC,RC_REG)
+
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetModelServices, specRoutine=SetModelServices, &
         rc=RC)
