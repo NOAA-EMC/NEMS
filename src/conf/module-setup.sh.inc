@@ -28,6 +28,12 @@ elif [[ -d /scratch1 && ! -d /scratch ]] ; then
         source /apps/lmod/lmod/init/$__ms_shell
     fi
     module purge
+elif [[ -d /data ]] ; then
+    # We are on SSEC Wisconsin S4
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+        source /usr/share/lmod/lmod/init/$__ms_shell
+    fi
+    module purge
 elif [[ -d /gpfs/hps && -e /etc/SuSE-release ]] ; then
     # We are on NOAA Luna or Surge
     if ( ! eval module help > /dev/null 2>&1 ) ; then
