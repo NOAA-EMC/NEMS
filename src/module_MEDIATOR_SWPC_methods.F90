@@ -6465,11 +6465,10 @@ end subroutine StateFilterField
     integer,          optional, intent(out) :: rc
 
     ! -- local variables
-    logical :: configIsPresent, meshWrite
     integer :: localrc, stat
     integer :: localPet, petCount
     integer :: localDe, localDeCount
-    integer :: levelCount, columnCount
+    integer :: levelCount
     integer :: iprint, item, n, pet
     integer :: lats_node_a
     integer :: ipt_lats_node_a
@@ -6478,16 +6477,12 @@ end subroutine StateFilterField
     integer, dimension(:), allocatable :: lonsperlat
     real(ESMF_KIND_R8), dimension(:),   allocatable :: colrad_a, wgt_a, wgtcs_a, rcs2_a
     real(ESMF_KIND_R8), dimension(:,:), pointer     :: fptr
-    character(len=ESMF_MAXSTR) :: meshFile
-    type(ESMF_Config)   :: config
     type(ESMF_DistGrid) :: distgrid
     type(ESMF_VM)       :: vm
 
     ! -- local parameters
     integer, parameter :: latg2 = 47
     integer, parameter :: latg  = 2*latg2
-    integer, parameter :: lonf  = 192
-    real(ESMF_KIND_R8), parameter :: earthRadius = 6371.2_ESMF_KIND_R8
 
     ! -- begin
     if (present(rc)) rc = ESMF_SUCCESS
@@ -6593,15 +6588,6 @@ end subroutine StateFilterField
       rcToReturn=rc)) &
       return
 
-    if (meshWrite) then
-      call ESMF_MeshWrite(mesh2d, trim(meshFile)//".2d", rc=localrc)
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__,  &
-        file=__FILE__,  &
-        rcToReturn=rc)) &
-        return
-    end if
-
     ! -- create levels Array object if requested
     if (present(levArray)) then
       call ESMF_MeshGet(mesh2d, nodalDistgrid=distgrid, rc=localrc)
@@ -6655,15 +6641,6 @@ end subroutine StateFilterField
       file=__FILE__,  &
       rcToReturn=rc)) &
       return  ! bail out
-
-    if (meshWrite) then
-      call ESMF_MeshWrite(mesh3d, trim(meshFile)//".3d", rc=localrc)
-      if (ESMF_LogFoundError(rcToCheck=localrc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__,  &
-        file=__FILE__,  &
-        rcToReturn=rc)) &
-        return
-    end if
 
   end subroutine ReducedT62MeshCreate
 
