@@ -42,7 +42,3 @@ ifeq (,$(CHOSEN_MODULE))
   MODULE_LOGIC=echo No module selected.
   MODULE_LIST=
 endif
-
-# Update time stamp of module file so that target modules.nems is always built
-# This is for automatic change of esmf module depending on DEBUG flag in configure_rules.mk
-$(shell touch $(MODULE_DIR)/$(CHOSEN_MODULE))
