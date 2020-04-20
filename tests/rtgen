@@ -749,8 +749,8 @@ def decide_project_gaea():
 # WCOSS project detection
 
 def decide_project_wcoss():
-    """!Placeholder for future development; returns "FV3GFS-T2O" """
-    return 'FV3GFS-T2O'
+    """!Placeholder for future development; returns "GFS-DEV" """
+    return 'GFS-DEV'
 
 def decide_tmp_wcoss(pex):
     """!Placeholder for future development; returns "/ptmpp/$USER"
@@ -929,12 +929,9 @@ class RTGen(TestGen):
             out.write('module load emc-utils/1.0.0 ; export have_qoutql=YES\n')
         elif 'jet' in here.name:
             out.write('module load hpss\n')
-            out.write('module use /lfs3/projects/hwrf-vd/soft/modulefiles\n')
-            out.write('module load rocoto/1.3.0rc2\n')
+            out.write('module load rocoto/1.3.1\n')
             out.write('module use /misc/contrib/emc-utils/modulefiles\n')
             out.write('module load emc-utils/1.1.0\n')
-            #if produtil.fileop.find_exe('sbatch',raise_missing=False):
-            #    out.write('module load slurm\n')
             out.write('have_qoutql=YES\n')
         elif here.name == 'hera':
             out.write('module use /scratch1/NCEPDEV/nems/emc.nemspara/soft/modulefiles/\n')

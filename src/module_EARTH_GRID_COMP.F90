@@ -150,7 +150,11 @@
       use FRONT_GSDCHEM,    only: GSDCHEM_SS  => SetServices
 #endif
   ! - Mediator
+#ifdef CMEPS
+      use MED, only : MED_SS     => SetServices 
+#else
       use module_MEDIATOR,        only: MED_SS     => SetServices
+#endif
       use module_MEDSpaceWeather, only: MEDSW_SS   => SetServices
 
       USE module_EARTH_INTERNAL_STATE,ONLY: EARTH_INTERNAL_STATE        &
@@ -279,6 +283,13 @@
       !TODO: In the long run this section will not be needed when we have
       !TODO: absorbed the needed standard names into the default dictionary.
       ! -> 20 fields identified as exports by the GSM component
+#ifdef CMEPS
+      call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+#else
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "air_density_height_lowest")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -587,6 +598,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+
       !For MOM6 and WW3 variables to match:
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "eastward_partitioned_stokes_drift_1")) then
@@ -598,7 +610,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif
+      endif 
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "northward_partitioned_stokes_drift_1")) then
@@ -611,6 +623,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "eastward_partitioned_stokes_drift_2")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -622,6 +635,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "northward_partitioned_stokes_drift_2")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -633,6 +647,9 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+
+
+
      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "eastward_partitioned_stokes_drift_3")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -657,6 +674,7 @@
           return  ! bail out
       endif
       ! end of MOM6 and WW3 variables to match
+
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "inst_temp_height_surface")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1318,7 +1336,51 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_vis_dir_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_vis_dir_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_vis_dif_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_vis_dif_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_ir_dir_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_ir_dir_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_sw_pen_to_ocn_ir_dif_flx")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sw_pen_to_ocn_ir_dif_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ir_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -2610,6 +2672,25 @@
         file=__FILE__)) &
         return  ! bail out
 
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "sea_ice_concentration")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="sea_ice_concentration", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      call NUOPC_FieldDictionarySetSyno( &
+        standardNames = (/"ice_fraction         ",&
+                          "sea_ice_concentration"/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
       !For MOM6 and WW3 variables to match: 
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_eastward_sea_water_velocity",&
@@ -3218,6 +3299,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
+#endif
 
 !-----------------------------------------------------------------------
 !
@@ -3229,6 +3311,9 @@
 !
 
       subroutine SetModelServices(driver, rc)
+#ifdef CMEPS
+        use med_internalstate_mod , only : med_id
+#endif
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
 
@@ -3246,7 +3331,12 @@
         integer                         :: petListBounds(2)
         integer                         :: componentCount
         type(NUOPC_FreeFormat)          :: attrFF, fdFF
-
+#ifdef CMEPS
+        logical                         :: read_restart
+        character(ESMF_MAXSTR)          :: cvalue
+        character(len=5)                :: inst_suffix
+        logical                         :: isPresent
+#endif
         rc = ESMF_SUCCESS
 
         ! query the Component for info
@@ -3320,7 +3410,38 @@
           label="EARTH_component_list:", count=componentCount, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
+#ifdef CMEPS
+        ! get file suffix
+        call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (isPresent) then
+          call NUOPC_CompAttributeGet(driver, name="inst_suffix", value=inst_suffix, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        else
+          inst_suffix = ""
+        endif
+
+        ! obtain driver attributes (for CMEPS)
+        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+        call ReadAttributes(driver, config, "FLDS_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+        call ReadAttributes(driver, config, "CLOCK_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#endif
+
         ! determine information for each component and add to the driver
         do i=1, componentCount
           ! construct component prefix
@@ -3353,7 +3474,7 @@
           do j=petListBounds(1), petListBounds(2)
             petList(j-petListBounds(1)+1) = j ! PETs are 0 based
           enddo
-          
+
           if (trim(model) == "satm") then
 #ifdef FRONT_SATM
             call NUOPC_DriverAddComp(driver, trim(prefix), SATM_SS, &
@@ -3728,7 +3849,7 @@
             write (msg, *) "Model '", trim(model), "' was requested, "// &
               "but is not available in the executable!"
             call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
-              file=__FILE__, rcToReturn=rc)
+              file=__FILE__, rcToReturn=rc) 
             return  ! bail out
 #endif
           elseif (trim(model) == "wrfhydro") then
@@ -3759,6 +3880,9 @@
 #endif
           ! - Two mediator choices currently built into NEMS from internal
           elseif (trim(model) == "nems") then
+#ifdef CMEPS
+            med_id = i+1
+#endif
             call NUOPC_DriverAddComp(driver, trim(prefix), MED_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3791,9 +3915,19 @@
           
           ! clean-up
           deallocate(petList)
-          
+
+#ifdef CMEPS
+        ! Perform restarts if appropriate
+        call InitRestart(driver, rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+        call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#endif          
         enddo
-        
+
 #if ESMF_VERSION_MAJOR < 8
 !TODOgjt: REMOVE THIS BLOCK ONCE SHOWN TO WORK WITHOUT
         ! SetServices for Connectors
@@ -4266,6 +4400,334 @@
   end subroutine
 
   !-----------------------------------------------------------------------------
+
+#ifdef CMEPS
+  subroutine ReadAttributes(gcomp, config, label, relaxedflag, formatprint, rc)
+
+    use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use NUOPC , only : NUOPC_FreeFormatCreate, NUOPC_CompAttributeIngest
+    use NUOPC , only : NUOPC_FreeFormatDestroy, NUOPC_FreeFormat
+
+    ! input/output arguments
+    type(ESMF_GridComp) , intent(inout)        :: gcomp
+    type(ESMF_Config)   , intent(in)           :: config
+    character(len=*)    , intent(in)           :: label
+    logical             , intent(in), optional :: relaxedflag
+    logical             , intent(in), optional :: formatprint
+    integer             , intent(inout)        :: rc
+
+    ! local variables
+    type(NUOPC_FreeFormat)  :: attrFF
+    character(len=*), parameter :: subname = "(module_EARTH_GRID_COMP.F90:ReadAttributes)"
+    !-------------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    if (present(relaxedflag)) then
+       attrFF = NUOPC_FreeFormatCreate(config, label=trim(label), relaxedflag=.true., rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+    else
+       attrFF = NUOPC_FreeFormatCreate(config, label=trim(label), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+    end if
+
+    call NUOPC_CompAttributeIngest(gcomp, attrFF, addFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine ReadAttributes
+
+  subroutine InitRestart(driver, rc)
+
+    !-----------------------------------------------------
+    ! Determine if will restart and read pointer file if appropriate
+    !-----------------------------------------------------
+
+    use ESMF         , only : ESMF_GridComp, ESMF_VM, ESMF_GridCompGet, ESMF_VMGet, ESMF_SUCCESS
+    use ESMF         , only : ESMF_LogSetError, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_RC_NOT_VALID
+    use NUOPC        , only : NUOPC_CompAttributeGet, NUOPC_CompAttributeSet, NUOPC_CompAttributeAdd
+
+    ! input/output variables
+    type(ESMF_GridComp)    , intent(inout) :: driver
+    integer                , intent(out)   :: rc
+
+    ! local variables
+    logical           :: read_restart   ! read the restart file, based on start_type
+    character(len=ESMF_MAXSTR) :: cvalue         ! temporary
+    character(len=ESMF_MAXSTR) :: rest_case_name ! Short case identification
+    character(len=*) , parameter :: subname = "(module_EARTH_GRID_COMP.F90:InitRestart)"
+    !-------------------------------------------
+
+    rc = ESMF_SUCCESS
+    call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=rc)
+
+    !-----------------------------------------------------
+    ! Carry out restart if appropriate
+    !-----------------------------------------------------
+
+    read_restart = IsRestart(driver, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! Add rest_case_name and read_restart to driver attributes
+    call NUOPC_CompAttributeAdd(driver, attrList=(/'rest_case_name','read_restart  '/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    rest_case_name = ' '
+    call NUOPC_CompAttributeSet(driver, name='rest_case_name', value=rest_case_name, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    write(cvalue,*) read_restart
+    call NUOPC_CompAttributeSet(driver, name='read_restart', value=trim(cvalue), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine InitRestart
+
+  function IsRestart(gcomp, rc)
+
+    use ESMF         , only : ESMF_GridComp, ESMF_SUCCESS
+    use ESMF         , only : ESMF_LogSetError, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_RC_NOT_VALID
+    use NUOPC        , only : NUOPC_CompAttributeGet
+
+    ! input/output variables
+    logical                                :: IsRestart
+    type(ESMF_GridComp)    , intent(inout) :: gcomp
+    integer                , intent(out)   :: rc
+
+    ! locals
+    character(len=ESMF_MAXSTR)            :: start_type     ! Type of startup
+    character(len=ESMF_MAXSTR)            :: msgstr
+    character(len=*) , parameter :: start_type_start = "startup"
+    character(len=*) , parameter :: start_type_cont  = "continue"
+    character(len=*) , parameter :: start_type_brnch = "branch"
+    character(len=*) , parameter  :: subname = "(module_EARTH_GRID_COMP.F90:IsRestart)"
+    !---------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    ! First Determine if restart is read
+    call NUOPC_CompAttributeGet(gcomp, name='start_type', value=start_type, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if ((trim(start_type) /= start_type_start) .and.  &
+        (trim(start_type) /= start_type_cont ) .and.  &
+        (trim(start_type) /= start_type_brnch)) then
+       write (msgstr, *) subname//': start_type invalid = '//trim(start_type)
+       call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+       return
+    end if
+
+    !TODO: this is hard-wired to CIME start/continue types in terms of gcomp
+    IsRestart = .false.
+    if (trim(start_type) == trim(start_type_cont) .or. trim(start_type) == trim(start_type_brnch)) then
+       IsRestart = .true.
+    end if
+
+  end function IsRestart
+
+  subroutine AddAttributes(gcomp, driver, config, compid, compname, inst_suffix, rc)
+
+    ! Add specific set of attributes to components from driver attributes
+
+    use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF  , only : ESMF_LogFoundAllocError, ESMF_ConfigGetLen, ESMF_ConfigGetAttribute
+    use NUOPC , only : NUOPC_CompAttributeAdd, NUOPC_CompAttributeGet, NUOPC_CompAttributeSet
+
+    ! input/output parameters
+    type(ESMF_GridComp) , intent(inout) :: gcomp
+    type(ESMF_GridComp) , intent(in)    :: driver
+    type(ESMF_Config)   , intent(inout) :: config
+    integer             , intent(in)    :: compid
+    character(len=*)    , intent(in)    :: compname
+    character(len=*)    , intent(in)    :: inst_suffix
+    integer             , intent(inout) :: rc
+
+    ! local variables
+    integer                        :: n
+    integer                        :: stat
+    integer                        :: inst_index
+    logical                        :: is_present
+    character(len=ESMF_MAXSTR)     :: cvalue
+    character(len=32), allocatable :: compLabels(:)
+    character(len=32), allocatable :: attrList(:)
+    integer                        :: componentCount
+    character(len=*), parameter    :: subname = "(module_EARTH_GRID_COMP.F90:AddAttributes)"
+    logical                        :: lvalue = .false.
+    !-------------------------------------------
+
+    rc = ESMF_Success
+    call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
+
+    !------
+    ! Add compid to gcomp attributes
+    !------
+    !write(cvalue,*) compid
+    !call NUOPC_CompAttributeAdd(gcomp, attrList=(/'MCTID'/), rc=rc)
+    !if (chkerr(rc,__LINE__,u_FILE_u)) return
+    !call NUOPC_CompAttributeSet(gcomp, name='MCTID', value=trim(cvalue), rc=rc)
+    !if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    !------
+    ! Add all the other attributes in AttrList (which have already been added to driver attributes)
+    !------
+    !allocate(attrList(5))
+    !attrList =  (/"read_restart", "orb_eccen   ", "orb_obliqr  ", "orb_lambm0  ", "orb_mvelpp  "/)
+    ! TODO: orb_obliqr and orb_lambm0 not exist
+    allocate(attrList(1))
+    attrList =  (/"read_restart"/)
+
+    call NUOPC_CompAttributeAdd(gcomp, attrList=attrList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    do n = 1,size(attrList)
+       if (trim(attrList(n)) == "read_restart") then
+          call NUOPC_CompAttributeGet(driver, name="mediator_read_restart", value=cvalue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+
+          read(cvalue,*) lvalue
+
+          if (.not. lvalue) then
+            call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return  ! bail out
+          end if
+
+          call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+       else
+          print*, trim(attrList(n))
+          call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+          call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+       end if
+    enddo
+    deallocate(attrList)
+
+    !------
+    ! Add component specific attributes
+    !------
+    call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ReadAttributes(gcomp, config, trim(compname)//"_modelio"//trim(inst_suffix)//"::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ReadAttributes(gcomp, config, "CLOCK_attributes::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    !------
+    ! Add mediator specific attributes
+    !------
+    if (compname == 'MED') then
+       call ReadAttributes(gcomp, config, "MED_history_attributes::", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+       call ReadAttributes(gcomp, config, "FLDS_attributes::", rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+    endif
+
+    !------
+    ! Add multi-instance specific attributes
+    !------
+    call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_index'/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! add inst_index attribute (inst_index is not required for cime internal components)
+    ! for now hard-wire inst_index to 1
+    inst_index = 1
+    write(cvalue,*) inst_index
+    call NUOPC_CompAttributeSet(gcomp, name='inst_index', value=trim(cvalue), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! add inst_suffix attribute
+    if (len_trim(inst_suffix) > 0) then
+       call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_suffix'/), rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+       call NUOPC_CompAttributeSet(gcomp, name='inst_suffix', value=inst_suffix, rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+    end if
+
+  end subroutine AddAttributes
+#endif
 !
 !-----------------------------------------------------------------------
 !
