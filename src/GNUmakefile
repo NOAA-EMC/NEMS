@@ -212,7 +212,7 @@ endif
 nems: nems_libs $(OBJS) $(COBJS) $(MAIN) ./conf/configure.nems
 	echo libgocart is $(LIBGOCART)
 	echo extlibs is $(EXTLIBS)
-	$(LD) -o $(TARGET) $(MAIN) $(OBJS) $(COBJS) $(LIBS_NEMS) $(EXTLIBS) $(LIBGOCART) $(EXTRA_LINK_FLAGS)
+	$(FC) $(SMP) -o $(TARGET) $(MAIN) $(OBJS) $(COBJS) $(LIBS_NEMS) $(EXTLIBS) $(LIBGOCART) $(EXTRA_LINK_FLAGS)
 	@echo "$(TARGET) is created."
 
 conf/configure.nems:
