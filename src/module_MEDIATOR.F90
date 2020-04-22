@@ -322,16 +322,11 @@ module module_MEDIATOR
   type(ESMF_State)     :: NState_IceExp   ! Ice Export nested state
   type(ESMF_State)     :: NState_LndExp   ! Lnd Export nested state
   type(ESMF_State)     :: NState_HydExp   ! Hyd Export nested state
-  type (fld_list_type) :: fldsToAtm
-  type (fld_list_type) :: fldsFrAtm
-  type (fld_list_type) :: fldsToOcn
-  type (fld_list_type) :: fldsFrOcn
-  type (fld_list_type) :: fldsToIce
-  type (fld_list_type) :: fldsFrIce
-  type (fld_list_type) :: fldsToLnd
-  type (fld_list_type) :: fldsFrLnd
-  type (fld_list_type) :: fldsToHyd
-  type (fld_list_type) :: fldsFrHyd
+  type (fld_list_type) :: fldsToAtm, fldsFrAtm
+  type (fld_list_type) :: fldsToOcn, fldsFrOcn
+  type (fld_list_type) :: fldsToIce, fldsFrIce
+  type (fld_list_type) :: fldsToLnd, fldsFrLnd
+  type (fld_list_type) :: fldsToHyd, fldsFrHyd
   type (fld_list_type) :: fldsAtmOcn
   real(ESMF_KIND_R8), allocatable :: land_mask(:,:)
 
@@ -1503,19 +1498,6 @@ module module_MEDIATOR
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-
-    ! local variables
-!    type(ESMF_Field)          :: field
-!    type(ESMF_Grid)           :: grid
-!    integer                   :: localDeCount
-
-!    type(ESMF_DistGrid)       :: distgrid
-!    integer                   :: dimCount, tileCount, petCount
-!    integer                   :: deCountPTile, extraDEs
-!    integer, allocatable      :: minIndexPTile(:,:), maxIndexPTile(:,:)
-!    integer, allocatable      :: regDecompPTile(:,:)
-!    integer                   :: i, j, n, n1
-!    character(ESMF_MAXSTR)    :: transferAction
 
     character(len=*),parameter :: subname='(module_MEDIATOR:InitializeIPDv03p4)'
     
@@ -3041,15 +3023,15 @@ module module_MEDIATOR
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
         datamin  =  1.0e99   ! data
-        datamax  =  -1.0e99
+        datamax  = -1.0e99
         datasum  = 0.0_ESMF_KIND_R8
         datasumx = 0.0_ESMF_KIND_R8
         areamin  =  1.0e99   ! area
-        areamax  =  -1.0e99
+        areamax  = -1.0e99
         areasum  = 0.0_ESMF_KIND_R8
         areasumx = 0.0_ESMF_KIND_R8
         fracmin  =  1.0e99   ! frac
-        fracmax  =  -1.0e99
+        fracmax  = -1.0e99
         fracsum  = 0.0_ESMF_KIND_R8
         fracsumx = 0.0_ESMF_KIND_R8
 
@@ -3218,6 +3200,7 @@ module module_MEDIATOR
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       enddo
+      deallocate(fieldNameList)
 
       if (dbug_flag > 5) then
         call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)

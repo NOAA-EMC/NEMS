@@ -41,6 +41,7 @@ clean_MOM6:
 	cd $(MOM6_SRCDIR)                                                ; \
 	set +e                                                           ; \
 	rm -rf exec src/path_names_shared                                ; \
+	rm -rf src/MOM6/.testing/tc*.a                                   ; \
 	find . -name '*.o' -o -name '*.mod' -o -name '*.a' | xargs rm -f
 
 distclean_MOM6: clean_MOM6
