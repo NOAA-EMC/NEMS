@@ -3714,6 +3714,7 @@ module module_MEDIATOR
       deallocate(fieldNameList)
 
 #endif
+ 
 !BL2017b
     endif ! if (is_local%wrap%o2a_active)
 
@@ -4180,6 +4181,16 @@ module module_MEDIATOR
 #endif
     endif
 
+    !--- check for ice fraction out of range
+
+!     call FieldBundle_GetFldPtr(is_local%wrap%FBIce_a, 'ice_fraction', icewgt, rc=rc)
+!     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!   ! FLAG icewgt > 1.0
+!     write(msgString,'(A,3g17.10)')trim(subname)//trim(' FLAG icewgt>1.0'), &
+!           minval(icewgt),maxval(icewgt-1.0_ESMF_KIND_R8),sum(icewgt)
+!     if(maxval(icewgt) .gt. 1.0_ESMF_KIND_R8)call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     !---------------------------------------
     !--- custom calculations to atm
     !---------------------------------------
@@ -4259,14 +4270,22 @@ module module_MEDIATOR
     if (statewrite_flag) then
     ! write the fields exported to atm to file
 
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_atm '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
       call FieldBundle_RWFields_tiles('write', trim(fname), is_local%wrap%FBforAtm, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
-      write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBforAtm, rc=rc)
+! TODO: check method for DATM
+      call NUOPC_Write(NState_AtmExp, fldsToAtm%shortname(1:fldsToAtm%num),  &
+                      "field_med_to_atm_", timeslice=is_local%wrap%fastcntr, &
+                       relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!     write(fname,'(a,i6.6)') 'field_med_to_atm_',is_local%wrap%fastcntr
+!     call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBforAtm, rc=rc)
+!     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 
 !#ifdef FRONT_FV3
@@ -5177,24 +5196,28 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
       ! write the fields imported from atm to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_atm '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #ifdef FV3_CPLD
       write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
       call FieldBundle_RWFields_tiles('write', trim(fname), is_local%wrap%FBAtm_a, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
-      write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
-      call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBAtm_a, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-#endif
-#ifndef FRONT_FV3
-      call NUOPC_Write(NState_AtmImp,                                           &
-                       fldsFrAtm%shortname(1:fldsFrAtm%num),                    &
-                       "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
+! TODO: check method for DATM
+      call NUOPC_Write(NState_AtmImp, fldsFrAtm%shortname(1:fldsFrAtm%num),    &
+                      "field_med_from_atm_", timeslice=is_local%wrap%fastcntr, &
                        relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+!     write(fname,'(a,i6.6)') 'field_med_from_atm_',is_local%wrap%fastcntr
+!     call FieldBundle_RWFields('write', trim(fname), is_local%wrap%FBAtm_a, rc=rc)
+!     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #endif
 
       ! write the fields imported from ice to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_ice '), is_local%wrap%fastcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
       call NUOPC_Write(NState_IceImp,                                           &
                        fldsFrIce%shortname(1:fldsFrIce%num),                    &
                        "field_med_from_ice_", timeslice=is_local%wrap%fastcntr, &
@@ -5664,6 +5687,9 @@ module module_MEDIATOR
       write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_ocn '), is_local%wrap%slowcntr
       call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
       ! write the fields imported from ocn to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_from_ocn '), is_local%wrap%slowcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
       call NUOPC_Write(NState_OcnImp, fldsFrOcn%shortname(1:fldsFrOcn%num),    &
                       "field_med_from_ocn_", timeslice=is_local%wrap%slowcntr, &
                        overwrite=overwrite_flag, relaxedFlag=.true., rc=rc)
@@ -5844,7 +5870,7 @@ module module_MEDIATOR
        call ESMF_FieldWrite(aofield,'field_aofield_to_ocn_'//trim(fieldnameList(n))//'.nc', &
                             timeslice=is_local%wrap%slowcntr, overwrite=overwrite_flag,rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-      end do
+      enddo
       deallocate(fieldNameList)
     endif
 
@@ -6125,6 +6151,8 @@ module module_MEDIATOR
 
     if (statewrite_flag) then
       ! write the fields exported to ocn to file
+      write(msgString,'(A,i10)')trim(subname)//trim(': write field_med_to_ocn '), is_local%wrap%slowcntr
+      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
       call NUOPC_Write(NState_OcnExp,                                        &
                        fldsToOcn%shortname(1:fldsToOcn%num),                 &
                       "field_med_to_ocn_", timeslice=is_local%wrap%slowcntr, &
@@ -6495,9 +6523,16 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       call fieldBundle_diagnose(FB, 'write '//trim(fname), rc)
     elseif (mode == 'read') then
-      inquire(file=fname,exist=fexists)
+      inquire(file = fname,exist=fexists)
+
+      if (.not.fexists .and. .not. coldstart) then
+        call ESMF_LogWrite(trim(fname)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      endif
+
       if (fexists) then
         call ESMF_LogWrite(trim(subname)//": read "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
+
 !-----------------------------------------------------------------------------------------------------
 ! tcraig, ESMF_FieldBundleRead fails if a field is not on the field bundle, but we really want to just 
 ! ignore that field and read the rest, so instead read each field one at a time through ESMF_FieldRead
@@ -6506,6 +6541,7 @@ module module_MEDIATOR
 !        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !          line=__LINE__, file=__FILE__)) call ESMF_LogWrite(trim(subname)//' WARNING missing fields',rc=dbrc)
 !-----------------------------------------------------------------------------------------------------
+
         call ESMF_FieldBundleGet(FB, fieldCount=fieldCount, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
         do n = 1,fieldCount
@@ -6567,6 +6603,8 @@ module module_MEDIATOR
 
     if (mode == 'write') then
 
+      call ESMF_LogWrite(trim(subname)//": write "//trim(fname)//    &
+                        "tile1-tile6", ESMF_LOGMSG_INFO, rc=dbrc)
       call fieldBundle_getFieldN(FB, 1, flds(1), rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -6585,8 +6623,14 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     elseif (mode == 'read') then
-      fname_tile1='mediator_FBAtm_a_restart.tile1.nc'
-      inquire(file=fname_tile1,exist=fexists)
+      fname_tile1  = 'mediator_FBAtm_a_restart.tile1.nc'
+      inquire(file = fname_tile1,exist=fexists)
+
+      if (.not.fexists .and. .not. coldstart) then
+        call ESMF_LogWrite(trim(fname_tile1)//' does not exist', ESMF_LOGMSG_INFO, rc=dbrc)
+        call ESMF_Finalize(endflag=ESMF_END_ABORT)
+      endif
+
       if (fexists) then
 
         call ESMF_LogWrite(trim(subname)//": read "//trim(fname)//    &

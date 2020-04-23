@@ -1740,8 +1740,7 @@
            return
         end if
 
-    !TODO: this is hard-wired to CIME start/continue types in terms of
-    !gcomp
+    !TODO: this is hard-wired to CIME start/continue types in terms of gcomp
         IsRestart = .false.
         if (trim(start_type) == trim(start_type_cont) .or. trim(start_type) == trim(start_type_brnch)) then
            IsRestart = .true.
@@ -1751,8 +1750,7 @@
 
       subroutine AddAttributes(gcomp, driver, config, compid, compname, inst_suffix, rc)
 
-    ! Add specific set of attributes to components from driver
-    ! attributes
+    ! Add specific set of attributes to components from driver attributes
 
         use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
         use ESMF  , only : ESMF_LogFoundAllocError, ESMF_ConfigGetLen, ESMF_ConfigGetAttribute
@@ -1789,17 +1787,14 @@
     !write(cvalue,*) compid
     !call NUOPC_CompAttributeAdd(gcomp, attrList=(/'MCTID'/), rc=rc)
     !if (chkerr(rc,__LINE__,u_FILE_u)) return
-    !call NUOPC_CompAttributeSet(gcomp, name='MCTID',
-    !value=trim(cvalue), rc=rc)
+    !call NUOPC_CompAttributeSet(gcomp, name='MCTID',value=trim(cvalue), rc=rc)
     !if (chkerr(rc,__LINE__,u_FILE_u)) return
 
     !------
-    ! Add all the other attributes in AttrList (which have already been
-    ! added to driver attributes)
+    ! Add all the other attributes in AttrList (which have already been added to driver attributes)
     !------
     !allocate(attrList(5))
-    !attrList =  (/"read_restart", "orb_eccen   ", "orb_obliqr  ",
-    !"orb_lambm0  ", "orb_mvelpp  "/)
+    !attrList =  (/"read_restart", "orb_eccen   ", "orb_obliqr  ","orb_lambm0  ", "orb_mvelpp  "/)
     ! TODO: orb_obliqr and orb_lambm0 not exist
 
         allocate(attrList(1))
@@ -1865,8 +1860,7 @@
         call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_index'/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    ! add inst_index attribute (inst_index is not required for cime
-    ! internal components)
+    ! add inst_index attribute (inst_index is not required for cime internal components)
     ! for now hard-wire inst_index to 1
         inst_index = 1
         write(cvalue,*) inst_index
