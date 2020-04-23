@@ -4,7 +4,8 @@ all_component_mk_files+=$(mom6_mk)
 
 # Location of source code and installation
 MOM6_SRCDIR?=$(ROOTDIR)/MOM6
-MOM6_BINDIR?=$(ROOTDIR)/MOM6/MOM6_INSTALL
+#MOM6_BINDIR?=$(ROOTDIR)/MOM6/MOM6_INSTALL
+MOM6_BINDIR?=$(ROOTDIR)/MOM6_INSTALL
 
 # Make sure the expected directories exist and are non-empty:
 $(call require_dir,$(MOM6_SRCDIR),MOM6 source directory)
@@ -13,9 +14,9 @@ $(call require_dir,$(MOM6_SRCDIR),MOM6 source directory)
 build_MOM6: $(mom6_mk)
 
 ifneq (,$(findstring CMEPS,$(COMPONENTS)))
-CPPCMEPS = -DCMEPS
+ CPPCMEPS = -DCMEPS
 else
-CPPCMEPS =
+ CPPCMEPS =
 endif
 
 MOM6_ALL_OPTS=\

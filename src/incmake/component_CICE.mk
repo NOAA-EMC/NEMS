@@ -18,12 +18,12 @@ $(call require_dir,$(CICE_SRCDIR),CICE source directory)
 $(call require_dir,$(ROOTDIR)/CICE_CAP,CICE cap directory)
 
 ifneq (,$(findstring CMEPS,$(COMPONENTS)))
-CPPCMEPS = -DCMEPS
+ CPPCMEPS = -DCMEPS
 else
-CPPCMEPS =
+ CPPCMEPS =
 endif
 
-CICE_ALL_OPTS=\
+CICE_ALL_OPTS=                    \
   COMP_SRCDIR=$(CICE_SRCDIR)      \
   COMP_BINDIR=$(CICE_BINDIR)      \
   SITE="NEMS.$(FULL_MACHINE_ID)"  \
