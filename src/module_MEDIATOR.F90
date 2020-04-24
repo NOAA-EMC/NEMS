@@ -588,26 +588,26 @@ module module_MEDIATOR
 
 
     ! Fields from ATM
-    call fld_list_add(fldsFrAtm, "mean_zonal_moment_flx"   , "cannot provide", "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_merid_moment_flx"   , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_sensi_heat_flx"     , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_laten_heat_flx"     , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_down_lw_flx"        , "will provide",   "conservefrac")
-!   call fld_list_add(fldsFrAtm, "mean_up_lw_flx"          , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_down_sw_flx"        , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_prec_rate"          , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "mean_fprec_rate"         , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_zonal_moment_flx"   , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_merid_moment_flx"   , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_sensi_heat_flx"     , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_laten_heat_flx"     , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_down_lw_flx"        , "will provide",   "conservefrac")
-!   call fld_list_add(fldsFrAtm, "inst_up_lw_flx"          , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_down_sw_flx"        , "will provide",   "conservefrac")
-    call fld_list_add(fldsFrAtm, "inst_temp_height2m"      , "will provide",   "conservefrac")    ! bilinear
-    call fld_list_add(fldsFrAtm, "inst_spec_humid_height2m", "will provide",   "conservefrac")    ! bilinear
-!   call fld_list_add(fldsFrAtm, "inst_temp_height2m"      , "will provide",   "bilinear")
-!   call fld_list_add(fldsFrAtm, "inst_spec_humid_height2m", "will provide",   "bilinear")
+    call fld_list_add(fldsFrAtm, "mean_zonal_moment_flx_atm", "cannot provide", "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_merid_moment_flx_atm", "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_sensi_heat_flx"      , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_laten_heat_flx"      , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_down_lw_flx"         , "will provide",   "conservefrac")
+!   call fld_list_add(fldsFrAtm, "mean_up_lw_flx"           , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_down_sw_flx"         , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_prec_rate"           , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "mean_fprec_rate"          , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_zonal_moment_flx"    , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_merid_moment_flx"    , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_sensi_heat_flx"      , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_laten_heat_flx"      , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_down_lw_flx"         , "will provide",   "conservefrac")
+!   call fld_list_add(fldsFrAtm, "inst_up_lw_flx"           , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_down_sw_flx"         , "will provide",   "conservefrac")
+    call fld_list_add(fldsFrAtm, "inst_temp_height2m"       , "will provide",   "conservefrac")    ! bilinear
+    call fld_list_add(fldsFrAtm, "inst_spec_humid_height2m" , "will provide",   "conservefrac")    ! bilinear
+!   call fld_list_add(fldsFrAtm, "inst_temp_height2m"       , "will provide",   "bilinear")
+!   call fld_list_add(fldsFrAtm, "inst_spec_humid_height2m" , "will provide",   "bilinear")
 #ifdef PATCH_BFB_FIXED
     call fld_list_add(fldsFrAtm, "inst_u_wind_height10m"      , "will provide", "patch")
     call fld_list_add(fldsFrAtm, "inst_v_wind_height10m"      , "will provide", "patch")
@@ -5949,14 +5949,14 @@ module module_MEDIATOR
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,      &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt, &
-                                    is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , customwgt,  rc=rc)
+        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn , 'mean_zonal_moment_flx'    , 2,      &
+                                    is_local%wrap%FBIce_o  , 'stress_on_ocn_ice_zonal'  , icewgt, &
+                                    is_local%wrap%FBAtm_o  , 'mean_zonal_moment_flx_atm', customwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 2,      &
-                                    is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt, &
-                                    is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , customwgt,  rc=rc)
+        call fieldBundle_FieldMerge(is_local%wrap%FBforOcn , 'mean_merid_moment_flx'    , 2,      &
+                                    is_local%wrap%FBIce_o  , 'stress_on_ocn_ice_merid'  , icewgt, &
+                                    is_local%wrap%FBAtm_o  , 'mean_merid_moment_flx_atm', customwgt,  rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       else
