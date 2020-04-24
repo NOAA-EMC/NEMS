@@ -23,18 +23,15 @@ ifneq (,$(findstring DEBUG=Y,$(FV3_MAKEOPT)))
   override CCPP_CONFOPT += --debug
 endif
 
-# Process make options for static CCPP build
-ifneq (,$(findstring STATIC=Y,$(FV3_MAKEOPT)))
-  ifneq (,$(findstring SUITES=,$(FV3_MAKEOPT)))
-    # Extract name of suite definition file for static build using sed;
-    # Sam Trahan most likely knows a much better way for doing this!
-    # - remove everything leading up to the name of the suite definition file
-    # - remove everything following the name of the suite definition file
-    SUITES = $(shell echo $(FV3_MAKEOPT) | sed 's/.* SUITES=//' | sed 's/ .*//')
-    override CCPP_CONFOPT += --static --suites=$(SUITES)
-  else
-    $(error Option STATIC=Y requires suites argument as SUITES=xyz,abc,... (where suite xyz corresponds to file suite_xyz.xml))
-  endif
+# Process make options for CCPP build
+ifneq (,$(findstring SUITES=,$(FV3_MAKEOPT)))
+  # Extract name of suite definition files using sed:
+  # - remove everything leading up to the name of the suite definition file
+  # - remove everything following the name of the suite definition file
+  SUITES = $(shell echo $(FV3_MAKEOPT) | sed 's/.* SUITES=//' | sed 's/ .*//')
+  override CCPP_CONFOPT += --suites=$(SUITES)
+else
+  $(error Required suites argument missing: SUITES=xyz,abc,... (where suite xyz corresponds to file suite_xyz.xml))
 endif
 
 # Make sure the expected directories exist and are non-empty:
