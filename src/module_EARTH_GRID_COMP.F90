@@ -218,7 +218,8 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
-      integer, parameter       :: NumFields=259
+      integer, parameter       :: NumFields=261
+!     integer, parameter       :: NumFields=259
 !     integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=253
 !     integer, parameter       :: NumFields=252
@@ -227,7 +228,9 @@
       character(60), parameter :: Field_Name_unit(2,NumFields) = (/                                                                   &
       "air_density_height_lowest                                   ", "kg m-3                                                      ", &
       "mean_zonal_moment_flx_atm                                   ", "N m-2                                                       ", &
+      "mean_zonal_moment_flx                                       ", "N m-2                                                       ", &
       "mean_merid_moment_flx_atm                                   ", "N m-2                                                       ", &
+      "mean_merid_moment_flx                                       ", "N m-2                                                       ", &
       "mean_sensi_heat_flx                                         ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm                                     ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm_into_ice                            ", "W m-2                                                       ", &
