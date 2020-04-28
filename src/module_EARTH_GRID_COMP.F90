@@ -218,19 +218,26 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
+      integer, parameter       :: NumFields=267
+!     integer, parameter       :: NumFields=259
+!     integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=253
-      integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=252
 !     integer, parameter       :: NumFields=251
 !     integer, parameter       :: NumFields=250
+
       character(60), parameter :: Field_Name_unit(2,NumFields) = (/                                                                   &
       "air_density_height_lowest                                   ", "kg m-3                                                      ", &
       "mean_zonal_moment_flx                                       ", "N m-2                                                       ", &
+      "mean_zonal_moment_flx_atm                                   ", "N m-2                                                       ", &
       "mean_merid_moment_flx                                       ", "N m-2                                                       ", &
+      "mean_merid_moment_flx_atm                                   ", "N m-2                                                       ", &
       "mean_sensi_heat_flx                                         ", "W m-2                                                       ", &
+      "mean_sensi_heat_flx_atm                                     ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm_into_ice                            ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm_into_ocn                            ", "W m-2                                                       ", &
       "mean_laten_heat_flx                                         ", "W m-2                                                       ", &
+      "mean_laten_heat_flx_atm                                      ", "W m-2                                                       ", &
       "mean_laten_heat_flx_atm_into_ice                            ", "W m-2                                                       ", &
       "mean_laten_heat_flx_atm_into_ocn                            ", "W m-2                                                       ", &
       "mean_down_lw_flx                                            ", "W m-2                                                       ", &
@@ -308,6 +315,7 @@
       "stress_on_ocn_ice_jdir                                      ", "N m-2                                                       ", &
       "mixed_layer_depth                                           ", "m                                                           ", &
       "mean_net_lw_flx                                             ", "W m-2                                                       ", &
+      "mean_net_lw_flx_atm                                         ", "W m-2                                                       ", &
       "mean_net_sw_flx                                             ", "W m-2                                                       ", &
       "mean_up_lw_flx_ice                                          ", "W m-2                                                       ", &
       "mean_up_lw_flx_ocn                                          ", "W m-2                                                       ", &
@@ -471,6 +479,13 @@
       "wave_induced_charnock_parameter                             ", "1                                                           ", &
       "wave_z0_roughness_length                                    ", "m                                                           ", &
       "wave_bottom_current_period                                  ", "s                                                           ", &
+!For MOM6 and WW3 variables to match:
+      "eastward_partitioned_stokes_drift_1                         ", "m s-1                                                       ", &
+      "northwar_partitioned_stokes_drift_1                         ", "m s-1                                                       ", &
+      "eastward_partitioned_stokes_drift_2                         ", "m s-1                                                       ", &
+      "northwar_partitioned_stokes_drift_2                         ", "m s-1                                                       ", &
+      "eastward_partitioned_stokes_drift_3                         ", "m s-1                                                       ", &
+      "northwar_partitioned_stokes_drift_3                         ", "m s-1                                                       ", &
 
 ! Fields from WAM to IPE
 ! ----------------------
@@ -596,7 +611,7 @@
       ! -> 20 fields identified as exports by the GSM component
 
 #ifdef CMEPS
-      call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+      call NUOPC_FieldDictionarySetup("fd_nems.yaml", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
       do nf=1,NumFields
@@ -752,25 +767,10 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
 #ifdef CMEPS
-        ! get file suffix
-        call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-
-        if (isPresent) then
-          call NUOPC_CompAttributeGet(driver, name="inst_suffix", value=inst_suffix, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__))
-        else
-          inst_suffix = ""
-        endif
+        inst_suffix = ""
 
         ! obtain driver attributes (for CMEPS)
         call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-
-        call ReadAttributes(driver, config, "FLDS_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
-
-        call ReadAttributes(driver, config, "CLOCK_attributes::", formatprint=.true., rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
         call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
@@ -1836,23 +1836,6 @@
 
         call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call ReadAttributes(gcomp, config, trim(compname)//"_modelio"//trim(inst_suffix)//"::", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-        call ReadAttributes(gcomp, config, "CLOCK_attributes::", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    !------
-    ! Add mediator specific attributes
-    !------
-        if (compname == 'MED') then
-           call ReadAttributes(gcomp, config, "MED_history_attributes::", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-           call ReadAttributes(gcomp, config, "FLDS_attributes::", rc=rc)
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-        endif
 
     !------
     ! Add multi-instance specific attributes

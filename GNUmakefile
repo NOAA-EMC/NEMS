@@ -19,6 +19,13 @@ override NEMSDIR=$(ROOTDIR)/NEMS
 # it explicitly to make sure.  Never change this:
 override SHELL=/bin/sh
 
+# S2S_DEBUG_MODULE is used by before_components.mk for s2s-model to
+# load machine-dependent esmf debug module. Its default value is false
+# Trigger S2S_DEBUG_MODULE in one of two ways:
+# 1) argument to make call: e.g. make app=* S2S_DEBUG_MODULE=true build
+# 2) env before make call: e.g. export S2S_DEBUG_MODULE=true; make app=* build
+S2S_DEBUG_MODULE?=false
+
 # Set global variables and load utilities:
 include $(NEMSDIR)/src/incmake/infinity.mk # Recursion detector
 include $(NEMSDIR)/src/incmake/gmsl/gmsl  # GNU Make Standard Library
