@@ -561,10 +561,10 @@ module module_MEDIATOR
 
 
     ! Fields from ATM
-    call fld_list_add(fldsFrAtm,"mean_zonal_moment_flx"   , "cannot provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_merid_moment_flx"   , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx"     , "will provide","conservefrac")
-    call fld_list_add(fldsFrAtm,"mean_laten_heat_flx"     , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_zonal_moment_flx_atm"   , "cannot provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_merid_moment_flx_atm"   , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx"         , "will provide","conservefrac")
+    call fld_list_add(fldsFrAtm,"mean_laten_heat_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_lw_flx"        , "will provide","conservefrac")
 !    call fld_list_add(fldsFrAtm,"mean_up_lw_flx"          , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_down_sw_flx"        , "will provide","conservefrac")
@@ -5522,7 +5522,7 @@ module module_MEDIATOR
     customwgt = wgtm01 / const_lhvap
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , & 
                                 is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'        , customwgt, &
+                                is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'      , customwgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5616,7 +5616,7 @@ module module_MEDIATOR
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , & 
                                 is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_zonal', atmwgt1, &
                                 is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , wgtm01, &
+                                is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx_atm'  , wgtm01, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5624,7 +5624,7 @@ module module_MEDIATOR
     call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , & 
                                 is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_merid', atmwgt1, &
                                 is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt1, &
-                                is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , wgtm01, &
+                                is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx_atm'  , wgtm01, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
