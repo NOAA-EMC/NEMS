@@ -5879,7 +5879,7 @@ module module_MEDIATOR
     !--- merges to ocn
     !---------------------------------------
 
-    if (is_local%wrap%i2o_active) then
+    if (is_local%wrap%i2o_active .and. is_local%wrap%a2o_active) then
 
     ! atm and ice fraction
     ! atmwgt and icewgt are the "normal" fractions
