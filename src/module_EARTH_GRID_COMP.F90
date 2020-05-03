@@ -218,19 +218,25 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
+      integer, parameter       :: NumFields=261
+!     integer, parameter       :: NumFields=259
+!     integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=253
-      integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=252
 !     integer, parameter       :: NumFields=251
 !     integer, parameter       :: NumFields=250
       character(60), parameter :: Field_Name_unit(2,NumFields) = (/                                                                   &
       "air_density_height_lowest                                   ", "kg m-3                                                      ", &
+      "mean_zonal_moment_flx_atm                                   ", "N m-2                                                       ", &
       "mean_zonal_moment_flx                                       ", "N m-2                                                       ", &
+      "mean_merid_moment_flx_atm                                   ", "N m-2                                                       ", &
       "mean_merid_moment_flx                                       ", "N m-2                                                       ", &
       "mean_sensi_heat_flx                                         ", "W m-2                                                       ", &
+      "mean_sensi_heat_flx_atm                                     ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm_into_ice                            ", "W m-2                                                       ", &
       "mean_sensi_heat_flx_atm_into_ocn                            ", "W m-2                                                       ", &
       "mean_laten_heat_flx                                         ", "W m-2                                                       ", &
+      "mean_laten_heat_flx_atm                                      ", "W m-2                                                       ", &
       "mean_laten_heat_flx_atm_into_ice                            ", "W m-2                                                       ", &
       "mean_laten_heat_flx_atm_into_ocn                            ", "W m-2                                                       ", &
       "mean_down_lw_flx                                            ", "W m-2                                                       ", &
@@ -308,6 +314,7 @@
       "stress_on_ocn_ice_jdir                                      ", "N m-2                                                       ", &
       "mixed_layer_depth                                           ", "m                                                           ", &
       "mean_net_lw_flx                                             ", "W m-2                                                       ", &
+      "mean_net_lw_flx_atm                                         ", "W m-2                                                       ", &
       "mean_net_sw_flx                                             ", "W m-2                                                       ", &
       "mean_up_lw_flx_ice                                          ", "W m-2                                                       ", &
       "mean_up_lw_flx_ocn                                          ", "W m-2                                                       ", &
@@ -596,7 +603,7 @@
       ! -> 20 fields identified as exports by the GSM component
 
 #ifdef CMEPS
-      call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+      call NUOPC_FieldDictionarySetup("fd_nems.yaml", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 #else
       do nf=1,NumFields
@@ -753,6 +760,7 @@
 
 #ifdef CMEPS
         ! get file suffix
+        inst_suffix = ""
         call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
