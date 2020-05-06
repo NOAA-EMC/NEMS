@@ -2089,10 +2089,10 @@ module module_MEDIATOR
           ! generate a new RH from Atm and Ocn coords, no masks, no areas.  Should not use o2a_consd mapping
           ! because it has masks and area corrections.
 
-          call ESMF_FieldRegridStore(fieldOcnMask, fieldAtmMask, routehandle=RH_mapmask,       &
-                                     regridmethod=ESMF_REGRIDMETHOD_CONSERVE,          &
-                                     srcTermProcessing=srcTermProcessing_Value,        &
-                                     ignoreDegenerate=.true.,                          &
+          call ESMF_FieldRegridStore(fieldOcnMask, fieldAtmMask, routehandle=RH_mapmask,&
+                                     regridmethod=ESMF_REGRIDMETHOD_CONSERVE,           &
+                                     srcTermProcessing=srcTermProcessing_Value,         &
+                                     ignoreDegenerate=.true.,                           &
                                      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -2246,145 +2246,114 @@ module module_MEDIATOR
 
     !--- atm
 
-    call fieldBundle_init(is_local%wrap%FBAtm_a, grid=gridAtm,  &
-                          state=NState_AtmImp, name='FBAtm_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm_a, grid=gridAtm, state=NState_AtmImp, name='FBAtm_a', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm_o, grid=gridOcn,  &
-                          state=NState_AtmImp, name='FBAtm_o', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm_o, grid=gridOcn, state=NState_AtmImp, name='FBAtm_o', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm2_o, grid=gridOcn, &
-                          state=NState_AtmImp, name='FBAtm2_o', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm2_o, grid=gridOcn, state=NState_AtmImp, name='FBAtm2_o', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm_i, grid=gridIce,  &
-                          state=NState_AtmImp, name='FBAtm_i', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm_i, grid=gridIce, state=NState_AtmImp, name='FBAtm_i', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm2_i, grid=gridIce, &
-                          state=NState_AtmImp, name='FBAtm2_i', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm2_i, grid=gridIce, state=NState_AtmImp, name='FBAtm2_i', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm_l, grid=gridLnd,  &
-                          state=NState_AtmImp, name='FBAtm_l', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm_l, grid=gridLnd, state=NState_AtmImp, name='FBAtm_l', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtm_h, grid=gridHyd,  &
-                          state=NState_AtmImp, name='FBAtm_h', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtm_h, grid=gridHyd, state=NState_AtmImp, name='FBAtm_h', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !--- ocn
 
-    call fieldBundle_init(is_local%wrap%FBOcn_a, grid=gridAtm,  &
-                          state=NState_OcnImp, name='FBOcn_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBOcn_a, grid=gridAtm, state=NState_OcnImp, name='FBOcn_a', rc=rc)
 !BL2017b
-    call fieldBundle_init(is_local%wrap%FBOcn2_a, grid=gridAtm, &
-                          state=NState_OcnImp, name='FBOcn2_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBOcn2_a, grid=gridAtm, state=NState_OcnImp, name='FBOcn2_a', rc=rc)
 !BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBOcn_o, grid=gridOcn,  &
-                          state=NState_OcnImp, name='FBOcn_o', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBOcn_o, grid=gridOcn, state=NState_OcnImp, name='FBOcn_o', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBOcn_i, grid=gridIce,  &
-                          state=NState_OcnImp, name='FBOcn_i', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBOcn_i, grid=gridIce, state=NState_OcnImp, name='FBOcn_i', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !--- ice
 
-    call fieldBundle_init(is_local%wrap%FBIce_a, grid=gridAtm,  &
-                          state=NState_IceImp, name='FBIce_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBIce_a, grid=gridAtm, state=NState_IceImp, name='FBIce_a', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 !BL2017b
-    call fieldBundle_init(is_local%wrap%FBIce2_a, grid=gridAtm, &
-                          state=NState_IceImp, name='FBIce2_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBIce2_a, grid=gridAtm, state=NState_IceImp, name='FBIce2_a', rc=rc)
 !BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBIce_o, grid=gridOcn,  &
-                          state=NState_IceImp, name='FBIce_o', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBIce_o, grid=gridOcn, state=NState_IceImp, name='FBIce_o', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBIce_i, grid=gridIce,  &
-                          state=NState_IceImp, name='FBIce_i', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBIce_i, grid=gridIce, state=NState_IceImp, name='FBIce_i', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBIce_if, grid=gridIce, &
-                          state=NState_IceImp, name='FBIce_if', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBIce_if, grid=gridIce, state=NState_IceImp, name='FBIce_if', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !--- lnd
 
-    call fieldBundle_init(is_local%wrap%FBLnd_a, grid=gridAtm,  &
-                          state=NState_LndImp, name='FBLnd_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBLnd_a, grid=gridAtm, state=NState_LndImp, name='FBLnd_a', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBLnd_l, grid=gridLnd,  &
-                          state=NState_LndImp, name='FBLnd_l', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBLnd_l, grid=gridLnd, state=NState_LndImp, name='FBLnd_l', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBLnd_h, grid=gridHyd,  &
-                          state=NState_LndImp, name='FBLnd_h', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBLnd_h, grid=gridHyd, state=NState_LndImp, name='FBLnd_h', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !--- hyd
 
-    call fieldBundle_init(is_local%wrap%FBHyd_l, grid=gridLnd,  &
-                          state=NState_HydImp, name='FBHyd_l', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBHyd_l, grid=gridLnd, state=NState_HydImp, name='FBHyd_l', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBHyd_a, grid=gridAtm,  &
-                          state=NState_HydImp, name='FBHyd_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBHyd_a, grid=gridAtm, state=NState_HydImp, name='FBHyd_a', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBHyd_h, grid=gridHyd,  &
-                          state=NState_HydImp, name='FBHyd_h', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBHyd_h, grid=gridHyd, state=NState_HydImp, name='FBHyd_h', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !----------------------------------------------------------
     ! Initialize Accumulators
     !----------------------------------------------------------
 
-    call fieldBundle_init(is_local%wrap%FBaccumAtm, grid=gridAtm, &
-                          state=NState_AtmImp, name='FBaccumAtm', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumAtm, grid=gridAtm, state=NState_AtmImp, name='FBaccumAtm', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBaccumOcn, grid=gridOcn, &
-                          state=NState_OcnImp, name='FBaccumOcn', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumOcn, grid=gridOcn, state=NState_OcnImp, name='FBaccumOcn', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBaccumIce, grid=gridIce, &
-                          state=NState_IceImp, name='FBaccumIce', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumIce, grid=gridIce, state=NState_IceImp, name='FBaccumIce', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBaccumLnd, grid=gridLnd, &
-                          state=NState_LndImp, name='FBaccumLnd', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumLnd, grid=gridLnd, state=NState_LndImp, name='FBaccumLnd', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBaccumHyd, grid=gridHyd, &
-                          state=NState_HydImp, name='FBaccumHyd', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumHyd, grid=gridHyd, state=NState_HydImp, name='FBaccumHyd', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !----------------------------------------------------------
     ! Initialize AtmOcn FBs
     !----------------------------------------------------------
 
-    call fieldBundle_init(is_local%wrap%FBAtmOcn_o, grid=gridOcn, &
-                          fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_o', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtmOcn_o, grid=gridOcn, fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_o', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, &
-                          fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtmOcn_a, grid=gridAtm, fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn_a', rc=rc)
 !BL2017b
-    call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, &
-                          fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBAtmOcn2_a, grid=gridAtm, fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBAtmOcn2_a', rc=rc)
 !BL2017b
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    call fieldBundle_init(is_local%wrap%FBaccumAtmOcn, grid=gridOcn, &
-                          fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBaccumAtmOcn', rc=rc)
+    call fieldBundle_init(is_local%wrap%FBaccumAtmOcn, grid=gridOcn, fieldnamelist=fldsAtmOcn%shortname(1:fldsAtmOcn%num), name='FBaccumAtmOcn', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !----------------------------------------------------------
@@ -4188,8 +4157,8 @@ module module_MEDIATOR
 
 !   ! FLAG icewgt > 1.0
 !     write(msgString,'(A,3g17.10)')trim(subname)//trim(' FLAG icewgt>1.0'), &
-!           minval(icewgt),maxval(icewgt-1.0_ESMF_KIND_R8),sum(icewgt)
-!     if(maxval(icewgt) .gt. 1.0_ESMF_KIND_R8)call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+!           minval(icewgt),maxval(icewgt-cone),sum(icewgt)
+!     if(maxval(icewgt) > cone)call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     !---------------------------------------
     !--- custom calculations to atm
@@ -5519,7 +5488,7 @@ module module_MEDIATOR
           thbot1(1) = tbot(i,j)*((100000._ESMF_KIND_R8/pbot(i,j))**0.286_ESMF_KIND_R8)  ! tcx temporary
 !tcx      thbot1(1) = thbot(i,j)
           qbot1(1)  = qbot(i,j)
-          rbot1(1)  = pbot(i,j)/(287.058_ESMF_KIND_R8*(1._ESMF_KIND_R8+0.608_ESMF_KIND_R8*qbot(i,j))*tbot(i,j)) ! tcx temporary
+          rbot1(1)  = pbot(i,j)/(287.058_ESMF_KIND_R8*(cone+0.608_ESMF_KIND_R8*qbot(i,j))*tbot(i,j)) ! tcx temporary
 !tcx      rbot1(1)  = rbot(i,j)
           tbot1(1)  = tbot(i,j)
           us1(1)    = us(i,j)
@@ -5742,7 +5711,7 @@ module module_MEDIATOR
 !$omp parallel do private(i,j)
         do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
           do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
-            if (abs(dataPtr1(i,j)) > 1.0e6) dataPtr1(i,j) = czero
+            if (abs(dataPtr1(i,j)) > 1.0e6_ESMF_KIND_R8) dataPtr1(i,j) = czero
           enddo
         enddo
       endif
@@ -5752,7 +5721,7 @@ module module_MEDIATOR
 !$omp parallel do private(i,j)
         do j=lbound(dataPtr1,2),ubound(dataPtr1,2)
           do i=lbound(dataPtr1,1),ubound(dataPtr1,1)
-            if (abs(dataPtr1(i,j)) > 1.0e6) dataPtr1(i,j) = czero
+            if (abs(dataPtr1(i,j)) > 1.0e6_ESMF_KIND_R8) dataPtr1(i,j) = czero
           enddo
         enddo
       endif
@@ -6044,14 +6013,14 @@ module module_MEDIATOR
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
-      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , 2,       &
-                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt,  &
-                                  is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx'  , customwgt,  rc=rc)
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'    , 2,       &
+                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal'  , icewgt,  &
+                                  is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx_atm', customwgt,  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , 2,      &
-                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt, &
-                                  is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx'  , customwgt,  rc=rc)
+      call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'    , 2,      &
+                                  is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid'  , icewgt, &
+                                  is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx_atm', customwgt,  rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
     !-------------
@@ -6098,35 +6067,37 @@ module module_MEDIATOR
     endif ! if (is_local%wrap%i2o_active)
 
     !---------------------------------------
-    !--- zero accumulator
+    !--- zero accumulator if not cold start
     !---------------------------------------
 
-    is_local%wrap%accumcntAtm = 0
-    call fieldBundle_reset(is_local%wrap%FBaccumAtm, value=czero, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (.not. coldstart) then
+      is_local%wrap%accumcntAtm = 0
+      call fieldBundle_reset(is_local%wrap%FBaccumAtm, value=czero, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    is_local%wrap%accumcntIce = 0
-    call fieldBundle_reset(is_local%wrap%FBaccumIce, value=czero, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      is_local%wrap%accumcntIce = 0
+      call fieldBundle_reset(is_local%wrap%FBaccumIce, value=czero, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    is_local%wrap%accumcntLnd = 0
-    call fieldBundle_reset(is_local%wrap%FBaccumLnd, value=czero, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      is_local%wrap%accumcntLnd = 0
+      call fieldBundle_reset(is_local%wrap%FBaccumLnd, value=czero, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+ 
+      is_local%wrap%accumcntHyd = 0
+      call fieldBundle_reset(is_local%wrap%FBaccumHyd, value=czero, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-    is_local%wrap%accumcntHyd = 0
-    call fieldBundle_reset(is_local%wrap%FBaccumHyd, value=czero, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-    is_local%wrap%accumcntAtmOcn = 0
-    call fieldBundle_reset(is_local%wrap%FBaccumAtmOcn, value=czero, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      is_local%wrap%accumcntAtmOcn = 0
+      call fieldBundle_reset(is_local%wrap%FBaccumAtmOcn, value=czero, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    endif
 
     if (dbug_flag > 1) then
-!tcx      call FieldBundle_diagnose(is_local%wrap%FBaccumAtm,    trim(subname)//' FBacc_AFzero ', rc=rc)
-!tcx      call FieldBundle_diagnose(is_local%wrap%FBaccumIce,    trim(subname)//' FBacc_AFzero ', rc=rc)
-!dcr      call FieldBundle_diagnose(is_local%wrap%FBaccumLnd,    trim(subname)//' FBacc_AFzero ', rc=rc)
-!dcr      call FieldBundle_diagnose(is_local%wrap%FBaccumHyd,    trim(subname)//' FBacc_AFzero ', rc=rc)
-!tcx      call FieldBundle_diagnose(is_local%wrap%FBaccumAtmOcn, trim(subname)//' FBacc_AFzero ', rc=rc)
+!tcx   call FieldBundle_diagnose(is_local%wrap%FBaccumAtm,    trim(subname)//' FBacc_AFzero ', rc=rc)
+!tcx   call FieldBundle_diagnose(is_local%wrap%FBaccumIce,    trim(subname)//' FBacc_AFzero ', rc=rc)
+!dcr   call FieldBundle_diagnose(is_local%wrap%FBaccumLnd,    trim(subname)//' FBacc_AFzero ', rc=rc)
+!dcr   call FieldBundle_diagnose(is_local%wrap%FBaccumHyd,    trim(subname)//' FBacc_AFzero ', rc=rc)
+!tcx   call FieldBundle_diagnose(is_local%wrap%FBaccumAtmOcn, trim(subname)//' FBacc_AFzero ', rc=rc)
     endif
 
     !--- set export State to special value for testing
@@ -9526,18 +9497,18 @@ endif
     type(ESMF_Array)                    :: coordArraySrc, coordArrayDst
     integer(ESMF_KIND_I4),allocatable   :: factorList(:)
     integer, allocatable                :: factorIndexList(:,:)
-    type(ESMF_RouteHandle)          :: routehandle
-    integer                         :: dimCountSrc, dimCountDst
-    integer                         :: deCountDst
-    integer, allocatable            :: elementCountPDeDst(:)
-    integer(ESMF_KIND_I8)           :: sumElementCountPDeDst
-    type(ESMF_TypeKind_Flag)        :: coordTypeKindSrc, coordTypeKindDst
-    type(ESMF_CoordSys_Flag)        :: coordSysSrc, coordSysDst
-    logical                         :: isPresentSrc, isPresentDst
-    integer                         :: dimIndex, staggerlocIndex
-    integer                         :: localPet
-    character(len=10)               :: numString
-    CHARACTER(LEN=*), PARAMETER :: SUBNAME='(module_MEDIATOR:NEMS_GridCopyCoord)'
+    type(ESMF_RouteHandle)              :: routehandle
+    integer                             :: dimCountSrc, dimCountDst
+    integer                             :: deCountDst
+    integer, allocatable                :: elementCountPDeDst(:)
+    integer(ESMF_KIND_I8)               :: sumElementCountPDeDst
+    type(ESMF_TypeKind_Flag)            :: coordTypeKindSrc, coordTypeKindDst
+    type(ESMF_CoordSys_Flag)            :: coordSysSrc, coordSysDst
+    logical                             :: isPresentSrc, isPresentDst
+    integer                             :: dimIndex, staggerlocIndex
+    integer                             :: localPet
+    character(len=10)                   :: numString
+    CHARACTER(LEN=*), PARAMETER         :: SUBNAME='(module_MEDIATOR:NEMS_GridCopyCoord)'
 
     if (dbug_flag > 10) then
       call ESMF_LogWrite(SUBNAME//": called", ESMF_LOGMSG_INFO, rc=dbrc)
