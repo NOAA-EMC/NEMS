@@ -7,6 +7,9 @@
 ifneq (,$(and $(wildcard /scratch1),$(wildcard /scratch2)))
   NEMS_COMPILER?=intel
   $(call add_build_env,hera.$(NEMS_COMPILER),env/rdhpcs/hera.$(NEMS_COMPILER).mk)
+else ifneq (,$(wildcard /work/noaa))
+  NEMS_COMPILER?=intel
+  $(call add_build_env,orion.$(NEMS_COMPILER),env/rdhpcs/orion.$(NEMS_COMPILER).mk)
 else
   ifneq (,$(and $(wildcard /lfs1),$(wildcard /lfs3)))
     NEMS_COMPILER?=intel

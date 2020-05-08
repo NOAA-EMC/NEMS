@@ -4,7 +4,7 @@ all_component_mk_files+=$(cice_mk)
 
 # Location of source code and installation
 CICE_SRCDIR?=$(ROOTDIR)/CICE
-CICE_BINDIR?=$(ROOTDIR)/CICE_INSTALL
+CICE_BINDIR?=$(ROOTDIR)/CICE/CICE_INSTALL
 
 CICE_CAPDIR?=$(ROOTDIR)/CICE_CAP
 
@@ -16,6 +16,12 @@ NEMS_GRID?=T126_mx5
 $(call require_dir,$(CICE_SRCDIR),CICE source directory)
 $(call require_dir,$(ROOTDIR)/CICE_CAP,CICE cap directory)
 
+ifneq (,$(findstring CMEPS,$(COMPONENTS)))
+CPPCMEPS = -DCMEPS
+else
+CPPCMEPS =
+endif
+
 CICE_ALL_OPTS=\
   COMP_SRCDIR=$(CICE_SRCDIR) \
   COMP_BINDIR=$(CICE_BINDIR) \
@@ -23,6 +29,7 @@ CICE_ALL_OPTS=\
   SYSTEM_USERDIR="$(CICE_SRCDIR)" \
   SRCDIR="$(CICE_SRCDIR)" \
   EXEDIR="$(CICE_SRCDIR)" \
+  CPPCMEPS="$(CPPCMEPS)"  \
   NEMS_GRID="$(NEMS_GRID)"
 
 ########################################################################
@@ -31,7 +38,7 @@ CICE_ALL_OPTS=\
 $(cice_mk): configure
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
-	export $(CICE_ALL_OPTS)                                           ; \
+	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
 	cd $(CICE_SRCDIR)                                                 ; \
 	./comp_ice.backend
 	+$(MODULE_LOGIC) ; cd $(CICE_CAPDIR) ; exec $(MAKE) -f makefile.nuopc    \
