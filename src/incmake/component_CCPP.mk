@@ -25,13 +25,11 @@ endif
 
 # Process make options for CCPP build
 ifneq (,$(findstring SUITES=,$(FV3_MAKEOPT)))
-  # Extract name of suite definition files using sed:
-  # - remove everything leading up to the name of the suite definition file
-  # - remove everything following the name of the suite definition file
+  # Extract names of suite definition files using sed:
+  # - remove everything leading up to the names of the suite definition files
+  # - remove everything following the names of the suite definition files
   SUITES = $(shell echo $(FV3_MAKEOPT) | sed 's/.* SUITES=//' | sed 's/ .*//')
   override CCPP_CONFOPT += --suites=$(SUITES)
-else
-  $(error Required suites argument missing: SUITES=xyz,abc,... (where suite xyz corresponds to file suite_xyz.xml))
 endif
 
 # Make sure the expected directories exist and are non-empty:
