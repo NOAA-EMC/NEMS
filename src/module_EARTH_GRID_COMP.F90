@@ -218,7 +218,7 @@
       INTEGER             :: RC, nf
       type(ESMF_Config)   :: config
 !
-      integer, parameter       :: NumFields=267
+      integer, parameter       :: NumFields=268
 !     integer, parameter       :: NumFields=259
 !     integer, parameter       :: NumFields=256
 !     integer, parameter       :: NumFields=253
@@ -466,6 +466,7 @@
 ! ----------------------
       "eastward_wind_at_10m_height                                 ", "m s-1                                                       ", &
       "northward_wind_at_10m_height                                ", "m s-1                                                       ", &
+      "sea_ice_concentration                                       ", "1                                                           ", &
       "eastward_stokes_drift_current                               ", "m s-1                                                       ", &
       "northward_stokes_drift_current                              ", "m s-1                                                       ", &
       "eastward_wave_bottom_current                                ", "m s-1                                                       ", &
@@ -481,11 +482,11 @@
       "wave_bottom_current_period                                  ", "s                                                           ", &
 !For MOM6 and WW3 variables to match:
       "eastward_partitioned_stokes_drift_1                         ", "m s-1                                                       ", &
-      "northwar_partitioned_stokes_drift_1                         ", "m s-1                                                       ", &
+      "northward_partitioned_stokes_drift_1                        ", "m s-1                                                       ", &
       "eastward_partitioned_stokes_drift_2                         ", "m s-1                                                       ", &
-      "northwar_partitioned_stokes_drift_2                         ", "m s-1                                                       ", &
+      "northward_partitioned_stokes_drift_2                        ", "m s-1                                                       ", &
       "eastward_partitioned_stokes_drift_3                         ", "m s-1                                                       ", &
-      "northwar_partitioned_stokes_drift_3                         ", "m s-1                                                       ", &
+      "northward_partitioned_stokes_drift_3                        ", "m s-1                                                       ", &
 
 ! Fields from WAM to IPE
 ! ----------------------
@@ -648,6 +649,10 @@
 
       call NUOPC_FieldDictionarySetSyno(standardNames = (/"northward_wind_at_10m_height",&
                                         "inst_merid_wind_height10m   "/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
+      call NUOPC_FieldDictionarySetSyno(standardNames = (/"ice_fraction",&
+                                        "sea_ice_concentration"/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
 ! For MOM6 and WW3 variables to match: 
