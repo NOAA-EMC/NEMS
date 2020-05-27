@@ -28,6 +28,12 @@ elif [[ -d /scratch1 && ! -d /scratch ]] ; then
         source /apps/lmod/lmod/init/$__ms_shell
     fi
     module purge
+elif [[ -d /work/noaa ]] ; then
+    # We are on Orion
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+        source /apps/lmod/init/$__ms_shell
+    fi
+    module purge
 elif [[ -d /data ]] ; then
     # We are on SSEC Wisconsin S4
     if ( ! eval module help > /dev/null 2>&1 ) ; then

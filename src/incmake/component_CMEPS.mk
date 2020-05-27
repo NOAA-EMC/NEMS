@@ -37,6 +37,7 @@ $(cmeps_mk): configure
 
 # Rule for cleaning the SRCDIR and BINDIR:
 clean_CMEPS: 
+	cp -n $(MODULE_DIR)/$(CHOSEN_MODULE) $(CONFDIR)/modules.nems ; \
 	$(MODULE_LOGIC) ; export $(CMEPS_ALL_OPTS)         ; \
 	set -e                                             ; \
 	cd $(CMEPS_SRCDIR)                                 ; \
