@@ -1,4 +1,4 @@
-MACHINE_ID=wcoss
+MACHINE_ID=wcoss_dell_p3
 FULL_MACHINE_ID=wcoss_dell_p3
 PEX=3
 USE_MODULES=YES

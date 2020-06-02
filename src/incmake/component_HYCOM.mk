@@ -14,6 +14,22 @@ else ifeq ($(MACHINE_ID),hera)
   HYCOM_ARCH=intelsse-impi-sm-relo
   HYCOM_TYPE=mpi
   HYCOM_OPTS=-DEOS_SIG2 -DEOS_17T -DESPC_COUPLE
+else ifeq ($(MACHINE_ID),jet)
+  HYCOM_ARCH=intelsse-impi-sm-relo
+  HYCOM_TYPE=mpi
+  HYCOM_OPTS=-DEOS_SIG2 -DEOS_17T -DESPC_COUPLE
+else ifeq ($(MACHINE_ID),orion)
+  HYCOM_ARCH=intelsse-impi-sm-relo
+  HYCOM_TYPE=mpi
+  HYCOM_OPTS=-DEOS_SIG2 -DEOS_17T -DESPC_COUPLE
+else ifeq ($(MACHINE_ID),wcoss_cray)
+  HYCOM_ARCH=xc40-intel-relo
+  HYCOM_TYPE=mpi
+  HYCOM_OPTS=-DEOS_SIG2 -DEOS_17T -DESPC_COUPLE
+else ifeq ($(MACHINE_ID),wcoss_dell_p3)
+  HYCOM_ARCH=intelsse-impi-sm-relo
+  HYCOM_TYPE=mpi
+  HYCOM_OPTS=-DEOS_SIG2 -DEOS_17T -DESPC_COUPLE
 else
   HYCOM_ARCH=Aintelrelo
   HYCOM_TYPE=nuopc
