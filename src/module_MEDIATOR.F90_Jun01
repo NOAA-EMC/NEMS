@@ -1049,7 +1049,7 @@ module module_MEDIATOR
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     overwrite_flag = (trim(value) /= "false")
-    write(msgString,'(A,l6)')'MEDIATOR: Overwrite_Flag = ',overwrite_flag
+    write(msgString,'(A,l6)')'CICE_CAP: Overwrite_Flag = ',overwrite_flag
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     
     call ESMF_AttributeGet(gcomp, name="DumpRHs", value=value, defaultValue="false", &
@@ -2098,7 +2098,7 @@ module module_MEDIATOR
 
           ! regrid ocean mask from ocn to atm grid using unmasked conservative mapping
 
-          if (ESMF_RouteHandleIsCreated(RH_mapmask, rc=rc)) then
+            if (ESMF_RouteHandleIsCreated(RH_mapmask, rc=rc)) then
             dataPtr_fieldAtm = czero
             call ESMF_FieldRegrid(fieldOcnMask, fieldAtmMask, routehandle=RH_mapmask, &
                                   termorderflag=ESMF_TERMORDER_SRCSEQ, zeroregion=ESMF_REGION_TOTAL, rc=rc)
@@ -2120,11 +2120,11 @@ module module_MEDIATOR
             do i = lbound(dataPtr_fieldAtm,1),ubound(dataPtr_fieldAtm,1)
               dataPtr_fieldAtm(i,j) = cone - dataPtr_fieldAtm(i,j)
 !             dataPtr_fieldAtm(i,j) = dataPtr_arrayAtm(i,j)
-              if (dataPtr_fieldAtm(i,j) > cone)   dataPtr_fieldAtm(i,j) = cone
-              if (dataPtr_fieldAtm(i,j) < conem6) dataPtr_fieldAtm(i,j) = czero
-              land_mask(i,j) = dataPtr_fieldAtm(i,j)
-            enddo
-          enddo
+             if (dataPtr_fieldAtm(i,j) > cone)   dataPtr_fieldAtm(i,j) = cone
+             if (dataPtr_fieldAtm(i,j) < conem6) dataPtr_fieldAtm(i,j) = czero
+             land_mask(i,j) = dataPtr_fieldAtm(i,j)
+           enddo
+         enddo
 
           ! write out masks
 
@@ -2133,12 +2133,12 @@ module module_MEDIATOR
           write (msgString,*) trim(subname)//"ocean_mask = ",minval(dataPtr_fieldOcn),maxval(dataPtr_fieldOcn)
           call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 
-#ifndef FRONT_FV3
-          call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=overwrite_flag,rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-          write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
-          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-#endif
+!#ifndef FRONT_FV3
+!         call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=overwrite_flag,rc=rc)
+!         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
+!         write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
+!         call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+!#endif
 
         else  ! isPresentOcn .and. isPresentIce
           call ESMF_LogWrite(trim(subname)//": ABORT more support needed for Ocn or Ice mask", ESMF_LOGMSG_INFO, rc=rc)
