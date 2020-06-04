@@ -75,6 +75,12 @@ elif [[ -d /glade ]] ; then
       . /glade/u/apps/ch/modulefiles/default/localinit/localinit.sh
     fi
     module purge
+elif [[ -d /work/stampede ]] ; then
+    # We are on TACC Stampede
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+      source /opt/apps/lmod/lmod/init/bash
+    fi
+    module purge
 elif [[ -d /lustre && -d /ncrc ]] ; then
     # We are on GAEA. 
     if ( ! eval module help > /dev/null 2>&1 ) ; then
