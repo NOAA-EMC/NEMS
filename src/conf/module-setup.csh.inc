@@ -14,6 +14,12 @@ else if ( { test -d /scratch1 -a ! -d /scratch } ) then
         source /apps/lmod/lmod/init/$__ms_shell
     endif
     module purge
+else if ( { test -d /work/noaa } ) then
+    # We are on Orion
+    if ( ! { module help >& /dev/null } ) then
+        source /apps/lmod/init/$__ms_shell
+    endif
+    module purge
 else if ( { test -d /data } ) then
     # We are on SSEC Wisconsin S4
     if ( ! { module help >& /dev/null } ) then
@@ -52,6 +58,12 @@ else if ( { test -d /glade } ) then
     # We are on NCAR Cheyenne
     if ( ! { module help >& /dev/null } ) then
       source /glade/u/apps/ch/modulefiles/default/localinit/localinit.csh
+    endif
+    module purge
+else if ( { test -d /work/stampede } ) then
+    # We are on TACC Stampede
+    if ( ! { module help >& /dev/null } ) then
+      source /opt/apps/lmod/lmod/init/csh
     endif
     module purge
 else if ( { test -d /lustre -a -d /ncrc } ) then
