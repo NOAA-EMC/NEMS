@@ -1316,7 +1316,7 @@
         character(len=ESMF_MAXSTR)      :: msgString
         character(len=10)               :: value
 
-! can set to 'max' to recover intro/extro CurrGarbInfo for all connectors 
+! can set to 'max' to recover intro/extro CurrGarbInfo for all connectors
 ! -----------------------------------------------------------------------
         character(len=10)               :: defaultVerbosity = "0"
         !character(len=10)              :: defaultVerbosity = "max"
