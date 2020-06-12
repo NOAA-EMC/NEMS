@@ -271,7 +271,7 @@ module module_MEDIATOR
   logical            :: coldstart = .false.           ! coldstart flag
   logical            :: maptest = .false.             ! maptest flag
   logical            :: atmocn_flux_from_atm = .true. ! where is atm/ocn flux computed
-  logical            :: generate_landmask = .false.   ! landmask flag
+  logical            :: generate_landmask = .true.    ! landmask flag
   integer            :: dbrc
   character(len=256) :: msgString, restart_dir
   logical            :: isPresent
@@ -1029,7 +1029,7 @@ module module_MEDIATOR
     write(msgString,'(A,l6)') trim(subname)//' maptest = ',maptest
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
 
-    call ESMF_AttributeGet(gcomp, name="generate_landmask", value=value, defaultValue="false", &
+    call ESMF_AttributeGet(gcomp, name="generate_landmask", value=value, defaultValue="true", &
                            convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -1754,7 +1754,6 @@ module module_MEDIATOR
     logical                          :: isPresentOcn, isPresentIce
     character(len=*),parameter       :: subname='(module_MEDIATOR:InitializeIPDv03p5)'
     integer                          :: localPet
-    type(ESMF_GridComp)              :: IOComp
 
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -2134,31 +2133,19 @@ module module_MEDIATOR
           write (msgString,*) trim(subname)//"ocean_mask = ",minval(dataPtr_fieldOcn),maxval(dataPtr_fieldOcn)
           call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
 
-!#ifndef FRONT_FV3
-!         call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=overwrite_flag,rc=rc)
-!         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-!         write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
-!         call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-!#endif
-
-!*************
-!-------------
-! -- Create ESMFIO
-          IOComp = ESMFIO_Create(gridAtmCoord, rc=rc)
+#ifndef FRONT_FV3
+          call ESMF_FieldWrite(fieldAtmMask,'field_med_atm_a_land_mask.nc',overwrite=overwrite_flag,rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-
-! -- Write landmask files
-          call ESMFIO_Write(IOComp, 'field_med_atm_a_land_mask.nc', (/fieldAtmMask/), filePath='./', rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-
-!************
-!-------------
+          write (msgString,*) trim(subname)//"land_mask = ",minval(dataPtr_fieldAtm),maxval(dataPtr_fieldAtm)
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+#endif
 
         else  ! isPresentOcn .and. isPresentIce
           call ESMF_LogWrite(trim(subname)//": ABORT more support needed for Ocn or Ice mask", ESMF_LOGMSG_INFO, rc=rc)
           call ESMF_Finalize(endflag=ESMF_END_ABORT)
         endif
       endif  ! isPresentOcn .or. isPresentIce
+
 
 !BL2017b
 !     call ESMF_GridGetItem(gridAtm, staggerLoc=ESMF_STAGGERLOC_CENTER, itemflag=ESMF_GRIDITEM_MASK, farrayPtr=dataPtr_arrayAtm, rc=rc)
@@ -2741,14 +2728,9 @@ module module_MEDIATOR
       call ESMF_GridDestroy(gridOcnCoord,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
     endif
-
     if (generate_landmask) then
       call ESMF_FieldDestroy(fieldAtmMask,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,line=__LINE__, file=__FILE__)) return
-
-! -- Finalize ESMFIO  (commented out because calling the following maked the model to segfault)
-!     call ESMFIO_Destroy(IOComp, rc=rc)
-!     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     endif
 
     if (dbug_flag > 5) then
