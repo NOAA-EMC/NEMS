@@ -100,6 +100,9 @@
 #ifdef FRONT_CICE
       use FRONT_CICE,       only: CICE_SS  => SetServices
 #endif
+#ifdef FRONT_CICE6
+      use FRONT_CICE6,      only: CICE6_SS => SetServices
+#endif
   ! - Handle build time WAV options:
 #ifdef FRONT_SWAV
       use FRONT_SWAV,       only: SWAV_SS  => SetServices
@@ -3710,6 +3713,19 @@
           elseif (trim(model) == "cice") then
 #ifdef FRONT_CICE
             call NUOPC_DriverAddComp(driver, trim(prefix), CICE_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
+          elseif (trim(model) == "cice6") then
+#ifdef FRONT_CICE6
+            call NUOPC_DriverAddComp(driver, trim(prefix), CICE6_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out

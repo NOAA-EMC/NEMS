@@ -60,6 +60,12 @@ else if ( { test -d /glade } ) then
       source /glade/u/apps/ch/modulefiles/default/localinit/localinit.csh
     endif
     module purge
+else if ( { test -d /work/stampede } ) then
+    # We are on TACC Stampede
+    if ( ! { module help >& /dev/null } ) then
+      source /opt/apps/lmod/lmod/init/csh
+    endif
+    module purge
 else if ( { test -d /lustre -a -d /ncrc } ) then
     # We are on GAEA. 
     if ( ! { module help >& /dev/null } ) then
