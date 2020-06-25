@@ -17,7 +17,7 @@ else if ( { test -d /scratch1 -a ! -d /scratch } ) then
 else if ( { test -d /work/noaa } ) then
     # We are on Orion
     if ( ! { module help >& /dev/null } ) then
-      source /apps/lmod/init/$__ms_shell
+      source /apps/lmod/lmod/init/$__ms_shell
     endif
     module purge
 else if ( { test -d /gpfs/hps -a -e /etc/SuSE-release } ) then
