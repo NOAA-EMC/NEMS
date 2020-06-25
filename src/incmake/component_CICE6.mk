@@ -49,6 +49,7 @@ build_CICE6: $(cice6_mk)
 # Rules for cleaning the SRCDIR and BINDIR:
 
 clean_CICE6_SRC: configure
+	cp -n $(MODULE_DIR)/$(CHOSEN_MODULE) $(CONFDIR)/modules.nems      ; \
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
 	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
