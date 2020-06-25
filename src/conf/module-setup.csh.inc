@@ -14,6 +14,12 @@ else if ( { test -d /scratch1 -a ! -d /scratch } ) then
         source /apps/lmod/lmod/init/$__ms_shell
     endif
     module purge
+else if ( { test -d /work/noaa } ) then
+    # We are on Orion
+    if ( ! { module help >& /dev/null } ) then
+      source /apps/lmod/lmod/init/$__ms_shell
+    endif
+    module purge
 else if ( { test -d /gpfs/hps -a -e /etc/SuSE-release } ) then
     # We are on NOAA Luna or Surge
     if ( ! { module help >& /dev/null } ) then
