@@ -5888,7 +5888,7 @@ module module_MEDIATOR
       do j=jl,ju
         do i=il,iu
           icewgt(i,j)    = max(czero, min(icewgt(i,j), cone))
-          atmwgt(i,j)    = cone - icewgt(i,j)
+          atmwgt(i,j)    = max(czero, cone - icewgt(i,j))
           customwgt(i,j) = abs(atmwgt(i,j) + icewgt(i,j) - cone)
         enddo
       enddo
