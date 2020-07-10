@@ -5483,10 +5483,10 @@ module module_MEDIATOR
       wgtm01(i,j)  = 0.0_ESMF_KIND_R8
 ! DATM uses atm fluxes in non-icy water
       if (atmocn_flux_from_atm .and. icewgt(i,j) <= 0.0_ESMF_KIND_R8) then
-        atmwgt1(i,j) = 0.0_ESMF_KIND_R8
+        atmwgt1(i,j) = 1.0_ESMF_KIND_R8
         icewgt1(i,j) = 0.0_ESMF_KIND_R8
-        wgtp01(i,j)  = 1.0_ESMF_KIND_R8
-        wgtm01(i,j)  = -1.0_ESMF_KIND_R8
+        wgtp01(i,j)  = 0.0_ESMF_KIND_R8
+        wgtm01(i,j)  = 0.0_ESMF_KIND_R8
       endif
 
       ! check wgts do add to 1 as expected
