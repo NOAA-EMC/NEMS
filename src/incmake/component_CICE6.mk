@@ -3,9 +3,9 @@ cice6_mk=$(CICE_BINDIR)/cice6.mk
 all_component_mk_files+=$(cice6_mk)
 
 # Location of source code and installation
-CICE_SRCDIR?=$(ROOTDIR)/CICE6
-CICE_UFSDIR?=$(ROOTDIR)/CICE6/configuration/scripts/forapps/ufs
-CICE_BINDIR?=$(ROOTDIR)/CICE6_INSTALL
+CICE_SRCDIR?=$(ROOTDIR)/CICE-interface/CICE
+CICE_UFSDIR?=$(ROOTDIR)/CICE-interface/CICE/configuration/scripts/forapps/ufs
+CICE_BINDIR?=$(ROOTDIR)/CICE-interface/CICE_INSTALL
 
 # NEMS_GRID was found in CICE and defaults to a low-res GSM grid
 # This is obsolete and perhaps should be removed.
