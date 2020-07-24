@@ -777,12 +777,14 @@
 #ifdef CMEPS
         inst_suffix = ""
 
-        ! obtain driver attributes (for CMEPS)
-        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+        if (componentCount > 1) then
+          ! obtain driver attributes (for CMEPS)
+          call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
-        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+          call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+        endif
 #endif
 
 
@@ -1212,12 +1214,14 @@
 ! --------
           deallocate(petList)
 #ifdef CMEPS
-        ! Perform restarts if appropriate
-        call InitRestart(driver, rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+          if (componentCount > 1) then
+            ! Perform restarts if appropriate
+            call InitRestart(driver, rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
 
-        call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+            call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=trim(name)//":"//__FILE__)) return
+          endif
 #endif
 
         enddo
