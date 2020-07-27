@@ -3,8 +3,8 @@ mom6_mk = $(MOM6_BINDIR)/mom6.mk
 all_component_mk_files+=$(mom6_mk)
 
 # Location of source code and installation
-MOM6_SRCDIR?=$(ROOTDIR)/MOM6
-MOM6_BINDIR?=$(ROOTDIR)/MOM6/MOM6_INSTALL
+MOM6_SRCDIR?=$(ROOTDIR)/MOM6-interface
+MOM6_BINDIR?=$(ROOTDIR)/MOM6-interface/MOM6_INSTALL
 
 # Make sure the expected directories exist and are non-empty:
 $(call require_dir,$(MOM6_SRCDIR),MOM6 source directory)
