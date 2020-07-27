@@ -4897,7 +4897,7 @@ module module_MEDIATOR
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
 
 ! LHC 2020
-#ifndef DATM
+#ifdef DATM
     real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
                                    qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
     real(ESMF_KIND_R8), pointer :: u10m(:,:),v10m(:,:),t2m(:,:),q2m(:,:), &
