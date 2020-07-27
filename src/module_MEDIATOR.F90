@@ -564,9 +564,7 @@ module module_MEDIATOR
 
 
     ! Fields from ATM
-! LHC 2020
     call fld_list_add(fldsFrAtm,"mean_zonal_moment_flx_atm"   , "cannot provide","conservefrac")
-   !call fld_list_add(fldsFrAtm,"mean_zonal_moment_flx_atm"   , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_merid_moment_flx_atm"   , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_sensi_heat_flx"         , "will provide","conservefrac")
     call fld_list_add(fldsFrAtm,"mean_laten_heat_flx"         , "will provide","conservefrac")
@@ -4897,16 +4895,17 @@ module module_MEDIATOR
     type(InternalState)         :: is_local
     integer                     :: i,j,n
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
+
+! LHC 2020
+#ifndef DATM
     real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
                                    qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
-! LHC 2020
     real(ESMF_KIND_R8), pointer :: u10m(:,:),v10m(:,:),t2m(:,:),q2m(:,:), &
                                    mtaux(:,:),mtauy(:,:)
     real(ESMF_KIND_R8), pointer :: u10m2(:,:),v10m2(:,:),t2m2(:,:),q2m2(:,:), &
                                    mtaux2(:,:),mtauy2(:,:)
     real(ESMF_KIND_R8)          :: u10m1(1),v10m1(1),t2m1(1),q2m1(1), &
                                    mtaux1(1),mtauy1(1),th2m1(1)
-! LHC 2020
     real(ESMF_KIND_R8), pointer :: us  (:,:),vs  (:,:),ts  (:,:),mask(:,:)
     real(ESMF_KIND_R8), pointer :: sen (:,:),lat (:,:),lwup(:,:),evap(:,:), &
                                    taux(:,:),tauy(:,:),tref(:,:),qref(:,:),duu10n(:,:)
@@ -4916,6 +4915,21 @@ module module_MEDIATOR
     real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
     real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
                                    taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
+#else
+    real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
+                                   qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
+    real(ESMF_KIND_R8), pointer :: us  (:,:),vs  (:,:),ts  (:,:),mask(:,:)
+    real(ESMF_KIND_R8), pointer :: sen (:,:),lat (:,:),lwup(:,:),evap(:,:), &
+                                   taux(:,:),tauy(:,:),tref(:,:),qref(:,:),duu10n(:,:)
+    real(ESMF_KIND_R8)          :: zbot1(1),ubot1(1),vbot1(1),thbot1(1), &
+                                   qbot1(1),rbot1(1),tbot1(1)
+    integer                     :: mask1(1)
+    real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
+    real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
+                                   taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
+#endif
+! LHC 2020
+
 !BL2017
     integer                     :: fieldCount
     real(ESMF_KIND_R8), pointer :: zbot2(:,:),ubot2(:,:),vbot2(:,:)
@@ -5054,6 +5068,7 @@ module module_MEDIATOR
       line=__LINE__, file=__FILE__)) return  ! bail out
 
 ! LHC 2020
+#ifdef DATM
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5089,8 +5104,6 @@ module module_MEDIATOR
   ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
   !   line=__LINE__, file=__FILE__)) return  ! bail out
 
-! LHC 2020
-
     do j=lbound(zbot,2),ubound(zbot,2)
     do i=lbound(zbot,1),ubound(zbot,1)
     if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
@@ -5108,6 +5121,23 @@ module module_MEDIATOR
     enddo
     enddo
     deallocate(fieldNameList)
+#else
+    do j=lbound(zbot,2),ubound(zbot,2)
+    do i=lbound(zbot,1),ubound(zbot,1)
+    if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
+    zbot(i,j)=zbot2(i,j)
+    tbot(i,j)=tbot2(i,j)
+    ubot(i,j)=ubot2(i,j)
+    vbot(i,j)=vbot2(i,j)
+    qbot(i,j)=qbot2(i,j)
+    pbot(i,j)=pbot2(i,j)
+    endif
+    enddo
+    enddo
+    deallocate(fieldNameList)
+#endif
+! LHC 2020
+
 !BL2017 
     endif
 
@@ -5137,6 +5167,7 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 ! LHC 2020
+#ifdef DATM
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5155,7 +5186,7 @@ module module_MEDIATOR
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_merid_moment_flx_atm', mtauy, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-
+#endif
 ! LHC 2020
 
     !--- ocean fields input
@@ -5221,30 +5252,31 @@ module module_MEDIATOR
 
       mask1(1)  = nint(mask(i,j))
 ! LHC 2020
-!      call shr_flux_atmOcn(1         ,zbot1(1)  ,ubot1(1)  ,vbot1(1)  ,thbot1(1) ,   &
-!                           qbot1(1)  ,rbot1(1)  ,tbot1(1)  ,us1(1)    ,vs1(1)    ,   &
-!                           ts1(1)    ,mask1(1)  ,sen1(1)   ,lat1(1)   ,lwup1(1)  ,   &
-!!                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1))
-!!tcx include this for the time being to get over the initialization hump
-!                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
-!                           missval = 0.0_ESMF_KIND_R8  )
+#ifdef DATM
       if(pbot(i,j) .gt. 0.0) &
-     th2m1(1) = t2m(i,j)*((100000._ESMF_KIND_R8/pbot(i,j))**0.286_ESMF_KIND_R8)  ! tcx temporary, assume p2m and pbot
-
+      th2m1(1) = t2m(i,j)*((100000._ESMF_KIND_R8/pbot(i,j))**0.286_ESMF_KIND_R8)  ! tcx temporary, assume p2m and pbot
       u10m1(1)  = u10m(i,j)
       v10m1(1)  = v10m(i,j)
       t2m1(1)   = t2m(i,j) 
       q2m1(1)   = q2m(i,j) 
       mtaux1(1) = mtaux(i,j)
       mtauy1(1) = mtauy(i,j)
-      
 
-     call shr_flux_atmOcn_bf(1   ,u10m1(1)  ,v10m1(1)  ,t2m1(1) ,th2m1(1)  ,q2m1(1)  ,  &
+      call shr_flux_atmOcn_bf(1   ,u10m1(1)  ,v10m1(1)  ,t2m1(1) ,th2m1(1)  ,q2m1(1)  ,  &
                           zbot1(1),  rbot1(1)  ,thbot1(1)  ,tbot1(1)  ,qbot1(1) ,  &
                           us1(1)    ,vs1(1)    ,ts1(1)    ,mask1(1)  ,  &
                           sen1(1)   ,lat1(1)   ,lwup1(1)  ,  &
                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
                           missval = 0.0_ESMF_KIND_R8  )
+#else
+      call shr_flux_atmOcn(1         ,zbot1(1)  ,ubot1(1)  ,vbot1(1)  ,thbot1(1) ,   &
+                           qbot1(1)  ,rbot1(1)  ,tbot1(1)  ,us1(1)    ,vs1(1)    ,   &
+                           ts1(1)    ,mask1(1)  ,sen1(1)   ,lat1(1)   ,lwup1(1)  ,   &
+!                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1))
+!tcx include this for the time being to get over the initialization hump
+                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
+                           missval = 0.0_ESMF_KIND_R8  )
+#endif
 ! LHC 2020
 
       sen(i,j)    = sen1(1)
