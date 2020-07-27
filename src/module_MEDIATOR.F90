@@ -5606,14 +5606,7 @@ module module_MEDIATOR
     do j=lbound(icewgt,2),ubound(icewgt,2)
     do i=lbound(icewgt,1),ubound(icewgt,1)
 
-!LHC 2020
-#ifdef FV3_CPLD
-      atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
-      atmwgt1(i,j) = 0.0_ESMF_KIND_R8
-      icewgt1(i,j) =  icewgt(i,j)
-      wgtm01(i,j)  = -atmwgt(i,j)
-      wgtp01(i,j)  =  atmwgt(i,j)
-#elif DATM
+#ifndef FV3_CPLD
 ! DATM uses mediator aoflux calc in icy water
       atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
       atmwgt1(i,j) = atmwgt(i,j)
@@ -5621,29 +5614,6 @@ module module_MEDIATOR
       wgtp01(i,j)  = 0.0_ESMF_KIND_R8
       wgtm01(i,j)  = 0.0_ESMF_KIND_R8
 ! DATM uses mediator aoflux calc in non-icy water
-      if (atmocn_flux_from_atm .and. icewgt(i,j) <= 0.0_ESMF_KIND_R8) then
-        atmwgt1(i,j) = 0.0_ESMF_KIND_R8
-        icewgt1(i,j) = 0.0_ESMF_KIND_R8
-        wgtp01(i,j)  = 1.0_ESMF_KIND_R8
-        wgtm01(i,j)  = -1.0_ESMF_KIND_R8
-      endif
-
-      ! check wgts do add to 1 as expected
-      if (abs(atmwgt(i,j) + icewgt(i,j) - 1.0_ESMF_KIND_R8) > 1.0e-12 .or. &
-          abs(atmwgt1(i,j) + icewgt1(i,j) + wgtp01(i,j) - 1.0_ESMF_KIND_R8) > 1.0e-12 .or. &
-          abs(atmwgt1(i,j) + icewgt1(i,j) - wgtm01(i,j) - 1.0_ESMF_KIND_R8) > 1.0e-12) then
-        call ESMF_LogWrite(trim(subname)//": ERROR atm + ice fracs inconsistent", ESMF_LOGMSG_ERROR, line=__LINE__, file=__FILE__, rc=dbrc)
-        rc = ESMF_FAILURE
-        return
-      endif
-#else
-! DATM uses mediator aoflux calc in icy water
-      atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
-      atmwgt1(i,j) = atmwgt(i,j)
-      icewgt1(i,j) = icewgt(i,j)
-      wgtp01(i,j)  = 0.0_ESMF_KIND_R8
-      wgtm01(i,j)  = 0.0_ESMF_KIND_R8
-! DATM uses atm fluxes in non-icy water
       if (atmocn_flux_from_atm .and. icewgt(i,j) <= 0.0_ESMF_KIND_R8) then
         atmwgt1(i,j) = 1.0_ESMF_KIND_R8
         icewgt1(i,j) = 0.0_ESMF_KIND_R8
@@ -5659,8 +5629,13 @@ module module_MEDIATOR
         rc = ESMF_FAILURE
         return
       endif
+#else
+      atmwgt(i,j)  = 1.0_ESMF_KIND_R8 - icewgt(i,j)
+      atmwgt1(i,j) = 0.0_ESMF_KIND_R8
+      icewgt1(i,j) =  icewgt(i,j)
+      wgtm01(i,j)  = -atmwgt(i,j)
+      wgtp01(i,j)  =  atmwgt(i,j)
 #endif
-!LHC 2020
     enddo
     enddo
 
