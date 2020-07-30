@@ -121,9 +121,6 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
       source /etc/profile
       unset __ms_source_etc_profile
     fi
-elif [[ -d /lrz/sys ]] ; then
-    # We are on LRZ SuperMUC, nothing to do
-    echo "Platform: LRZ SuperMUC"
 elif [[ -d /Applications ]] ; then
     # We are on a MacOSX system, nothing to do
     echo "Platform: MacOSX"
