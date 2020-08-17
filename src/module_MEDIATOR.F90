@@ -41,7 +41,7 @@ module module_MEDIATOR
   !              ice variables to other model components, changes in subroutine
   !              "MedPhase_prep_atm" is required. -B Li.
   ! * 2020-07-14 The bulk formular was updated for using 10m U/V, 2mT and 2mQ,
-  !              instead of estimation from surface fields (serch "LHC 2020" in the code
+  !              instead of estimation from surface fields (serch "LHC2020" in the code
   !              for the changes) - H-C Lee.
   !-----------------------------------------------------------------------------
 
@@ -239,6 +239,9 @@ module module_MEDIATOR
   logical            :: coldstart = .false.           ! coldstart flag
   logical            :: atmocn_flux_from_atm = .true. ! where is atm/ocn flux computed
   logical            :: generate_landmask = .true.   ! landmask flag
+!LHC2020
+  logical            :: bulk_method_ori = .true.      ! bulk method flag, original is default
+!LHC2020
   integer            :: dbrc
   character(len=256) :: msgString
   logical            :: isPresent
@@ -4896,8 +4899,7 @@ module module_MEDIATOR
     integer                     :: i,j,n
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
 
-! LHC 2020
-#ifdef DATM
+! LHC2020
     real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
                                    qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
     real(ESMF_KIND_R8), pointer :: u10m(:,:),v10m(:,:),t2m(:,:),q2m(:,:), &
@@ -4915,20 +4917,7 @@ module module_MEDIATOR
     real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
     real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
                                    taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
-#else
-    real(ESMF_KIND_R8), pointer :: zbot(:,:),ubot(:,:),vbot(:,:),thbot(:,:), &
-                                   qbot(:,:),rbot(:,:),tbot(:,:), pbot(:,:)
-    real(ESMF_KIND_R8), pointer :: us  (:,:),vs  (:,:),ts  (:,:),mask(:,:)
-    real(ESMF_KIND_R8), pointer :: sen (:,:),lat (:,:),lwup(:,:),evap(:,:), &
-                                   taux(:,:),tauy(:,:),tref(:,:),qref(:,:),duu10n(:,:)
-    real(ESMF_KIND_R8)          :: zbot1(1),ubot1(1),vbot1(1),thbot1(1), &
-                                   qbot1(1),rbot1(1),tbot1(1)
-    integer                     :: mask1(1)
-    real(ESMF_KIND_R8)          :: us1  (1),vs1  (1),ts1  (1)
-    real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
-                                   taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
-#endif
-! LHC 2020
+! LHC2020
 
 !BL2017
     integer                     :: fieldCount
@@ -5067,76 +5056,69 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-! LHC 2020
-#ifdef DATM
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_u_wind_height10m', u10m2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_v_wind_height10m', v10m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_v_wind_height10m', v10m2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_temp_height2m', t2m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_temp_height2m', t2m2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_spec_humid_height2m', q2m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_spec_humid_height2m', q2m2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-
-  ! call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_zonal_moment_flx_atm', mtaux, rc=rc)
-  ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-  !   line=__LINE__, file=__FILE__)) return  ! bail out
-  ! call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_merid_moment_flx_atm', mtauy, rc=rc)
-  ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-  !   line=__LINE__, file=__FILE__)) return  ! bail out
-
-    do j=lbound(zbot,2),ubound(zbot,2)
-    do i=lbound(zbot,1),ubound(zbot,1)
-    if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
-    zbot(i,j)=zbot2(i,j)
-    tbot(i,j)=tbot2(i,j)
-    ubot(i,j)=ubot2(i,j)
-    vbot(i,j)=vbot2(i,j)
-    qbot(i,j)=qbot2(i,j)
-    pbot(i,j)=pbot2(i,j)
-    u10m(i,j)=u10m2(i,j) 
-    v10m(i,j)=v10m2(i,j) 
-    t2m(i,j)=t2m2(i,j) 
-    q2m(i,j)=q2m2(i,j) 
+! LHC2020
+    if (bulk_method_ori) then
+      do j=lbound(zbot,2),ubound(zbot,2)
+      do i=lbound(zbot,1),ubound(zbot,1)
+      if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
+      zbot(i,j)=zbot2(i,j)
+      tbot(i,j)=tbot2(i,j)
+      ubot(i,j)=ubot2(i,j)
+      vbot(i,j)=vbot2(i,j)
+      qbot(i,j)=qbot2(i,j)
+      pbot(i,j)=pbot2(i,j)
+      endif
+      enddo
+      enddo
+      deallocate(fieldNameList)
+    else
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_u_wind_height10m', u10m2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+  
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_v_wind_height10m', v10m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_v_wind_height10m', v10m2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+  
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_temp_height2m', t2m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_temp_height2m', t2m2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+  
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_spec_humid_height2m', q2m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm2_o, 'inst_spec_humid_height2m', q2m2, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+  
+      do j=lbound(zbot,2),ubound(zbot,2)
+      do i=lbound(zbot,1),ubound(zbot,1)
+      if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
+      zbot(i,j)=zbot2(i,j)
+      tbot(i,j)=tbot2(i,j)
+      ubot(i,j)=ubot2(i,j)
+      vbot(i,j)=vbot2(i,j)
+      qbot(i,j)=qbot2(i,j)
+      pbot(i,j)=pbot2(i,j)
+      u10m(i,j)=u10m2(i,j) 
+      v10m(i,j)=v10m2(i,j) 
+      t2m(i,j)=t2m2(i,j) 
+      q2m(i,j)=q2m2(i,j) 
+      endif
+      enddo
+      enddo
+      deallocate(fieldNameList)
     endif
-    enddo
-    enddo
-    deallocate(fieldNameList)
-#else
-    do j=lbound(zbot,2),ubound(zbot,2)
-    do i=lbound(zbot,1),ubound(zbot,1)
-    if(tbot(i,j).eq.0._ESMF_KIND_R8.and.abs(tbot2(i,j)).gt.0._ESMF_KIND_R8) then
-    zbot(i,j)=zbot2(i,j)
-    tbot(i,j)=tbot2(i,j)
-    ubot(i,j)=ubot2(i,j)
-    vbot(i,j)=vbot2(i,j)
-    qbot(i,j)=qbot2(i,j)
-    pbot(i,j)=pbot2(i,j)
-    endif
-    enddo
-    enddo
-    deallocate(fieldNameList)
-#endif
-! LHC 2020
+! LHC2020
 
 !BL2017 
     endif
@@ -5166,28 +5148,28 @@ module module_MEDIATOR
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_pres_height_lowest', pbot, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-! LHC 2020
-#ifdef DATM
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+! LHC2020
+    if (.not. bulk_method_ori) then
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_u_wind_height10m', u10m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_v_wind_height10m', v10m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_temp_height2m', t2m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_spec_humid_height2m', q2m, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_zonal_moment_flx_atm', mtaux, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+      call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_merid_moment_flx_atm', mtauy, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_v_wind_height10m', v10m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_temp_height2m', t2m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_spec_humid_height2m', q2m, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_zonal_moment_flx_atm', mtaux, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-    call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'mean_merid_moment_flx_atm', mtauy, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=__FILE__)) return  ! bail out
-#endif
-! LHC 2020
+    endif
+! LHC2020
 
     !--- ocean fields input
     call FieldBundle_GetFldPtr(is_local%wrap%FBOcn_o, 'ocean_mask', mask, rc=rc)
@@ -5251,33 +5233,33 @@ module module_MEDIATOR
       ts1(1)    = ts(i,j)
 
       mask1(1)  = nint(mask(i,j))
-! LHC 2020
-#ifdef DATM
-      if(pbot(i,j) .gt. 0.0) &
-      th2m1(1) = t2m(i,j)*((100000._ESMF_KIND_R8/pbot(i,j))**0.286_ESMF_KIND_R8)  ! tcx temporary, assume p2m and pbot
-      u10m1(1)  = u10m(i,j)
-      v10m1(1)  = v10m(i,j)
-      t2m1(1)   = t2m(i,j) 
-      q2m1(1)   = q2m(i,j) 
-      mtaux1(1) = mtaux(i,j)
-      mtauy1(1) = mtauy(i,j)
-
-      call shr_flux_atmOcn_bf(1   ,u10m1(1)  ,v10m1(1)  ,t2m1(1) ,th2m1(1)  ,q2m1(1)  ,  &
-                          zbot1(1),  rbot1(1)  ,thbot1(1)  ,tbot1(1)  ,qbot1(1) ,  &
-                          us1(1)    ,vs1(1)    ,ts1(1)    ,mask1(1)  ,  &
-                          sen1(1)   ,lat1(1)   ,lwup1(1)  ,  &
-                          evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
-                          missval = 0.0_ESMF_KIND_R8  )
-#else
-      call shr_flux_atmOcn(1         ,zbot1(1)  ,ubot1(1)  ,vbot1(1)  ,thbot1(1) ,   &
-                           qbot1(1)  ,rbot1(1)  ,tbot1(1)  ,us1(1)    ,vs1(1)    ,   &
-                           ts1(1)    ,mask1(1)  ,sen1(1)   ,lat1(1)   ,lwup1(1)  ,   &
-!                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1))
-!tcx include this for the time being to get over the initialization hump
-                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
-                           missval = 0.0_ESMF_KIND_R8  )
-#endif
-! LHC 2020
+! LHC2020
+      if (bulk_mrthod_ori) then
+        call shr_flux_atmOcn(1         ,zbot1(1)  ,ubot1(1)  ,vbot1(1)  ,thbot1(1) ,   &
+                             qbot1(1)  ,rbot1(1)  ,tbot1(1)  ,us1(1)    ,vs1(1)    ,   &
+                             ts1(1)    ,mask1(1)  ,sen1(1)   ,lat1(1)   ,lwup1(1)  ,   &
+  !                           evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1))
+  !tcx include this for the time being to get over the initialization hump
+                             evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
+                             missval = 0.0_ESMF_KIND_R8  )
+      else
+        if(pbot(i,j) .gt. 0.0) &
+        th2m1(1) = t2m(i,j)*((100000._ESMF_KIND_R8/pbot(i,j))**0.286_ESMF_KIND_R8)  ! tcx temporary, assume p2m and pbot
+        u10m1(1)  = u10m(i,j)
+        v10m1(1)  = v10m(i,j)
+        t2m1(1)   = t2m(i,j) 
+        q2m1(1)   = q2m(i,j) 
+        mtaux1(1) = mtaux(i,j)
+        mtauy1(1) = mtauy(i,j)
+  
+        call shr_flux_atmOcn_bf(1   ,u10m1(1)  ,v10m1(1)  ,t2m1(1) ,th2m1(1)  ,q2m1(1)  ,  &
+                            zbot1(1),  rbot1(1)  ,thbot1(1)  ,tbot1(1)  ,qbot1(1) ,  &
+                            us1(1)    ,vs1(1)    ,ts1(1)    ,mask1(1)  ,  &
+                            sen1(1)   ,lat1(1)   ,lwup1(1)  ,  &
+                            evap1(1)  ,taux1(1)  ,tauy1(1)  ,tref1(1)  ,qref1(1)  ,duu10n1(1), &
+                            missval = 0.0_ESMF_KIND_R8  )
+      endif
+! LHC2020
 
       sen(i,j)    = sen1(1)
       lat(i,j)    = lat1(1)
