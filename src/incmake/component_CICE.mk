@@ -26,7 +26,7 @@ endif
 CICE_ALL_OPTS=                    \
   COMP_SRCDIR=$(CICE_SRCDIR)      \
   COMP_BINDIR=$(CICE_BINDIR)      \
-  SITE="NEMS.$(FULL_MACHINE_ID)"  \
+  MACHINE_ID="NEMS.$(MACHINE_ID)" \
   SYSTEM_USERDIR="$(CICE_SRCDIR)" \
   SRCDIR="$(CICE_SRCDIR)"         \
   EXEDIR="$(CICE_SRCDIR)"         \

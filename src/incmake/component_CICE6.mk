@@ -20,15 +20,15 @@ $(call require_dir,$(CICE_SRCDIR),CICE source directory)
 CPPCICE =
 #endif
 
-CICE_ALL_OPTS=\
-  COMP_SRCDIR=$(CICE_SRCDIR) \
-  COMP_BINDIR=$(CICE_BINDIR) \
-  SITE="$(MACHINE_ID)" \
+CICE6_ALL_OPTS=                   \
+  COMP_SRCDIR=$(CICE_SRCDIR)      \
+  COMP_BINDIR=$(CICE_BINDIR)      \
+  MACHINE_ID="$(MACHINE_ID)"      \
   SYSTEM_USERDIR="$(CICE_UFSDIR)" \
-  BINDIR="$(CICE_BINDIR)" \
-  SRCDIR="$(CICE_SRCDIR)" \
-  EXEDIR="$(CICE_UFSDIR)" \
-  CPPCICE="$(CPPCICE)"  \
+  BINDIR="$(CICE_BINDIR)"         \
+  SRCDIR="$(CICE_SRCDIR)"         \
+  EXEDIR="$(CICE_UFSDIR)"         \
+  CPPCICE="$(CPPCICE)"            \
   NEMS_GRID="$(NEMS_GRID)"
 
 ########################################################################
@@ -37,7 +37,7 @@ CICE_ALL_OPTS=\
 $(cice6_mk): configure
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
-	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
+	export $(CICE6_ALL_OPTS) $(CICE6_MAKEOPT)                         ; \
 	cd $(CICE_UFSDIR)                                                 ; \
 	./comp_ice.backend.libcice
 	test -f $(cice6_mk)
@@ -49,10 +49,9 @@ build_CICE6: $(cice6_mk)
 # Rules for cleaning the SRCDIR and BINDIR:
 
 clean_CICE6_SRC: configure
-	cp -n $(MODULE_DIR)/$(CHOSEN_MODULE) $(CONFDIR)/modules.nems      ; \
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
-	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
+	export $(CICE6_ALL_OPTS) $(CICE6_MAKEOPT)                         ; \
 	cd $(CICE_UFSDIR)                                                 ; \
 	./comp_ice.backend.clean
 
