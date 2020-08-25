@@ -10,27 +10,29 @@ CICE_CAPDIR?=$(ROOTDIR)/CICE_CAP
 
 # NEMS_GRID was found in CICE and defaults to a low-res GSM grid
 # This is obsolete and perhaps should be removed.
-NEMS_GRID?=T126_mx5
+#NEMS_GRID?=T126_mx5
+NEMS_GRID?=mx025
 
 # Make sure the expected directories exist and are non-empty:
 $(call require_dir,$(CICE_SRCDIR),CICE source directory)
 $(call require_dir,$(ROOTDIR)/CICE_CAP,CICE cap directory)
 
 ifneq (,$(findstring CMEPS,$(COMPONENTS)))
-CPPCMEPS = -DCMEPS
+ CPPCMEPS = -DCMEPS
 else
-CPPCMEPS =
+ CPPCMEPS =
 endif
 
-CICE_ALL_OPTS=\
-  COMP_SRCDIR=$(CICE_SRCDIR) \
-  COMP_BINDIR=$(CICE_BINDIR) \
-  SITE="NEMS.$(MACHINE_ID)" \
+CICE_ALL_OPTS=                    \
+  COMP_SRCDIR=$(CICE_SRCDIR)      \
+  COMP_BINDIR=$(CICE_BINDIR)      \
+  MACHINE_ID="NEMS.$(MACHINE_ID)" \
   SYSTEM_USERDIR="$(CICE_SRCDIR)" \
-  SRCDIR="$(CICE_SRCDIR)" \
-  EXEDIR="$(CICE_SRCDIR)" \
-  CPPCMEPS="$(CPPCMEPS)"  \
+  SRCDIR="$(CICE_SRCDIR)"         \
+  EXEDIR="$(CICE_SRCDIR)"         \
+  CPPCMEPS="$(CPPCMEPS)"          \
   NEMS_GRID="$(NEMS_GRID)"
+
 
 ########################################################################
 

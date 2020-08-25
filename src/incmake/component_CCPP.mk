@@ -25,7 +25,7 @@ endif
 
 # Process make options for CCPP build
 ifneq (,$(findstring SUITES=,$(FV3_MAKEOPT)))
-  # Extract name of suite definition files using sed:
+  # Extract names of suite definition files using sed:
   # - remove everything leading up to the names of the suite definition files
   # - remove everything following the names of the suite definition files
   SUITES = $(shell echo $(FV3_MAKEOPT) | sed 's/.* SUITES=//' | sed 's/ .*//')

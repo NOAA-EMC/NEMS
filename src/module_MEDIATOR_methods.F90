@@ -33,10 +33,10 @@ module module_MEDIATOR_methods
   real(R8),parameter :: SHR_CONST_LATVAP  = 2.501e6_R8      ! latent heat of evaporation ~ J/kg
   real(R8),parameter :: SHR_CONST_LATSUB  = &               ! latent heat of sublimation ~ J/kg
                         SHR_CONST_LATICE + SHR_CONST_LATVAP
-  real(R8),parameter :: SHR_CONST_SPVAL      = 1.0e30_R8     ! special missing value
+  real(R8),parameter :: SHR_CONST_SPVAL   = 1.0e30_R8       ! special missing value
 
-  integer, parameter :: debug = 0
-  integer, parameter :: s_loglev = 0
+  integer, parameter :: debug     = 0
+  integer, parameter :: s_loglev  = 0
   integer, parameter :: s_logunit = 6
 
   public shr_flux_atmOcn
