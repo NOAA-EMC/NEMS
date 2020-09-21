@@ -5234,7 +5234,7 @@ module module_MEDIATOR
 
       mask1(1)  = nint(mask(i,j))
 ! 
-      if (bulk_mrthod_ori) then
+      if (bulk_method_ori) then
         call shr_flux_atmOcn(1         ,zbot1(1)  ,ubot1(1)  ,vbot1(1)  ,thbot1(1) ,   &
                              qbot1(1)  ,rbot1(1)  ,tbot1(1)  ,us1(1)    ,vs1(1)    ,   &
                              ts1(1)    ,mask1(1)  ,sen1(1)   ,lat1(1)   ,lwup1(1)  ,   &
