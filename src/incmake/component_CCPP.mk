@@ -44,7 +44,7 @@ $(ccpp_mk): configure
 	$(MODULE_LOGIC) ; \
 	set -xue                                                        ; \
 	export PATH_CCPP="$(CCPP_SRCDIR)"                               ; \
-	cd $(ROOTDIR)                                                   ; \
+	cd $(ROOTDIR)/FV3                                               ; \
 	$$PATH_CCPP/framework/scripts/ccpp_prebuild.py $(CCPP_CONFOPT)  ; \
 	cd $$PATH_CCPP                                                  ; \
 	./build_ccpp.sh ${BUILD_TARGET} "$$PATH_CCPP" $(ccpp_mk)          \
