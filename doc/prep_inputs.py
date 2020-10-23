@@ -34,7 +34,8 @@ def main():
         project_number=app_loc+'@'+app_rev
         project_name='NEMS App '+app_name
     else:
-        project_number=nems_loc+'@'+nems_rev
+        #project_number=nems_loc+'@'+nems_rev
+        project_number='Version 1.1.0'
         project_name=NEMS_PROJECT_NAME
 
     with open('Doxyfile','wt') as dw:
