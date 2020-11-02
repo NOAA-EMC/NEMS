@@ -76,7 +76,6 @@
 !-----------------------------------------------------------------------
 !
       INTEGER :: MYPE                                                   &  !<-- The MPI task ID
-                ,NHOURS_FCST                                            &  !<-- Length of forecast in hours
                 ,NSECONDS_FCST                                          &  !<-- Length of forecast in seconds
                 ,TIMESTEP_SEC_WHOLE                                     &  !<-- Integer part of timestep
                 ,TIMESTEP_SEC_NUMERATOR                                 &  !<-- Numerator of fractional part
@@ -84,6 +83,7 @@
                 ,YY,MM,DD                                               &  !<-- Time variables for date
                 ,HH,MNS,SEC                                                !<-- Time variables for time of day
 !
+      REAL :: NHOURS_FCST                                                  !<-- Length of forecast in hours
 
       TYPE(NEMS_Rusage) :: rusage                                          !<-- Resource usage tracking object
 
@@ -395,7 +395,7 @@
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      NSECONDS_FCST=NHOURS_FCST*3600                                       !<-- The forecast length (sec) (REAL)
+      NSECONDS_FCST=nint(NHOURS_FCST*3600.)                             !<-- The forecast length (sec) (REAL)
 !
 !-----------------------------------------------------------------------
 !
@@ -540,6 +540,7 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
         NHOURS_FCST = HH_FINAL - HH_START
+        NSECONDS_FCST = nint(NHOURS_FCST*3600.)
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
         MESSAGE_CHECK="MAIN: Re-set the clock after the ensemble run cycles."
@@ -547,7 +548,7 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
         CALL ESMF_TimeIntervalSet(timeInterval = RUNDURATION            &
-                                 ,h            = NHOURS_FCST            &
+                                 ,s            = NSECONDS_FCST          &
                                  ,rc           = RC)
         ESMF_ERR_ABORT(RC)
 !
