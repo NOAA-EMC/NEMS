@@ -1001,6 +1001,28 @@
           return  ! bail out
       endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "lake_fraction")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="lake_fraction", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "ocean_fraction")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="ocean_fraction", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_sw_pen_to_ocn")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_sw_pen_to_ocn", &
