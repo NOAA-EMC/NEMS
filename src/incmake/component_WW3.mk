@@ -37,7 +37,7 @@ WW3_ALL_OPTS= \
 $(ww3_mk): configure
 	+$(MODULE_LOGIC) ; set -x ; cd $(WW3_SRCDIR)/esmf       ; \
 	export $(WW3_ALL_OPTS)                                  ; \
-	exec $(MAKE) -j 1 WW3_COMP="$(WW3_CONFOPT)" ww3_nems
+	exec $(MAKE) -j 1 WW3_COMP="$(WW3_CONFOPT)" ww3_nemslibonly
 	mkdir -p $(WW3_BINDIR)
 	cp $(WW3_SRCDIR)/nuopc.mk $(WW3_BINDIR)/.
 	test -d "$(WW3_BINDIR)"

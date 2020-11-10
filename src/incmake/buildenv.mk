@@ -66,7 +66,6 @@ include $(call locate_incmake_file,env/cisl/detect.mk)
 include $(call locate_incmake_file,env/ssec/detect.mk)
 include $(call locate_incmake_file,env/intel/detect.mk)
 include $(call locate_incmake_file,env/tacc/detect.mk)
-include $(call locate_incmake_file,env/lrz/detect.mk)
 include $(call locate_incmake_file,env/uname/detect.mk)
 
 ifeq (,$(list_build_env))

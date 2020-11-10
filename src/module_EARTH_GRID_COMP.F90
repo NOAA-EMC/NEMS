@@ -100,6 +100,9 @@
 #ifdef FRONT_CICE
       use FRONT_CICE,       only: CICE_SS  => SetServices
 #endif
+#ifdef FRONT_CICE6
+      use FRONT_CICE6,      only: CICE6_SS => SetServices
+#endif
   ! - Handle build time WAV options:
 #ifdef FRONT_SWAV
       use FRONT_SWAV,       only: SWAV_SS  => SetServices
@@ -253,10 +256,12 @@
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
       
+#if 0
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_Finalize, specRoutine=Finalize, &
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
+#endif
       
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
@@ -284,7 +289,7 @@
       !TODO: absorbed the needed standard names into the default dictionary.
       ! -> 20 fields identified as exports by the GSM component
 #ifdef CMEPS
-      call NUOPC_FieldDictionarySetup("fd.yaml", rc=rc)
+      call NUOPC_FieldDictionarySetup("fd_nems.yaml", rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -313,6 +318,17 @@
           return  ! bail out
       endif
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "mean_zonal_moment_flx_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_zonal_moment_flx_atm", &
+          canonicalUnits="N m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "mean_merid_moment_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_merid_moment_flx", &
@@ -324,9 +340,31 @@
           return  ! bail out
       endif
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "mean_merid_moment_flx_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_merid_moment_flx_atm", &
+          canonicalUnits="N m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "mean_sensi_heat_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_sensi_heat_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "mean_sensi_heat_flx_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_sensi_heat_flx_atm", &
           canonicalUnits="W m-2", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -360,6 +398,17 @@
         "mean_laten_heat_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_laten_heat_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "mean_laten_heat_flx_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_laten_heat_flx_atm", &
           canonicalUnits="W m-2", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1275,6 +1324,17 @@
         "mean_net_lw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_net_lw_flx", &
+          canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif 
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "mean_net_lw_flx_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="mean_net_lw_flx_atm", &
           canonicalUnits="W m-2", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3412,28 +3472,10 @@
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
 #ifdef CMEPS
-        ! get file suffix
-        call NUOPC_CompAttributeGet(driver, name="inst_suffix", isPresent=isPresent, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        if (isPresent) then
-          call NUOPC_CompAttributeGet(driver, name="inst_suffix", value=inst_suffix, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        else
-          inst_suffix = ""
-        endif
+        inst_suffix = ""
 
         ! obtain driver attributes (for CMEPS)
         call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-        call ReadAttributes(driver, config, "FLDS_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-        call ReadAttributes(driver, config, "CLOCK_attributes::", formatprint=.true., rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
@@ -3673,6 +3715,19 @@
           elseif (trim(model) == "cice") then
 #ifdef FRONT_CICE
             call NUOPC_DriverAddComp(driver, trim(prefix), CICE_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
+          elseif (trim(model) == "cice6") then
+#ifdef FRONT_CICE6
+            call NUOPC_DriverAddComp(driver, trim(prefix), CICE6_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
@@ -4663,35 +4718,6 @@
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    call ReadAttributes(gcomp, config, trim(compname)//"_modelio"//trim(inst_suffix)//"::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ReadAttributes(gcomp, config, "CLOCK_attributes::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    !------
-    ! Add mediator specific attributes
-    !------
-    if (compname == 'MED') then
-       call ReadAttributes(gcomp, config, "MED_history_attributes::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-       call ReadAttributes(gcomp, config, "FLDS_attributes::", rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, &
-         file=__FILE__)) &
-         return  ! bail out
-    endif
 
     !------
     ! Add multi-instance specific attributes

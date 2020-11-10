@@ -28,6 +28,12 @@ elif [[ -d /scratch1 && ! -d /scratch ]] ; then
         source /apps/lmod/lmod/init/$__ms_shell
     fi
     module purge
+elif [[ -d /work/noaa ]] ; then
+    # We are on Orion
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+        source /apps/lmod/init/$__ms_shell
+    fi
+    module purge
 elif [[ -d /data ]] ; then
     # We are on SSEC Wisconsin S4
     if ( ! eval module help > /dev/null 2>&1 ) ; then
@@ -67,6 +73,12 @@ elif [[ -d /glade ]] ; then
     # We are on NCAR Cheyenne
     if ( ! eval module help > /dev/null 2>&1 ) ; then
       . /glade/u/apps/ch/modulefiles/default/localinit/localinit.sh
+    fi
+    module purge
+elif [[ -d /work/stampede ]] ; then
+    # We are on TACC Stampede
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+      source /opt/apps/lmod/lmod/init/bash
     fi
     module purge
 elif [[ -d /lustre && -d /ncrc ]] ; then
@@ -109,9 +121,6 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
       source /etc/profile
       unset __ms_source_etc_profile
     fi
-elif [[ -d /lrz/sys ]] ; then
-    # We are on LRZ SuperMUC, nothing to do
-    echo "Platform: LRZ SuperMUC"
 elif [[ -d /Applications ]] ; then
     # We are on a MacOSX system, nothing to do
     echo "Platform: MacOSX"
