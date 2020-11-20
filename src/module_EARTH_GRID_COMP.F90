@@ -248,6 +248,7 @@
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
 
+#ifdef NEMS_DRIVER
       ! The NEMS Earth component is currently the top-level driver and
       ! does not need to coordinate Clocks with its parent.
       call ESMF_MethodRemove(EARTH_GRID_COMP, Driver_label_SetRunClock, rc=RC_REG)
@@ -255,7 +256,7 @@
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
-      
+#endif      
 #if 0
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_Finalize, specRoutine=Finalize, &
