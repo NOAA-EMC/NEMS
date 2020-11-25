@@ -256,10 +256,12 @@
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
       
+#if 0
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_Finalize, specRoutine=Finalize, &
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
+#endif
       
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &

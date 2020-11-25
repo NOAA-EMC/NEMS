@@ -3,9 +3,9 @@ cice6_mk=$(CICE_BINDIR)/cice6.mk
 all_component_mk_files+=$(cice6_mk)
 
 # Location of source code and installation
-CICE_SRCDIR?=$(ROOTDIR)/CICE6
-CICE_UFSDIR?=$(ROOTDIR)/CICE6/forapps/ufs
-CICE_BINDIR?=$(ROOTDIR)/CICE6_INSTALL
+CICE_SRCDIR?=$(ROOTDIR)/CICE-interface/CICE
+CICE_UFSDIR?=$(ROOTDIR)/CICE-interface/CICE/configuration/scripts/forapps/ufs
+CICE_BINDIR?=$(ROOTDIR)/CICE-interface/CICE_INSTALL
 
 # NEMS_GRID was found in CICE and defaults to a low-res GSM grid
 # This is obsolete and perhaps should be removed.
@@ -23,7 +23,7 @@ CPPCICE =
 CICE_ALL_OPTS=\
   COMP_SRCDIR=$(CICE_SRCDIR) \
   COMP_BINDIR=$(CICE_BINDIR) \
-  SITE="$(MACHINE_ID)" \
+  MACHINE_ID="$(MACHINE_ID)" \
   SYSTEM_USERDIR="$(CICE_UFSDIR)" \
   BINDIR="$(CICE_BINDIR)" \
   SRCDIR="$(CICE_SRCDIR)" \
@@ -49,6 +49,7 @@ build_CICE6: $(cice6_mk)
 # Rules for cleaning the SRCDIR and BINDIR:
 
 clean_CICE6_SRC: configure
+	cp -n $(MODULE_DIR)/$(CHOSEN_MODULE) $(CONFDIR)/modules.nems      ; \
 	$(MODULE_LOGIC)                                                   ; \
 	set -eu                                                           ; \
 	export $(CICE_ALL_OPTS) $(CICE_MAKEOPT)                           ; \
