@@ -248,7 +248,7 @@
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
 
-#ifdef NEMS_DRIVER
+#ifndef JEDI_DRIVER
       ! The NEMS Earth component is currently the top-level driver and
       ! does not need to coordinate Clocks with its parent.
       call ESMF_MethodRemove(EARTH_GRID_COMP, Driver_label_SetRunClock, rc=RC_REG)
