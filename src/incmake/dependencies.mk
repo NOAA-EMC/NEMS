@@ -19,10 +19,7 @@ FMS:
 	$(call prepend_component,$@)
 
 FV3_DEPS=FMS
-
-ifneq (,$(findstring CCPP=Y,$(COMPONENTS)))
-  FV3_DEPS += CCPP
-endif
+FV3_DEPS += CCPP
 
 CCPP:
 	$(call prepend_component,$@)
