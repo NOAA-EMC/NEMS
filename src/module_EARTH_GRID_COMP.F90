@@ -3263,6 +3263,30 @@
       endif
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_ice_nonconv_tendency_levels")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_ice_nonconv_tendency_levels", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_liq_nonconv_tendency_levels")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_liq_nonconv_tendency_levels", &
+          canonicalUnits="kg m-2 s-1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "inst_friction_velocity")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="inst_friction_velocity", &
