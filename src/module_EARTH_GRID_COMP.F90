@@ -3323,6 +3323,18 @@
       endif
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
+        "inst_surface_soil_wetness")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="inst_surface_soil_wetness", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+
+      if (.not.NUOPC_FieldDictionaryHasEntry( &
         "inst_up_sensi_heat_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="inst_up_sensi_heat_flx", &
