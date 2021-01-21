@@ -10,16 +10,10 @@ FV3_BINDIR?=$(ROOTDIR)/FV3/FV3_INSTALL
 $(call require_dir,$(FV3_SRCDIR),FV3 source directory)
 
 # Make sure we're setting CCPP=Y if CCPP is enabled:
-ifneq (,$(findstring CCPP,$(COMPONENTS)))
-  ifeq (,$(findstring CCPP=Y,$(FV3_MAKEOPT)))
-    $(warning Adding CCPP=Y to FV3 make options because CCPP is listed as a component.)
-    override FV3_MAKEOPT += CCPP=Y
-  endif
   ifeq (,$(findstring PATH_CCPP=,$(FV3_MAKEOPT)))
-    $(warning Adding PATH_CCPP to FV3 make options because CCPP is listed as a component.)
+    $(warning Adding PATH_CCPP to FV3 make options.)
     override FV3_MAKEOPT += PATH_CCPP="$(CCPP_BINDIR)"
   endif
-endif
 
 FV3_FULL_OPTS=\
   COMP=FV3 \
