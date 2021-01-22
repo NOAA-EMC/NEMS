@@ -50,6 +50,9 @@ HYCOM_ALL_OPTS=\
 # Rules for building this component:
 
 $(hycom_mk): configure
+	+$(MODULE_LOGIC) ; cd "$(HYCOM_SRCDIR)" ; exec $(MAKE)           \
+	  ARCH="$(HYCOM_ARCH)" TYPE="$(HYCOM_TYPE)" CPP_EXTRAS="$(HYCOM_OPTS)" \
+	  esmf
 	+$(MODULE_LOGIC) ; cd "$(HYCOM_SRCDIR)/NUOPC" ; exec $(MAKE)           \
 	  ARCH="$(HYCOM_ARCH)" TYPE="$(HYCOM_TYPE)" CPP_EXTRAS="$(HYCOM_OPTS)" \
 	  nuopc

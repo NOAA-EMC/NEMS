@@ -66,6 +66,14 @@
        USE module_NEMS_Rusage,ONLY: NEMS_Rusage
 !
 !-----------------------------------------------------------------------
+!***  This module contains PIO initialization related routines.
+!-----------------------------------------------------------------------
+!
+#if defined PIO
+       USE shr_pio_mod, ONLY: shr_pio_init1
+#endif
+!
+!-----------------------------------------------------------------------
 !
       IMPLICIT NONE
 !
@@ -118,6 +126,7 @@
 !
       CHARACTER(LEN=MPI_MAX_PROCESSOR_NAME) :: PROCNAME                    !<-- The processor(host) name
       INTEGER :: PROCNAME_LEN                                              !<-- Actual PROCRNAME string length
+      INTEGER :: COMM_WORLD                                                !<-- Copy of MPI_COMM_WORLD
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -189,6 +198,15 @@
       call rusage%start(MPI_COMM_WORLD,PROCNAME,PROCNAME_LEN,RC)
       ! It is safe to ignore RC since rusage%is_valid will tell us if
       ! the start succeeded.
+!
+!-----------------------------------------------------------------------
+!***  Initialize PIO. 8 is the maximum number of component models
+!-----------------------------------------------------------------------
+!
+      COMM_WORLD = MPI_COMM_WORLD
+#if defined PIO
+      call shr_pio_init1(8, "pio_in", COMM_WORLD)
+#endif
 !
 !-----------------------------------------------------------------------
 !***  Set up the default log.

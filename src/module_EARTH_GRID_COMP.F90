@@ -71,6 +71,9 @@
 #ifdef FRONT_DATM
       use FRONT_DATM,       only: DATM_SS  => SetServices
 #endif
+#ifdef FRONT_CDEPS_DATM
+      use FRONT_CDEPS_DATM, only: DATM_SS  => SetServices
+#endif
   ! - Handle build time OCN options:
 #ifdef FRONT_SOCN
       use FRONT_SOCN,       only: SOCN_SS   => SetServices
@@ -89,6 +92,9 @@
 #endif
 #ifdef FRONT_POM
       use FRONT_POM,        only: POM_SS    => SetServices
+#endif
+#ifdef FRONT_CDEPS_DOCN 
+      use FRONT_CDEPS_DOCN, only: DOCN_SS  => SetServices
 #endif
   ! - Handle build time ICE options:
 #ifdef FRONT_SICE
@@ -3375,6 +3381,10 @@
 #ifdef CMEPS
         use med_internalstate_mod , only : med_id
 #endif
+#ifdef PIO
+        use mpi, only : MPI_COMM_NULL
+        use shr_pio_mod  , only : shr_pio_init2 
+#endif
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
 
@@ -3396,8 +3406,13 @@
         logical                         :: read_restart
         character(ESMF_MAXSTR)          :: cvalue
         character(len=5)                :: inst_suffix
-        logical                         :: isPresent
 #endif
+        logical                         :: isPresent
+        integer, allocatable            :: comms(:), comps(:)
+        integer, allocatable            :: comp_comm_iam(:)
+        logical, allocatable            :: comp_iamin(:)
+        type(ESMF_VM)                   :: vm
+        integer                         :: Global_Comm
         rc = ESMF_SUCCESS
 
         ! query the Component for info
@@ -3415,11 +3430,16 @@
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
         
-        ! get petCount and config
-        call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
+        ! get petCount, vm and config
+        call ESMF_GridCompGet(driver, petCount=petCount, config=config, vm=vm, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+   
+        ! get MPI communicator    
+        call ESMF_VMGet(vm, mpiCommunicator=Global_Comm, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+ 
         ! read and ingest free format driver attributes
         attrFF = NUOPC_FreeFormatCreate(config, label="EARTH_attributes::", &
           relaxedflag=.true., rc=rc)
@@ -3485,8 +3505,19 @@
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 #endif
 
+        ! allocate arrays required for PIO initialization (phase 2)
+        if (.not. allocated(comms)) allocate(comms(componentCount+1))
+        if (.not. allocated(comps)) allocate(comps(componentCount+1))
+        if (.not. allocated(comp_iamin)) allocate(comp_iamin(componentCount))
+        if (.not. allocated(comp_comm_iam)) allocate(comp_comm_iam(componentCount))
+
+        comps(1) = 1
+        comms(1) = Global_Comm
+
         ! determine information for each component and add to the driver
         do i=1, componentCount
+          comps(i+1) = i+1
+
           ! construct component prefix
           prefix=trim(compLabels(i))
           ! read in petList bounds
@@ -3597,7 +3628,7 @@
             return  ! bail out
 #endif
           elseif (trim(model) == "datm") then
-#ifdef FRONT_DATM
+#if defined FRONT_DATM || defined FRONT_CDEPS_DATM
             call NUOPC_DriverAddComp(driver, trim(prefix), DATM_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3677,6 +3708,19 @@
           elseif (trim(model) == "pom") then
 #ifdef FRONT_POM
             call NUOPC_DriverAddComp(driver, trim(prefix), POM_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+#else
+            write (msg, *) "Model '", trim(model), "' was requested, "// &
+              "but is not available in the executable!"
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
+              file=__FILE__, rcToReturn=rc)
+            return  ! bail out
+#endif
+          elseif (trim(model) == "docn") then
+#if defined FRONT_CDEPS_DOCN
+            call NUOPC_DriverAddComp(driver, trim(prefix), DOCN_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
@@ -3968,6 +4012,24 @@
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+          ! read and ingest free format component attributes
+          call ESMF_ConfigFindNextLabel(config, &
+            label=trim(prefix)//"_modelio::", isPresent=isPresent, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (isPresent) then
+            attrFF = NUOPC_FreeFormatCreate(config, &
+              label=trim(prefix)//"_modelio::", relaxedflag=.true., rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+            call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+            call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          endif
           
           ! clean-up
           deallocate(petList)
@@ -3981,7 +4043,25 @@
         call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#endif          
+#endif
+        if (ESMF_GridCompIsPetLocal(comp, rc=rc)) then
+          call ESMF_GridCompGet(comp, vm=vm, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+          call ESMF_VMGet(vm, mpiCommunicator=comms(i+1), localPet=comp_comm_iam(i), rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+          comp_iamin(i) = .true.
+        else
+#ifdef PIO
+          comms(i+1) = MPI_COMM_NULL
+#else
+          comms(i+1) = 0
+#endif
+          comp_iamin(i) = .false.
+        end if
         enddo
 
 #if ESMF_VERSION_MAJOR < 8
@@ -3992,9 +4072,18 @@
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 #endif
 
+#if defined PIO
+        ! Initialize PIO
+        call shr_pio_init2(comps(2:), compLabels, comp_iamin, comms(2:), comp_comm_iam)
+#endif
+
         ! clean-up
         deallocate(compLabels)
-        
+        if (allocated(comms)) deallocate(comms)
+        if (allocated(comps)) deallocate(comps)
+        if (allocated(comp_iamin)) deallocate(comp_iamin)
+        if (allocated(comp_comm_iam)) deallocate(comp_comm_iam)
+
       end subroutine
 
   !-----------------------------------------------------------------------------
@@ -4005,6 +4094,9 @@
     
     ! local variables
     character(ESMF_MAXSTR)          :: name
+    type(ESMF_CplComp), pointer     :: connectorList(:)
+    integer                         :: i
+    type(NUOPC_FreeFormat)          :: attrFF
 #if ESMF_VERSION_MAJOR >= 8
     type(ESMF_Config)               :: config
     type(NUOPC_FreeFormat)          :: runSeqFF
@@ -4031,6 +4123,26 @@
       autoAddConnectors=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+
+    ! read CONNECTOR attributes from config file into FreeFormat
+    attrFF = NUOPC_FreeFormatCreate(config, &
+      label="CONNECTOR_attributes::", relaxedflag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    nullify(connectorList)
+    call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
+    do i=1, size(connectorList)
+      call NUOPC_CompAttributeIngest(connectorList(i), attrFF, &
+        addFlag=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, file=__FILE__)) return  ! bail out
+    enddo
+    deallocate(connectorList)
+    call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, file=__FILE__)) return  ! bail out
 #else
     ! access runSeq in the config
     call SetFromConfig(driver, mode="setRunSequence", rc=rc)
@@ -4690,7 +4802,6 @@
             file=__FILE__)) &
             return  ! bail out
        else
-          print*, trim(attrList(n))
           call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &

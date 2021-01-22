@@ -4,7 +4,7 @@ all_component_mk_files+=$(cmeps_mk)
 
 # Location of source code and installation
 CMEPS_SRCDIR?=$(ROOTDIR)/CMEPS
-CMEPS_BINDIR?=$(ROOTDIR)/CMEPS_INSTALL
+CMEPS_BINDIR?=$(ROOTDIR)/CMEPS/CMEPS_INSTALL
 
 # Make sure the expected directories exist and are non-empty:
 $(call require_dir,$(CMEPS_SRCDIR),CMEPS source directory)
@@ -24,7 +24,10 @@ CMEPS_ALL_OPTS=\
   MACHINE_ID="$(MACHINE_ID)" \
   FC="$(FC)" \
   CC="$(CC)" \
-  CXX="$(CXX)"
+  CXX="$(CXX)" \
+  INTERNAL_PIO_INIT=0
+
+$(info "CMEPS_ALL_OPTS = $(CMEPS_ALL_OPTS)")
 
 $(cmeps_mk): configure
 	$(MODULE_LOGIC) ; export $(CMEPS_ALL_OPTS)         ; \
