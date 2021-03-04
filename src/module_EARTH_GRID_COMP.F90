@@ -71,6 +71,9 @@
 #ifdef FRONT_DATM
       use FRONT_DATM,       only: DATM_SS  => SetServices
 #endif
+#ifdef FRONT_CDEPS_DATM
+      use FRONT_CDEPS_DATM,       only: DATM_SS  => SetServices
+#endif
   ! - Handle build time OCN options:
 #ifdef FRONT_SOCN
       use FRONT_SOCN,       only: SOCN_SS   => SetServices
@@ -3596,8 +3599,9 @@
               file=__FILE__, rcToReturn=rc)
             return  ! bail out
 #endif
-          elseif (trim(model) == "datm") then
-#ifdef FRONT_DATM
+          elseif (trim(model) == "datm" .or. trim(model) == "datm_cfsr" .or. &
+               trim(model) == "datm_gefs") then
+#if defined FRONT_DATM || defined FRONT_CDEPS_DATM
             call NUOPC_DriverAddComp(driver, trim(prefix), DATM_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
