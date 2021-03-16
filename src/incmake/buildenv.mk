@@ -65,6 +65,7 @@ include $(call locate_incmake_file,env/rdhpcs/detect.mk)
 include $(call locate_incmake_file,env/cisl/detect.mk)
 include $(call locate_incmake_file,env/intel/detect.mk)
 include $(call locate_incmake_file,env/tacc/detect.mk)
+include $(call locate_incmake_file,env/sdsc/detect.mk)
 include $(call locate_incmake_file,env/lrz/detect.mk)
 include $(call locate_incmake_file,env/uname/detect.mk)
 

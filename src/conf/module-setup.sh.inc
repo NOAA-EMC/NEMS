@@ -112,6 +112,12 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
 elif [[ -d /lrz/sys ]] ; then
     # We are on LRZ SuperMUC, nothing to do
     echo "Platform: LRZ SuperMUC"
+elif [[ -d /oasis/projects/nsf ]]; then
+    # We are on SDSC Comet
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+      source /etc/profile.d/modules.sh
+    fi
+    module purge
 elif [[ -d /Applications ]] ; then
     # We are on a MacOSX system, nothing to do
     echo "Platform: MacOSX"

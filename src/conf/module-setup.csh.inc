@@ -93,6 +93,12 @@ else if ( { test -d /lustre -a -d /ncrc } ) then
 else if ( { test -d /lrz/sys } ) then
     # We are on LRZ SuperMUC, nothing to do
     sh -c 'echo Platform: LRZ SuperMUC'
+else if ( { test -d /oasis/projects/nsf } ) then
+    # We are on SDSC Comet
+    if ( ! { module help >& /dev/null } ) then
+      source /etc/profile.d/modules.csh
+    endif
+    module purge
 else if ( { test -d /Applications } ) then
     # We are on a MacOSX system, nothing to do
     sh -c 'echo Platform: MacOSX'
