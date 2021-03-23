@@ -3599,21 +3599,8 @@
               file=__FILE__, rcToReturn=rc)
             return  ! bail out
 #endif
-          elseif (trim(model) == "nems_datm") then
-#ifdef FRONT_NEMS_DATM
-            call NUOPC_DriverAddComp(driver, trim(prefix), DATM_SS, &
-              petList=petList, comp=comp, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#else
-            write (msg, *) "Model '", trim(model), "' was requested, "// &
-              "but is not available in the executable!"
-            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
-              file=__FILE__, rcToReturn=rc)
-            return  ! bail out
-#endif
-          elseif (trim(model) == "datm" ) then
-#ifdef FRONT_CDEPS_DATM
+          elseif (trim(model) == "nems_datm" .or. trim(model) == "datm" ) then
+#if defined FRONT_NEMS_DATM || defined FRONT_CDEPS_DATM
             call NUOPC_DriverAddComp(driver, trim(prefix), DATM_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
