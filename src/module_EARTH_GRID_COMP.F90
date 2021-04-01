@@ -1024,6 +1024,17 @@
           return  ! bail out
       endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "openwater_frac_in_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="openwater_frac_in_atm", &
+          canonicalUnits="1", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mass_of_overlying_sea_ice")) then
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mass_of_overlying_sea_ice", &
