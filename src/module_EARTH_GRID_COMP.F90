@@ -248,6 +248,7 @@
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
 
+#ifndef JEDI_DRIVER
       ! The NEMS Earth component is currently the top-level driver and
       ! does not need to coordinate Clocks with its parent.
       call ESMF_MethodRemove(EARTH_GRID_COMP, Driver_label_SetRunClock, rc=RC_REG)
@@ -255,7 +256,7 @@
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
-      
+#endif      
 #if 0
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_Finalize, specRoutine=Finalize, &
@@ -1038,6 +1039,17 @@
         call NUOPC_FieldDictionaryAddEntry( &
           standardName="mean_up_lw_flx", &
           canonicalUnits="W m-2", &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+      if (.not. NUOPC_FieldDictionaryHasEntry( &
+        "openwater_frac_in_atm")) then
+        call NUOPC_FieldDictionaryAddEntry( &
+          standardName="openwater_frac_in_atm", &
+          canonicalUnits="1", &
           rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
