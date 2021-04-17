@@ -88,7 +88,7 @@
 #endif
   ! - Mediator
 #ifdef FRONT_CMEPS
-      use MED,              only: MED_SS     => SetServices 
+      use MED,              only: MED_SS     => SetServices
 #endif
 
       USE module_EARTH_INTERNAL_STATE,ONLY: EARTH_INTERNAL_STATE        &
@@ -113,7 +113,8 @@
 !
 
       LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
-
+      character(len=*),parameter :: u_FILE_u = &
+           __FILE__
 
       CONTAINS
 
@@ -129,6 +130,17 @@
         verbose_diagnostics=flag_verbose_diagnostics
       end function verbose_diagnostics
 
+      logical function ChkErr(rc, line, file)
+        integer, intent(in) :: rc            !< return code to check
+        integer, intent(in) :: line          !< Integer source line number
+        character(len=*), intent(in) :: file !< User-provided source file name
+        integer :: lrc
+        ChkErr = .false.
+        lrc = rc
+        if (ESMF_LogFoundError(rcToCheck=lrc, msg=ESMF_LOGERR_PASSTHRU, line=line, file=file)) then
+           ChkErr = .true.
+        endif
+      end function ChkErr
 !-----------------------------------------------------------------------
 !#######################################################################
 !-----------------------------------------------------------------------
@@ -210,10 +222,7 @@
 
       ! Load the required entries from the fd_nems.yaml file
       call NUOPC_FieldDictionarySetup("fd_nems.yaml", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
 !-----------------------------------------------------------------------
 !
@@ -255,8 +264,7 @@
 
         ! query the Component for info
         call ESMF_GridCompGet(driver, name=name, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
         ! allocate memory for the internal state and store in Component
         allocate(is%EARTH_INT_STATE, stat=stat)
@@ -265,56 +273,44 @@
           line=__LINE__, file=trim(name)//":"//__FILE__, rcToReturn=rc)) &
           return  ! bail out
         call ESMF_GridCompSetInternalState(driver, is, rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         ! get petCount and config
         call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         
         ! read and ingest free format driver attributes
         attrFF = NUOPC_FreeFormatCreate(config, label="EARTH_attributes::", &
           relaxedflag=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         call NUOPC_CompAttributeIngest(driver, attrFF, addFlag=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
         ! dump the current field dictionary into the Log file
         call ESMF_AttributeGet(driver, name="DumpFieldDictionary", &
           value=value, defaultValue="false", &
           convention="NUOPC", purpose="Instance", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+        
         if (trim(value)=="true") then
           call ESMF_LogWrite( &
             "===>===>===>===> Begin Dumping Field Dictionary <===<===<===<===",&
-            ESMF_LOGMSG_INFO, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+            ESMF_LOGMSG_INFO)
           call NUOPC_FieldDictionaryEgest(fdFF, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_FreeFormatLog(fdFF, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call ESMF_LogWrite( &
             "===>===>===>===> Done Dumping Field Dictionary <===<===<===<===", &
-            ESMF_LOGMSG_INFO, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+            ESMF_LOGMSG_INFO)
         endif
-        
+
         ! determine the generic component labels
         componentCount = ESMF_ConfigGetLen(config, &
           label="EARTH_component_list:", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+        
         allocate(compLabels(componentCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of compLabels failed.", &
@@ -322,20 +318,15 @@
           return  ! bail out
         call ESMF_ConfigGetAttribute(config, valueList=compLabels, &
           label="EARTH_component_list:", count=componentCount, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 #ifdef CMEPS
         inst_suffix = ""
 
         ! obtain driver attributes (for CMEPS)
         call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 #endif
 
         ! determine information for each component and add to the driver
@@ -345,8 +336,8 @@
           ! read in petList bounds
           call ESMF_ConfigGetAttribute(config, petListBounds, &
             label=trim(prefix)//"_petlist_bounds:", default=-1, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
           ! handle the default situation
           if (petListBounds(1)==-1 .or. petListBounds(2)==-1) then
             petListBounds(1) = 0
@@ -355,8 +346,8 @@
           ! read in model instance name
           call ESMF_ConfigGetAttribute(config, model, &
             label=trim(prefix)//"_model:", default="none", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
           ! check that there was a model instance specified
           if (trim(model) == "none") then
             ! Error condition: no model was specified
@@ -508,14 +499,11 @@
           ! read and ingest free format component attributes
           attrFF = NUOPC_FreeFormatCreate(config, &
             label=trim(prefix)//"_attributes::", relaxedflag=.true., rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           
           ! clean-up
           deallocate(petList)
@@ -523,12 +511,10 @@
 #ifdef CMEPS
         ! Perform restarts if appropriate
         call InitRestart(driver, rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
         call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 #endif
         enddo
 
@@ -552,28 +538,23 @@
 
     ! query the Component for info
     call ESMF_GridCompGet(driver, name=name, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! read free format run sequence from config
     call ESMF_GridCompGet(driver, config=config, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
     runSeqFF = NUOPC_FreeFormatCreate(config, label="runSeq::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! ingest FreeFormat run sequence
     call NUOPC_DriverIngestRunSequence(driver, runSeqFF, &
       autoAddConnectors=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
     
     ! Diagnostic output
     if(verbose_diagnostics()) then
        call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
     endif
     
   end subroutine
@@ -594,14 +575,12 @@
 
     ! query the Component for info
     call ESMF_GridCompGet(driver, name=name, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
     
     ! query Component for this internal State
     nullify(is%EARTH_INT_STATE)
     call ESMF_GridCompGetInternalState(driver, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
       
     ! deallocate internal state memory
     deallocate(is%EARTH_INT_STATE, stat=stat)
@@ -633,54 +612,34 @@
     ! query Component for this internal State
     nullify(is%EARTH_INT_STATE)
     call ESMF_GridCompGetInternalState(driver, is, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO)
     
     nullify(connectorList)
     call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
     
     write (msg,*) "Found ", size(connectorList), " Connectors."// &
       " Modifying CplList Attribute...."
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO)
       
     do i=1, size(connectorList)
       ! query Connector i for its name
       call ESMF_CplCompGet(connectorList(i), name=name, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
       ! access CplList for Connector i
       call NUOPC_CompAttributeGet(connectorList(i), name="CplList", &
         itemCount=cplListSize, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
       if (cplListSize>0) then
         allocate(cplList(cplListSize))
         call NUOPC_CompAttributeGet(connectorList(i), name="CplList", &
           valueList=cplList, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
         ! go through all of the entries in the cplList and add options
         do j=1, cplListSize
           cplList(j) = trim(cplList(j))//":DumpWeights=true"
@@ -688,19 +647,13 @@
           ! add connection options read in from configuration file
           call ESMF_AttributeGet(connectorList(i), name="ConnectionOptions", &
             value=value, defaultValue="", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           cplList(j) = trim(cplList(j))//trim(value)
         enddo
         ! store the modified cplList in CplList attribute of connector i
         call NUOPC_CompAttributeSet(connectorList(i), &
           name="CplList", valueList=cplList, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         deallocate(cplList)
       endif
     enddo
@@ -735,29 +688,16 @@
 
     if (present(relaxedflag)) then
        attrFF = NUOPC_FreeFormatCreate(config, label=trim(label), relaxedflag=.true., rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, &
-         file=__FILE__)) &
-         return  ! bail out
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else
        attrFF = NUOPC_FreeFormatCreate(config, label=trim(label), rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, &
-         file=__FILE__)) &
-         return  ! bail out
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
     end if
 
     call NUOPC_CompAttributeIngest(gcomp, attrFF, addFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
   end subroutine ReadAttributes
 
@@ -783,38 +723,26 @@
     !-------------------------------------------
 
     rc = ESMF_SUCCESS
-    call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
 
     !-----------------------------------------------------
     ! Carry out restart if appropriate
     !-----------------------------------------------------
 
     read_restart = IsRestart(driver, rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! Add rest_case_name and read_restart to driver attributes
     call NUOPC_CompAttributeAdd(driver, attrList=(/'rest_case_name','read_restart  '/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     rest_case_name = ' '
     call NUOPC_CompAttributeSet(driver, name='rest_case_name', value=rest_case_name, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     write(cvalue,*) read_restart
     call NUOPC_CompAttributeSet(driver, name='read_restart', value=trim(cvalue), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
   end subroutine InitRestart
 
@@ -842,10 +770,7 @@
 
     ! First Determine if restart is read
     call NUOPC_CompAttributeGet(gcomp, name='start_type', value=start_type, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     if ((trim(start_type) /= start_type_start) .and.  &
         (trim(start_type) /= start_type_cont ) .and.  &
@@ -915,46 +840,28 @@
     attrList =  (/"read_restart"/)
 
     call NUOPC_CompAttributeAdd(gcomp, attrList=attrList, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     do n = 1,size(attrList)
        if (trim(attrList(n)) == "read_restart") then
           call NUOPC_CompAttributeGet(driver, name="mediator_read_restart", value=cvalue, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
           read(cvalue,*) lvalue
 
           if (.not. lvalue) then
             call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, &
-              file=__FILE__)) &
-              return  ! bail out
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
           end if
 
           call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
        else
           print*, trim(attrList(n))
           call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
        end if
     enddo
     deallocate(attrList)
@@ -963,48 +870,31 @@
     ! Add component specific attributes
     !------
     call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------
     ! Add multi-instance specific attributes
     !------
     call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_index'/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! add inst_index attribute (inst_index is not required for cime internal components)
     ! for now hard-wire inst_index to 1
     inst_index = 1
     write(cvalue,*) inst_index
     call NUOPC_CompAttributeSet(gcomp, name='inst_index', value=trim(cvalue), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! add inst_suffix attribute
     if (len_trim(inst_suffix) > 0) then
        call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_suffix'/), rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, &
-         file=__FILE__)) &
-         return  ! bail out
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
        call NUOPC_CompAttributeSet(gcomp, name='inst_suffix', value=inst_suffix, rc=rc)
-       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-         line=__LINE__, &
-         file=__FILE__)) &
-         return  ! bail out
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
     end if
 
   end subroutine AddAttributes
