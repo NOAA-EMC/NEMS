@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 module module_MEDSpaceWeather
 
@@ -22,7 +22,7 @@ module module_MEDSpaceWeather
 #endif
 
   implicit none
-  
+
   private
 
   include "mpif.h"
@@ -48,19 +48,19 @@ module module_MEDSpaceWeather
   end type
 
   public SetServices
-  
+
   !-----------------------------------------------------------------------------
   contains
   !-----------------------------------------------------------------------------
-  
+
   subroutine SetServices(mediator, rc)
     type(ESMF_GridComp)  :: mediator
     integer, intent(out) :: rc
 
     ! local variables
-    
+
     rc = ESMF_SUCCESS
-    
+
     ! the NUOPC model component will register the generic methods
     call NUOPC_CompDerive(mediator, mediator_routine_SS, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -75,7 +75,7 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     ! set entry point for methods that require specific implementation
     call NUOPC_CompSetEntryPoint(mediator, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p1"/), userRoutine=InitializeAdvertise, rc=rc)
@@ -101,7 +101,7 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     ! attach specializing method(s)
 
      call NUOPC_CompSpecialize(mediator, specLabel=mediator_label_DataInitialize, &
@@ -123,9 +123,9 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
   end subroutine
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine InitializeP0(mediator, importState, exportState, clock, rc)
@@ -133,7 +133,7 @@ module module_MEDSpaceWeather
     type(ESMF_State)      :: importState, exportState
     type(ESMF_Clock)      :: clock
     integer, intent(out)  :: rc
-    
+
     rc = ESMF_SUCCESS
 
     ! Switch to IPDv03 by filtering all other phaseMap entries
@@ -143,7 +143,7 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
   end subroutine
 
   subroutine InitializeAdvertise(mediator, importState, exportState, clock, rc)
@@ -151,7 +151,7 @@ module module_MEDSpaceWeather
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     rc = ESMF_SUCCESS
 
     ! exportable fields: WAM export fields
@@ -165,7 +165,7 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     ! exportable fields: IPE import fields
     call NUOPC_Advertise(exportState, StandardNames=(/ &
       "northward_wind_neutral         ", &
@@ -182,7 +182,7 @@ module module_MEDSpaceWeather
       return  ! bail out
 
   end subroutine
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine InitializeRealize(mediator, importState, exportState, clock, rc)
@@ -190,7 +190,7 @@ module module_MEDSpaceWeather
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     type(ESMF_Mesh):: wam2dMesh
 
     rc = ESMF_SUCCESS
@@ -201,7 +201,7 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     ! create fields
     call realizeConnectedFields(importState, wam2dMesh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -266,13 +266,13 @@ module module_MEDSpaceWeather
     end subroutine realizeConnectedFields
 
   end subroutine initializeRealize
-    
+
   subroutine InitializeP4(mediator, importState, exportState, clock, rc)
     type(ESMF_GridComp)  :: mediator
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     type(ESMF_VM)        :: vm
     type(ESMF_Mesh)      :: ipemesh, medmesh
     type(ESMF_Field)     :: field
@@ -299,7 +299,7 @@ module module_MEDSpaceWeather
 
     ! Get the IPE field from the IPE module, get the elemDistgrid and redistribute in over
     ! the number of processors used by the Mediator
-    
+
       call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -313,7 +313,7 @@ module module_MEDSpaceWeather
         return  ! bail out
 
       ! Get the mesh from the first itme
-      call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(1), rc=rc)   
+      call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(1), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -330,13 +330,13 @@ module module_MEDSpaceWeather
         file=__FILE__)) &
         return  ! bail out
       call ESMF_DistGridGet(ipedistgrid, deCount=decount, &
-      	   minIndexPTile=minIndices, maxIndexPTile=maxIndices, rc=rc) 
+      	   minIndexPTile=minIndices, maxIndexPTile=maxIndices, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
 
-      ! If the original distribution (decount) use the same number of 
+      ! If the original distribution (decount) use the same number of
       ! PETs (PetCnt), not need to redistribute.  Otherwise, redistribute
       ! the elementDistgrid to use PetCnt processors
       if (PetCnt /= decount) then
@@ -358,16 +358,16 @@ module module_MEDSpaceWeather
             	line=__LINE__, &
         	file=__FILE__)) &
         	return  ! bail out
-        ! replace the field with new mesh     
+        ! replace the field with new mesh
         k=1 ! initialize
         do i=1, itemCount
           ! create a Field with one undistributed dimension
-          call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(i), rc=rc)   
+          call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(i), rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, &
         	file=__FILE__)) &
 		return  ! bail out
-            		
+
           call ESMF_FieldEmptySet(field, medmesh, meshloc=ESMF_MESHLOC_NODE,rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, &
@@ -385,7 +385,7 @@ module module_MEDSpaceWeather
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_VM)        :: vm
     character(len=80), allocatable  :: fieldNameList(:)
@@ -426,12 +426,12 @@ module module_MEDSpaceWeather
     k=1 ! initialize
     do i=1, itemCount
        ! create a Field with one undistributed dimension
-       call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(i), rc=rc)   
+       call ESMF_StateGet(exportState, field=field, itemName=fieldNameList(i), rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, &
         	file=__FILE__)) &
 		return  ! bail out
-            		
+
        call ESMF_FieldEmptyComplete(field, typekind=ESMF_TYPEKIND_R8, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
                 line=__LINE__, &
@@ -522,13 +522,13 @@ module module_MEDSpaceWeather
   subroutine MediatorAdvance(mediator, rc)
     type(ESMF_GridComp)  :: mediator
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)              :: clock
     type(ESMF_State)              :: importState, exportState
 
     rc = ESMF_SUCCESS
-    
+
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(mediator, clock=clock, importState=importState, &
       exportState=exportState, rc=rc)
@@ -536,42 +536,42 @@ module module_MEDSpaceWeather
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     ! HERE THE MEDIATOR does the mediation of Fields that come in on the
-    ! importState with a timestamp consistent to the currTime of the 
+    ! importState with a timestamp consistent to the currTime of the
     ! mediators Clock.
-    
+
     ! The Mediator uses the data on the import Fields to update the data
     ! held by Fields in the exportState.
-    
+
     ! After this routine returns the generic Mediator will correctly
     ! timestamp the export Fields and update the Mediator Clock to:
     !
     !       currTime -> currTime + timeStep
     !
     ! Where the timeStep is equal to the parent timeStep.
-    
+
     call ESMF_ClockPrint(clock, options="currTime", &
       preString="-------->MED Advance() mediating for: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     ! calling into Peggy's code
     call RunRegrid(mediator, importstate, exportstate, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     call ESMF_ClockPrint(clock, options="stopTime", &
       preString="----------------> model time step to: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-     
+
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -584,7 +584,7 @@ module module_MEDSpaceWeather
     type(ESMF_GridComp)  :: model
     type(ESMF_MESH) :: wam2dmesh
     integer, intent(out) :: rc
-    
+
 
   type(ESMF_VM) :: vm
   type(InternalState)     :: is
@@ -687,7 +687,7 @@ module module_MEDSpaceWeather
   ! from the DATAWAM
   ! we also need to create the 3D intermediate WAM mesh to be used to regrid
   ! with IPE grid
- 
+
   ! Read in WAM grid from wam3dgrid.nc
   !!
   status = nf90_open(path= wamfilename, mode=nf90_nowrite, ncid=nc1)
@@ -781,7 +781,7 @@ module module_MEDSpaceWeather
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-  
+
   ! Create the 3D mesh with fixed height
   ! find the lower height level where height > minheight
   do i=1,wamdims(3)
@@ -794,7 +794,7 @@ module module_MEDSpaceWeather
 
   ! create the node table, find the total number of nodes in each processor, including the not-owned node
   totalnodes=0
-  totalelements=0 
+  totalelements=0
   allocate(baseind(myrows))
   do i=1,myrows
      ind=rowinds(i)
@@ -830,7 +830,7 @@ module module_MEDSpaceWeather
   endif
 
   totalnodes2d=totalnodes  ! totalnodes includes neighboring nodes and my own nodes
-  totalnodes = totalnodes * totallevels 
+  totalnodes = totalnodes * totallevels
   localnodes = localnodes * totallevels  ! localnodes are locally owned nodes
   totalelements = totalelements * (totallevels-1)
   allocate(nodeIds(totalnodes), nodeOwners(totalnodes), nodeCoords(totalnodes*3))
@@ -915,7 +915,7 @@ module module_MEDSpaceWeather
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-  
+
   deallocate(wamlon, wamlat)
   deallocate(nodeIds, nodeCoords, nodeOwners)
 
@@ -932,7 +932,7 @@ module module_MEDSpaceWeather
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-  
+
   ! find the starting elementID
   startid=0
   do i=1,PetNo
@@ -972,7 +972,7 @@ module module_MEDSpaceWeather
 	   count1=count1+1
 	   count8=count8+8
          enddo
-         ! Last one, connect it back to the first node 
+         ! Last one, connect it back to the first node
      	 elementIds(count1)=startid+count1
 	 elementConn(count8)= base+j
 	 elementConn(count8+1)=base+j+1
@@ -984,7 +984,7 @@ module module_MEDSpaceWeather
 	 elementConn(count8+7)=base+totalnodes2d+1
 	 count1=count1+1
 	 count8=count8+8
-         cycle       
+         cycle
 #else
          ! using the zigzag method to create triangles that covers the pole
          ! First half
@@ -1014,7 +1014,7 @@ module module_MEDSpaceWeather
 	   elementConn(count8+7)=base+totalnodes2d+j+numPerRow(ind)-j
 	   count1=count1+1
 	   count8=count8+8
-         enddo	   
+         enddo
          cycle
 #endif
        endif
@@ -1048,7 +1048,7 @@ module module_MEDSpaceWeather
        else
          ! the number of nodes are different, make prism elements
 	 diff=numPerRow(ind)-numPerRow(ind+1)
-	 if (diff > 0) then 
+	 if (diff > 0) then
           ! make triangles with base at lower row
           ! triangles will be evenly distributed
 	  interval = real(numPerRow(ind))/(diff+1)
@@ -1098,7 +1098,7 @@ module module_MEDSpaceWeather
 	   if (k==1 .and. (jj /= numPerRow(ind+1))) then
 	      print *, PetNo, 'Upper row index mismatch', ind, jj, numPerRow(ind+1)
            endif
-        else  ! diff < 0 
+        else  ! diff < 0
           ! make triangles with base at upper row
           ! triangles will be evenly distributed
 	  interval = real(numPerRow(ind+1))/(-1*diff+1)
@@ -1106,7 +1106,7 @@ module module_MEDSpaceWeather
 	  trigs=1
           do j=1,numPerRow(ind+1)-1
 	     if (j > trigs*interval) then
-	       trigs = trigs+1              
+	       trigs = trigs+1
                ! triangles - base at bottom
                elementIds(count1)=startid+count1
 	       elementConn(count8)= base+jj
@@ -1148,9 +1148,9 @@ module module_MEDSpaceWeather
 	      print *, PetNo, 'Lower row index mismatch', ind, jj, numPerRow(ind)
            endif
         endif
-       endif         	            
+       endif
     enddo
-  enddo 
+  enddo
 
   if (count1-1 /= totalelements) then
      print *, 'total element mismatch ', count1-1, totalelements
@@ -1160,7 +1160,7 @@ module module_MEDSpaceWeather
      if (elementConn(i) > totalnodes) then
           print *, PetNo, 'node id out of bound', i/8, elementConn(i)
      endif
-  enddo  
+  enddo
   call ESMF_MeshAddElements(wamMesh, elementIds, elementTypes, elementConn,rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1183,10 +1183,10 @@ module module_MEDSpaceWeather
   is%wrap%PetNo = PetNo
   is%wrap%PetCnt = PetCnt
 
-  return 
+  return
 #else
-    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, & 
-                 msg="- ESMF_NETCDF not defined when lib was compiled") 
+    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, &
+                 msg="- ESMF_NETCDF not defined when lib was compiled")
     return
 #endif
 
@@ -1197,7 +1197,7 @@ subroutine RunRegrid(model, importState, exportState, rc)
     type(ESMF_GridComp)  :: model
     type(ESMF_State)     :: importState, exportState
     integer, intent(out) :: rc
-    
+
   type(ESMF_VM) :: vm
   type(InternalState)     :: is
   type(ESMF_RouteHandle)  :: routehandle
@@ -1244,7 +1244,7 @@ subroutine RunRegrid(model, importState, exportState, rc)
   wamdims=is%wrap%wamdims
   wamhgt => is%wrap%wamhgt
   PetCnt = is%wrap%PetCnt
-  PetNo  = is%wrap%PetNo  
+  PetNo  = is%wrap%PetNo
   startlevel = is%wrap%startlevel
   totallevels = is%wrap%totallevels
 
@@ -1317,17 +1317,17 @@ subroutine RunRegrid(model, importState, exportState, rc)
 	localnodes=ubnd(1)-lbnd(1)+1
         totalnodes = localnodes * totallevels
 
-	! interpolate dataptr(localnodes, inlevels) to wamdata(localnodes, totallevels) 
+	! interpolate dataptr(localnodes, inlevels) to wamdata(localnodes, totallevels)
         ! alone the second dimension
         ! using hgtbuf(localnodes,inlevels) as the source height and wamhgt(totallevels)
-        ! as the destination heights 
-        ! kk is the source index in 2nd dimension, k is the destination index   
+        ! as the destination heights
+        ! kk is the source index in 2nd dimension, k is the destination index
         ! note hgtbuf has the heigth of the original WAM grid (150), the wamdim(3) is the
         ! fixed height WAM grid extended to 800KM, which is > 150
 
         if (j==1) allocate(wamdata(localnodes, totallevels))
         ! At the first time step, the values from the importstate are all invalid
-        if (slice==1) then 
+        if (slice==1) then
 	   wamdata(:,:)=1.0
         else
   	  do i=1,localnodes
@@ -1347,7 +1347,7 @@ subroutine RunRegrid(model, importState, exportState, rc)
                   wamdata(i,k-startlevel+1)=(varbuf(i,kk)*(wamhgt(k)-hgtbuf(i,kk-1))+ &
 	               varbuf(i,kk-1)*(hgtbuf(i,kk)-wamhgt(k)))/ &
 		       (hgtbuf(i,kk)-hgtbuf(i,kk-1))
-               else 
+               else
 	          wamdata(i,k-startlevel+1)=varbuf(i,kk)
                endif
             enddo
@@ -1360,7 +1360,7 @@ subroutine RunRegrid(model, importState, exportState, rc)
               line=__LINE__, &
               file=__FILE__)) &
               return  ! bail out
-   
+
         ! Find the field of the same name in the export state -- that is built on IPE mesh
         call ESMF_StateGet(exportstate, itemname=fieldNameList(j), &
      	  field=ipefield, rc=rc)
@@ -1403,7 +1403,7 @@ subroutine Finalize(model, rc)
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-  
+
   ! Destroy ESMF objects
   call ESMF_MeshDestroy(is%wrap%wam2dmesh)
   call ESMF_MeshDestroy(is%wrap%wammesh)
@@ -1413,21 +1413,21 @@ subroutine Finalize(model, rc)
   ! deallocate
   deallocate(is%wrap%wamhgt)
   deallocate(is%wrap)
-  
+
   print *, 'Complete MEDIATOR'
 end subroutine Finalize
 
 subroutine ErrorMsgAndAbort(localPet)
     integer ::  localPet
-  
+
     if (localPet >= 0) then
       write(*,*) "ERROR: Problem on processor ",localPet,". Please see the PET*.ESMF_LogFile files for a traceback."
     else
       write(*,*) "ERROR: Please see the PET*.LogFile files for a traceback."
     endif
-  
+
     call ESMF_Finalize(endflag=ESMF_END_ABORT)
-  
+
 end subroutine ErrorMsgAndAbort
 
 !------------------------------------------------------------------------------
@@ -1450,8 +1450,8 @@ subroutine CheckNCError (ncStatus, errmsg)
         call ErrorMsgAndAbort(-1)
     end if
 #else
-    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, & 
-                 msg="- ESMF_NETCDF not defined when lib was compiled") 
+    call ESMF_LogSetError(ESMF_RC_LIB_NOT_PRESENT, &
+                 msg="- ESMF_NETCDF not defined when lib was compiled")
     return
 #endif
 
@@ -1480,7 +1480,7 @@ subroutine convert2Cart (lon, lat, hgt, coords, rc)
    call c_esmc_sphdeg_to_cart(lon, lat, &
                coords(1), coords(2), coords(3), &
                localrc)
-   if (localrc /= ESMF_SUCCESS) return 
+   if (localrc /= ESMF_SUCCESS) return
 
    coords(1)=nhgt*coords(1)
    coords(2)=nhgt*coords(2)
