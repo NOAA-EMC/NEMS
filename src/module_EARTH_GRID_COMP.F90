@@ -113,6 +113,8 @@
 !
 
       LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
+      logical, private :: printattr = .true.
+
       character(len=*),parameter :: u_FILE_u = &
            __FILE__
 
@@ -141,6 +143,7 @@
            ChkErr = .true.
         endif
       end function ChkErr
+
 !-----------------------------------------------------------------------
 !#######################################################################
 !-----------------------------------------------------------------------
@@ -324,9 +327,9 @@
         inst_suffix = ""
 
         ! obtain driver attributes (for CMEPS)
-        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=.true., rc=rc)
+        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=printattr, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=.true., rc=rc)
+        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=printattr, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
 #endif
 
@@ -455,7 +458,7 @@
 #endif
           if (.not. found_comp) then
             write(msg,*) 'No component ',trim(model),' found'
-            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, &
+            call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
               file=__FILE__, rcToReturn=rc)
             return
           endif
@@ -660,6 +663,14 @@
 
     call NUOPC_CompAttributeIngest(gcomp, attrFF, addFlag=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    if (present (formatprint)) then
+       call ESMF_LogWrite('ReadAttributes '//trim(label)//' start:', ESMF_LOGMSG_INFO)
+       call NUOPC_FreeFormatLog(attrFF, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       call ESMF_LogWrite('ReadAttributes '//trim(label)//' end:', ESMF_LOGMSG_INFO)
+    end if
+
     call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
@@ -833,10 +844,10 @@
     !------
     ! Add component specific attributes
     !------
-    call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", rc=rc)
+    call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", formatprint=printattr, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", rc=rc)
+    call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", formatprint=printattr, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------
