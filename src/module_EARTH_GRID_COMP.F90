@@ -532,14 +532,6 @@
 #endif
         enddo
 
-#if ESMF_VERSION_MAJOR < 8
-!TODOgjt: REMOVE THIS BLOCK ONCE SHOWN TO WORK WITHOUT
-        ! SetServices for Connectors
-        call SetFromConfig(driver, mode="setServicesConnectors", rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#endif
-
         ! clean-up
         deallocate(compLabels)
         
@@ -553,10 +545,8 @@
     
     ! local variables
     character(ESMF_MAXSTR)          :: name
-#if ESMF_VERSION_MAJOR >= 8
     type(ESMF_Config)               :: config
     type(NUOPC_FreeFormat)          :: runSeqFF
-#endif
 
     rc = ESMF_SUCCESS
 
@@ -565,7 +555,6 @@
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 
-#if ESMF_VERSION_MAJOR >= 8
     ! read free format run sequence from config
     call ESMF_GridCompGet(driver, config=config, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -579,12 +568,6 @@
       autoAddConnectors=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#else
-    ! access runSeq in the config
-    call SetFromConfig(driver, mode="setRunSequence", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#endif
     
     ! Diagnostic output
     if(verbose_diagnostics()) then
@@ -595,283 +578,6 @@
     
   end subroutine
     
-  !-----------------------------------------------------------------------------
-
-#if ESMF_VERSION_MAJOR < 8
-!TODOgjt: REMOVE THIS BLOCK ONCE SHOWN TO WORK WITHOUT
-  subroutine SetFromConfig(driver, mode, rc)
-    type(ESMF_GridComp)   :: driver
-    character(len=*)      :: mode
-    integer, intent(out)  :: rc
-    
-    ! local variables
-    character(ESMF_MAXSTR)          :: name
-    type(ESMF_Config)               :: config
-    integer                         :: lineCount, columnCount, i, slotCount
-    integer, allocatable            :: count(:)
-    character(len=32), allocatable  :: line(:)
-    character(len=32)               :: tempString
-    logical                         :: phaseFlag
-    integer                         :: level, slot, slotHWM
-    real(ESMF_KIND_R8)              :: seconds
-    integer, allocatable            :: slotStack(:)
-    type(ESMF_TimeInterval)         :: timeStep
-    type(ESMF_Clock)                :: internalClock, subClock
-    character(len=60), allocatable  :: connectorInstance(:)
-    integer                         :: connectorCount, j
-    type(ESMF_CplComp)              :: conn
-
-    character(len=ESMF_MAXSTR) :: msgString
-    character(len=10)          :: value
-
-    !can set to 'max' to recover intro/extro CurrGarbInfo for
-    !all connectors
-    character(len=10)          :: defaultVerbosity = "0"
-    !character(len=10)          :: defaultVerbosity = "max"
-
-    rc = ESMF_SUCCESS
-    
-    ! query the Component for info
-    call ESMF_GridCompGet(driver, name=name, config=config, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-    ! reset config to beginning of runSeq:: block
-    call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-    call ESMF_ConfigGetDim(config, lineCount, columnCount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-    
-    allocate(count(lineCount))
-    
-    if (trim(mode)=="setServicesConnectors") then
-      allocate(connectorInstance(lineCount))  ! max number of connectors
-      connectorCount = 0 ! reset
-    write(msgString,'(a,i6)')'max number of connectors ',lineCount
-    call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-    endif
-    
-    ! reset config to beginning of runSeq:: block
-    call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-    ! determine number of entries on each line
-    do i=1, lineCount
-      call ESMF_ConfigNextLine(config)
-      count(i) = ESMF_ConfigGetLen(config) ! entries on line i
-    enddo
-    
-    ! reset config to beginning of runSeq:: block
-    call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-    ! read each line and determine slotCount
-    slotCount = 0
-    do i=1, lineCount
-      call ESMF_ConfigNextLine(config)
-      allocate(line(count(i)))
-      call ESMF_ConfigGetAttribute(config, line, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-      
-      ! process the configuration line
-      if (size(line) == 1) then
-        if (index(trim(line(1)),"@") == 1) then
-          slotCount = slotCount + 1
-        endif
-      elseif ((size(line) == 3) .or. (size(line) == 4)) then
-        if (trim(mode)=="setServicesConnectors") then
-          ! a connector if the second element is "->"
-          if (trim(line(2)) /= "->") then
-            call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD, &
-              msg="Configuration line incorrectly formatted.", &
-              line=__LINE__, &
-              file=__FILE__)
-            return  ! bail out
-          else
-            ! found a connector entry, see if it is the first instance
-            do j=1, connectorCount
-              if (trim(connectorInstance(j)) == &
-                trim(line(1))//trim(line(2))//trim(line(3))) exit
-            enddo
-            if (j>connectorCount) then
-              ! this is a new Connector instance
-              connectorCount = j
-              connectorInstance(j) = trim(line(1))//trim(line(2))//trim(line(3))
-              write(msgString,'(a,i4,a,i4,4a)')'Connector j = ',j,&
-                                                ' line number ', i,&
-                                                '  ',trim(connectorInstance(j)),&
-                                                ' Verbosity = ',trim(defaultVerbosity)
-              call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-              ! SetServices for new Connector instance
-              call NUOPC_DriverAddComp(driver, &
-                srcCompLabel=trim(line(1)), dstCompLabel=trim(line(3)), &
-                compSetServicesRoutine=conSS, comp=conn, rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail
-              call NUOPC_CompAttributeSet(conn, name="Verbosity", value=defaultVerbosity, &
-                rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail
-              if (size(line) == 4) then
-                ! there are additional connection options specified
-                ! -> set as Attribute for now on the connector object
-                call ESMF_AttributeSet(conn, name="ConnectionOptions", &
-                  value=trim(line(4)), rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail
-              endif
-            endif
-          endif
-        endif
-      endif
-      ! clean-up
-      deallocate(line)
-    enddo
-    slotCount = (slotCount+1) / 2
-    slotCount = max(slotCount, 1) ! at least one slot
-    
-    if (trim(mode)=="setRunSequence") then
-    
-      allocate(slotStack(slotCount))
-
-      ! Replace the default RunSequence with a customized one
-      call NUOPC_DriverNewRunSequence(driver, slotCount=slotCount, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-
-      ! Get driver intenalClock
-      call ESMF_GridCompGet(driver, clock=internalClock, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-
-      ! reset config to beginning of runSeq:: block
-      call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-
-      level = 0
-      slot = 0
-      slotHWM = 0
-      do i=1, lineCount
-        call ESMF_ConfigNextLine(config)
-        allocate(line(count(i)))
-        call ESMF_ConfigGetAttribute(config, line, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
-        ! process the configuration line
-        if ((size(line) < 1) .or. (size(line) > 4)) then
-          call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD, &
-            msg="Configuration line incorrectly formatted.", &
-            line=__LINE__, &
-            file=__FILE__)
-          return  ! bail out
-        elseif (size(line) == 1) then
-          ! either a model or a time step indicator
-          if (index(trim(line(1)),"@") == 1) then
-            ! time step indicator
-            tempString=trim(line(1))
-            if (len(trim(tempString)) > 1) then
-              ! entering new time loop level
-              level = level + 1
-              slotStack(level)=slot
-              slot = slotHWM + 1
-              slotHWM = slotHWM + 1
-              read(tempString(2:len(tempString)), *) seconds
-              !print *, "found time step indicator: ", seconds
-              call ESMF_TimeIntervalSet(timeStep, s_r8=seconds, rc=rc)
-              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                line=__LINE__, &
-                file=__FILE__)) &
-                return  ! bail out
-              if (slot==1) then
-                ! Set the timeStep of the internalClock
-                call ESMF_ClockSet(internalClock, timeStep=timeStep, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, &
-                  file=__FILE__)) &
-                  return  ! bail out
-              else
-                ! Insert the link to a new slot, and set the timeStep
-                call NUOPC_DriverAddRunElement(driver, slot=slotStack(level), &
-                  linkSlot=slot, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-                subClock = ESMF_ClockCreate(internalClock, rc=rc)  ! make a copy first
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-                call ESMF_ClockSet(subClock, timeStep=timeStep, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-                call NUOPC_DriverSetRunSequence(driver, slot=slot, &
-                  clock=subClock, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-                  line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-              endif
-            else
-              ! exiting time loop level
-              slot = slotStack(level)
-              level = level - 1
-            endif
-          else
-            ! model
-            slot = max(slot, 1) ! model outside of a time loop
-            call NUOPC_DriverAddRunElement(driver, slot=slot, &
-              compLabel=trim(line(1)), rc=rc)
-            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-              line=__LINE__, &
-              file=__FILE__)) &
-              return  ! bail out
-          endif
-        elseif (size(line) == 2) then
-          ! a model with a specific phase label
-          call NUOPC_DriverAddRunElement(driver, slot=slot, &
-            compLabel=trim(line(1)), phaseLabel=trim(line(2)), rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-        elseif ((size(line) == 3) .or. (size(line) == 4)) then
-          ! a connector if the second element is "->", with options if 4th part
-          if (trim(line(2)) /= "->") then
-            call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD, &
-              msg="Configuration line incorrectly formatted.", &
-              line=__LINE__, &
-              file=__FILE__)
-            return  ! bail out
-          endif
-          call NUOPC_DriverAddRunElement(driver, slot=slot, &
-            srcCompLabel=trim(line(1)), dstCompLabel=trim(line(3)), rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__, &
-            file=__FILE__)) &
-            return  ! bail out
-        endif
-        
-        ! clean-up
-        deallocate(line)
-      enddo
-      ! clean-up
-      deallocate(slotStack)
-    endif
-
-    ! clean-up
-    deallocate(count)
-    if (trim(mode)=="setServicesConnectors") then
-      deallocate(connectorInstance)
-    endif
-
-  end subroutine
-#endif
   !-----------------------------------------------------------------------------
 
   subroutine Finalize(driver, rc)
