@@ -113,7 +113,7 @@
 !
 
       LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
-      logical, private :: printattr = .true.
+      logical, private :: printattr = .false.
 
       character(len=*),parameter :: u_FILE_u = &
            __FILE__
