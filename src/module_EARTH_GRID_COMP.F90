@@ -46,8 +46,7 @@
         Driver_routine_SS             => SetServices, &
         Driver_label_SetModelServices => label_SetModelServices, &
         Driver_label_SetRunSequence   => label_SetRunSequence, &
-        Driver_label_SetRunClock      => label_SetRunClock, &
-        Driver_label_Finalize         => label_Finalize
+        Driver_label_SetRunClock      => label_SetRunClock
       use NUOPC_Connector, only: conSS => SetServices
   ! - Handle build time ATM options:
 #ifdef FRONT_FV3
@@ -91,11 +90,6 @@
       use MED,              only: MED_SS     => SetServices
 #endif
 
-      USE module_EARTH_INTERNAL_STATE,ONLY: EARTH_INTERNAL_STATE        &
-                                           ,WRAP_EARTH_INTERNAL_STATE
-!
-!      USE module_ATM_GRID_COMP
-!
       USE module_NEMS_UTILS,ONLY: MESSAGE_CHECK
 !
 !-----------------------------------------------------------------------
@@ -203,12 +197,6 @@
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
 #endif
-#if 0
-      call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
-        specLabel=Driver_label_Finalize, specRoutine=Finalize, &
-        rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
-#endif
       
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
@@ -246,7 +234,6 @@
         ! local variables
         integer                         :: localrc, stat, i, j, petCount
         character(ESMF_MAXSTR)          :: name
-        type(WRAP_EARTH_INTERNAL_STATE) :: is
         type(ESMF_GridComp)             :: comp
         type(ESMF_Config)               :: config
         character(len=32), allocatable  :: compLabels(:)
@@ -270,14 +257,6 @@
         call ESMF_GridCompGet(driver, name=name, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-        ! allocate memory for the internal state and store in Component
-        allocate(is%EARTH_INT_STATE, stat=stat)
-        if (ESMF_LogFoundAllocError(statusToCheck=stat, &
-          msg="Allocation of internal state memory failed.", &
-          line=__LINE__, file=trim(name)//":"//__FILE__, rcToReturn=rc)) &
-          return  ! bail out
-        call ESMF_GridCompSetInternalState(driver, is, rc)
-        if (ChkErr(rc,__LINE__,u_FILE_u)) return
         ! get petCount and config
         call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -527,38 +506,6 @@
   end subroutine
     
   !-----------------------------------------------------------------------------
-
-  subroutine Finalize(driver, rc)
-    type(ESMF_GridComp)  :: driver
-    integer, intent(out) :: rc
-    
-    ! local variables
-    integer                         :: localrc, stat
-    type(WRAP_EARTH_INTERNAL_STATE) :: is
-    logical                         :: existflag
-    character(ESMF_MAXSTR)          :: name
-
-    rc = ESMF_SUCCESS
-
-    ! query the Component for info
-    call ESMF_GridCompGet(driver, name=name, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
-    ! query Component for this internal State
-    nullify(is%EARTH_INT_STATE)
-    call ESMF_GridCompGetInternalState(driver, is, rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      
-    ! deallocate internal state memory
-    deallocate(is%EARTH_INT_STATE, stat=stat)
-    if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
-      msg="Deallocation of internal state memory failed.", &
-      line=__LINE__, file=trim(name)//":"//__FILE__, rcToReturn=rc)) &
-      return  ! bail out
-      
-  end subroutine
-      
-  !-----------------------------------------------------------------------------
   
   recursive subroutine ModifyCplLists(driver, importState, exportState, clock, &
     rc)
@@ -572,15 +519,9 @@
     integer                         :: i, j, cplListSize
     character(len=160), allocatable :: cplList(:)
     character(len=160)              :: value
-    type(WRAP_EARTH_INTERNAL_STATE) :: is
 
     rc = ESMF_SUCCESS
     
-    ! query Component for this internal State
-    nullify(is%EARTH_INT_STATE)
-    call ESMF_GridCompGetInternalState(driver, is, rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
     call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO)
     
     nullify(connectorList)
