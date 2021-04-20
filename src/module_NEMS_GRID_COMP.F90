@@ -23,9 +23,9 @@
 !          |    |
 !          |    |
 !          |    |
-!          |    (MOM5, HYCOM, etc.)
+!          |    (MOM6, HYCOM, etc.)
 !          |
-!          CORE component (GSM, NMM, FIM, GEN, etc.)
+!          CORE component (FV3, DATM, etc.)
 !
 !-----------------------------------------------------------------------
 !  2011-05-11  Theurich & Yang  - Modified for using the ESMF 5.2.0r_beta_snapshot_07.
@@ -40,7 +40,7 @@
 !
       USE module_EARTH_GRID_COMP
 !
-      USE module_NEMS_UTILS,ONLY: ERR_MSG,MESSAGE_CHECK
+      USE module_NEMS_UTILS,ONLY: MESSAGE_CHECK
 !
 !-----------------------------------------------------------------------
 !

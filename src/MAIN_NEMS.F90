@@ -34,7 +34,7 @@
 !   2010-04     Yang    - Add GEFS and GFS for the revised NEMS.
 !   2010-11     Yang    - Add the "Generic Core" to NEMS
 !   2011-02     Yang    - Updated to use both the ESMF 4.0.0rp2 library,
-!                         ESMF 5 series library and the the 
+!                         ESMF 5 series library and the the
 !                         ESMF 3.1.0rp2 library.
 !   2011-05     Theurich & Yang - Modified for using the ESMF 5.2.0r_beta_snapshot_07.
 !   2011-10     Yang    - Modified for using the ESMF 5.2.0r library.
@@ -57,7 +57,7 @@
 !***  The following module contains error-checking, and other utilities
 !-----------------------------------------------------------------------
 !
-       USE module_NEMS_UTILS, ONLY: check_esmf_pet, err_msg, message_check
+       USE module_NEMS_UTILS, ONLY: check_esmf_pet, message_check
 !
 !-----------------------------------------------------------------------
 !***  This module calculates resource usage across all ranks.
@@ -102,7 +102,7 @@
 !
       TYPE(ESMF_State) :: NEMS_EXP_STATE                                &  !<-- The NEMS export state
                          ,NEMS_IMP_STATE                                   !<-- The NEMS import state
-!      
+!
       TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The ESMF time management clock
 !
       TYPE(ESMF_Config) :: CF_MAIN                                         !<-- The Configure object
@@ -130,9 +130,9 @@
       CALL CHECK_ESMF_PET(PRINT_ESMF)
 !
 !-----------------------------------------------------------------------
-!***  Initialize the ESMF framework. 
+!***  Initialize the ESMF framework.
 !-----------------------------------------------------------------------
-! 
+!
       IF(PRINT_ESMF) THEN
         CALL ESMF_Initialize(VM             =VM                         & !<-- The ESMF Virtual Machine
                             ,defaultCalKind =ESMF_CALKIND_GREGORIAN     & !<-- Set up the default calendar.
@@ -223,7 +223,7 @@
       CF_MAIN=ESMF_ConfigCreate(rc=RC)
 !
       CALL ESMF_ConfigLoadFile(config  =CF_MAIN                         &  !<-- The Configure object
-                              ,filename='model_configure'               &  !<-- The name of the configure file 
+                              ,filename='model_configure'               &  !<-- The name of the configure file
                               ,rc      =RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -450,7 +450,7 @@
       NEMS_EXP_STATE=ESMF_StateCreate(name='NEMS Export State'     &
                                      ,rc       =RC)
       ESMF_ERR_ABORT(RC)
-!      
+!
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------

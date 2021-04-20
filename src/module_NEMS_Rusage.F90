@@ -627,7 +627,7 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine color_by_hash(name,namelen,commin,comm_name,comm_hosts,rank_world,ierr)
-    !! Groups processors into ranks by name.  
+    !! Groups processors into ranks by name.
     !!
     !! Each group in comm_name will have the same name in each rank.
     !! The first rank of each communicator will be in the same group
@@ -714,7 +714,7 @@ contains
        endif
 
        if(match) exit hashtries
-       ! We get here on hash collisions.  That means the 
+       ! We get here on hash collisions.  That means the
     end do hashtries
 
     if(.not.match) then
