@@ -261,7 +261,7 @@ contains
     integer, allocatable :: statsizes(:) ! number of ranks per host
     integer, allocatable :: statdispl(:) ! mpi gatherv displacements for ranks
     character(len=:), allocatable :: allnames ! all host names concatinated
-    
+
     if(ru%m_nodemaster) then
        allocate(hoststat(ru%m_comm_size_name))
        allocate(hostranks(ru%m_comm_size_name))
@@ -540,7 +540,7 @@ contains
     if(ierr/=0) then
        ierr=2
     endif
-    
+
     if(.not.match) then
        ierr=3
        return
@@ -686,7 +686,7 @@ contains
           return
        endif
        hash=c_crc32c
-     
+
        call MPI_Comm_Split(commin,hash,rank_world,comm_name,error)
        if(error/=0) then
           ierr=2

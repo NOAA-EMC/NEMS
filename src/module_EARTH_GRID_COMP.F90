@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 !-----------------------------------------------------------------------
 !
@@ -160,7 +160,6 @@
 !
       INTEGER :: RC
       type(ESMF_Config)             :: config
-      
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -182,7 +181,7 @@
         specLabel=Driver_label_SetModelServices, specRoutine=SetModelServices, &
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
-      
+
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunSequence, specRoutine=SetRunSequence, &
         rc=RC)
@@ -197,7 +196,7 @@
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
 #endif
-      
+
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
         phaseLabelList=(/"IPDv04p2"/), userRoutine=ModifyCplLists, rc=rc)
@@ -441,7 +440,7 @@
               file=__FILE__, rcToReturn=rc)
             return
           endif
-          
+
           ! read and ingest free format component attributes
           attrFF = NUOPC_FreeFormatCreate(config, &
             label=trim(prefix)//"_attributes::", relaxedflag=.true., rc=rc)
@@ -450,7 +449,6 @@
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          
           ! clean-up
           deallocate(petList)
 
@@ -466,15 +464,14 @@
 
         ! clean-up
         deallocate(compLabels)
-        
       end subroutine
 
   !-----------------------------------------------------------------------------
-  
+
   subroutine SetRunSequence(driver, rc)
     type(ESMF_GridComp)  :: driver
     integer, intent(out) :: rc
-    
+
     ! local variables
     character(ESMF_MAXSTR)          :: name
     type(ESMF_Config)               :: config
@@ -506,7 +503,7 @@
   end subroutine
     
   !-----------------------------------------------------------------------------
-  
+
   recursive subroutine ModifyCplLists(driver, importState, exportState, clock, &
     rc)
     type(ESMF_GridComp)  :: driver
@@ -565,9 +562,8 @@
         deallocate(cplList)
       endif
     enddo
-      
+
     deallocate(connectorList)
-    
   end subroutine
 
   !-----------------------------------------------------------------------------

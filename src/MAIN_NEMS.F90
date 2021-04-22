@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 #if ESMF_VERSION_MAJOR >= 8
 ! Do things for ESMF 8 and later
