@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 !-----------------------------------------------------------------------
 !
@@ -157,7 +157,7 @@
 #endif
   ! - Mediator
 #ifdef CMEPS
-      use MED, only : MED_SS     => SetServices 
+      use MED, only : MED_SS     => SetServices
 #else
       use module_MEDIATOR,        only: MED_SS     => SetServices
 #endif
@@ -223,7 +223,7 @@
 !
       INTEGER :: RC
       type(ESMF_Config)             :: config
-      
+
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -245,7 +245,7 @@
         specLabel=Driver_label_SetModelServices, specRoutine=SetModelServices, &
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
-      
+
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunSequence, specRoutine=SetRunSequence, &
         rc=RC)
@@ -259,14 +259,14 @@
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
       ESMF_ERR_RETURN(RC,RC_REG)
-#endif      
+#endif
 #if 0
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_Finalize, specRoutine=Finalize, &
         rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
 #endif
-      
+
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
         phaseLabelList=(/"IPDv04p2"/), userRoutine=ModifyCplLists, rc=rc)
@@ -279,7 +279,7 @@
       ESMF_ERR_RETURN(RC,RC_REG)
       call ESMF_GridCompSet(EARTH_GRID_COMP, config=config, rc=RC)
       ESMF_ERR_RETURN(RC,RC_REG)
-      
+
       ! Added the following Field Dictionary block to the EARTH component level
       ! in order to prevent different dictionary definitions in the lower
       ! components. Doing this here isn't without problems because it
@@ -287,7 +287,7 @@
       ! which lowers their transferability to other coupled systems. However,
       ! extending the Field Dictionary is a temporary solution anyway (see the
       ! TODO: below), so this isn't going to stay for ever this way.
-      
+
       ! Extend the NUOPC Field Dictionary to hold required entries.
       !TODO: In the long run this section will not be needed when we have
       !TODO: absorbed the needed standard names into the default dictionary.
@@ -663,7 +663,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
 
       if (.not.NUOPC_FieldDictionaryHasEntry( &
         "northward_partitioned_stokes_drift_1")) then
@@ -1125,7 +1125,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "wind_stress_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1136,7 +1136,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "wind_stress_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1147,7 +1147,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "ocn_current_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1158,7 +1158,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "ocn_current_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1169,7 +1169,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "ocn_current_idir")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1180,7 +1180,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "ocn_current_jdir")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1191,7 +1191,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "sea_surface_slope_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1202,7 +1202,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "sea_surface_slope_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1213,7 +1213,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "sea_surface_slope_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1246,7 +1246,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_air_ice_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1257,7 +1257,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_air_ocn_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1268,7 +1268,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_air_ocn_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1279,7 +1279,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_ocn_ice_zonal")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1290,7 +1290,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_ocn_ice_merid")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1301,7 +1301,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_ocn_ice_idir")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1312,7 +1312,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "stress_on_ocn_ice_jdir")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1323,7 +1323,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mixed_layer_depth")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1334,7 +1334,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_net_lw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1345,7 +1345,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_net_lw_flx_atm")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1356,7 +1356,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_net_sw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1367,7 +1367,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_up_lw_flx_ice")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1378,7 +1378,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "mean_up_lw_flx_ocn")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1389,7 +1389,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_net_lw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1400,7 +1400,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_net_sw_flx")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1466,7 +1466,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ir_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1477,7 +1477,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_vis_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1488,7 +1488,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_vis_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1499,7 +1499,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ocn_ir_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1510,7 +1510,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ocn_ir_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1521,7 +1521,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ocn_vis_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1532,7 +1532,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ocn_vis_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1554,7 +1554,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ice_ir_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1565,7 +1565,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ice_vis_dir_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1576,7 +1576,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "inst_ice_vis_dif_albedo")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1797,7 +1797,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "frozen_water_flux_into_sea_water")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -1808,7 +1808,7 @@
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-      endif 
+      endif
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "surface_temperature")) then
         call NUOPC_FieldDictionaryAddEntry( &
@@ -2031,7 +2031,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
-     
+
       !Mass flux of liquid runoff
       if (.not. NUOPC_FieldDictionaryHasEntry( &
         "Foxx_rofl")) then
@@ -2068,7 +2068,7 @@
           file=__FILE__)) &
           return  ! bail out
       endif
- 
+
       ! Synonyms for HYCOM fields
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_downward_eastward_stress",&
@@ -2766,7 +2766,7 @@
         file=__FILE__)) &
         return  ! bail out
 
-      !For MOM6 and WW3 variables to match: 
+      !For MOM6 and WW3 variables to match:
       call NUOPC_FieldDictionarySetSyno( &
         standardNames = (/"surface_eastward_sea_water_velocity",&
                           "ocn_current_zonal                  "/), rc=rc)
@@ -3428,12 +3428,12 @@
         call ESMF_GridCompSetInternalState(driver, is, rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
         ! get petCount and config
         call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
         ! read and ingest free format driver attributes
         attrFF = NUOPC_FreeFormatCreate(config, label="EARTH_attributes::", &
           relaxedflag=.true., rc=rc)
@@ -3445,7 +3445,7 @@
         call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
         ! dump the current field dictionary into the Log file
         call ESMF_AttributeGet(driver, name="DumpFieldDictionary", &
           value=value, defaultValue="false", &
@@ -3470,7 +3470,7 @@
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
         endif
-        
+
         ! determine the generic component labels
         componentCount = ESMF_ConfigGetLen(config, &
           label="EARTH_component_list:", rc=rc)
@@ -3919,7 +3919,7 @@
             write (msg, *) "Model '", trim(model), "' was requested, "// &
               "but is not available in the executable!"
             call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msg, line=__LINE__, &
-              file=__FILE__, rcToReturn=rc) 
+              file=__FILE__, rcToReturn=rc)
             return  ! bail out
 #endif
           elseif (trim(model) == "wrfhydro") then
@@ -3970,7 +3970,7 @@
               file=__FILE__, rcToReturn=rc)
             return  ! bail out
           endif
-          
+
           ! read and ingest free format component attributes
           attrFF = NUOPC_FreeFormatCreate(config, &
             label=trim(prefix)//"_attributes::", relaxedflag=.true., rc=rc)
@@ -3982,7 +3982,7 @@
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-          
+
           ! clean-up
           deallocate(petList)
 
@@ -3995,7 +3995,7 @@
         call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-#endif          
+#endif
         enddo
 
 #if ESMF_VERSION_MAJOR < 8
@@ -4008,15 +4008,15 @@
 
         ! clean-up
         deallocate(compLabels)
-        
+
       end subroutine
 
   !-----------------------------------------------------------------------------
-  
+
   subroutine SetRunSequence(driver, rc)
     type(ESMF_GridComp)  :: driver
     integer, intent(out) :: rc
-    
+
     ! local variables
     character(ESMF_MAXSTR)          :: name
 #if ESMF_VERSION_MAJOR >= 8
@@ -4051,16 +4051,16 @@
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
 #endif
-    
+
     ! Diagnostic output
     if(verbose_diagnostics()) then
        call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
     endif
-    
+
   end subroutine
-    
+
   !-----------------------------------------------------------------------------
 
 #if ESMF_VERSION_MAJOR < 8
@@ -4069,7 +4069,7 @@
     type(ESMF_GridComp)   :: driver
     character(len=*)      :: mode
     integer, intent(out)  :: rc
-    
+
     ! local variables
     character(ESMF_MAXSTR)          :: name
     type(ESMF_Config)               :: config
@@ -4090,13 +4090,13 @@
     character(len=ESMF_MAXSTR) :: msgString
     character(len=10)          :: value
 
-    !can set to 'max' to recover intro/extro CurrGarbInfo for 
-    !all connectors 
+    !can set to 'max' to recover intro/extro CurrGarbInfo for
+    !all connectors
     character(len=10)          :: defaultVerbosity = "0"
     !character(len=10)          :: defaultVerbosity = "max"
 
     rc = ESMF_SUCCESS
-    
+
     ! query the Component for info
     call ESMF_GridCompGet(driver, name=name, config=config, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -4109,16 +4109,16 @@
     call ESMF_ConfigGetDim(config, lineCount, columnCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-    
+
     allocate(count(lineCount))
-    
+
     if (trim(mode)=="setServicesConnectors") then
       allocate(connectorInstance(lineCount))  ! max number of connectors
       connectorCount = 0 ! reset
     write(msgString,'(a,i6)')'max number of connectors ',lineCount
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
     endif
-    
+
     ! reset config to beginning of runSeq:: block
     call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -4129,7 +4129,7 @@
       call ESMF_ConfigNextLine(config)
       count(i) = ESMF_ConfigGetLen(config) ! entries on line i
     enddo
-    
+
     ! reset config to beginning of runSeq:: block
     call ESMF_ConfigFindLabel(config, label="runSeq::", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -4143,7 +4143,7 @@
       call ESMF_ConfigGetAttribute(config, line, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-      
+
       ! process the configuration line
       if (size(line) == 1) then
         if (index(trim(line(1)),"@") == 1) then
@@ -4200,9 +4200,9 @@
     enddo
     slotCount = (slotCount+1) / 2
     slotCount = max(slotCount, 1) ! at least one slot
-    
+
     if (trim(mode)=="setRunSequence") then
-    
+
       allocate(slotStack(slotCount))
 
       ! Replace the default RunSequence with a customized one
@@ -4233,7 +4233,7 @@
         call ESMF_ConfigGetAttribute(config, line, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-        
+
         ! process the configuration line
         if ((size(line) < 1) .or. (size(line) > 4)) then
           call ESMF_LogSetError(rcToCheck=ESMF_RC_ARG_BAD, &
@@ -4321,8 +4321,8 @@
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-        endif    
-        
+        endif
+
         ! clean-up
         deallocate(line)
       enddo
@@ -4343,7 +4343,7 @@
   subroutine Finalize(driver, rc)
     type(ESMF_GridComp)  :: driver
     integer, intent(out) :: rc
-    
+
     ! local variables
     integer                         :: localrc, stat
     type(WRAP_EARTH_INTERNAL_STATE) :: is
@@ -4356,24 +4356,24 @@
     call ESMF_GridCompGet(driver, name=name, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-    
+
     ! query Component for this internal State
     nullify(is%EARTH_INT_STATE)
     call ESMF_GridCompGetInternalState(driver, is, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=trim(name)//":"//__FILE__)) return  ! bail out
-      
+
     ! deallocate internal state memory
     deallocate(is%EARTH_INT_STATE, stat=stat)
     if (ESMF_LogFoundDeallocError(statusToCheck=stat, &
       msg="Deallocation of internal state memory failed.", &
       line=__LINE__, file=trim(name)//":"//__FILE__, rcToReturn=rc)) &
       return  ! bail out
-      
+
   end subroutine
-      
+
   !-----------------------------------------------------------------------------
-  
+
   recursive subroutine ModifyCplLists(driver, importState, exportState, clock, &
     rc)
     type(ESMF_GridComp)  :: driver
@@ -4389,7 +4389,7 @@
     type(WRAP_EARTH_INTERNAL_STATE) :: is
 
     rc = ESMF_SUCCESS
-    
+
     ! query Component for this internal State
     nullify(is%EARTH_INT_STATE)
     call ESMF_GridCompGetInternalState(driver, is, rc)
@@ -4403,14 +4403,14 @@
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     nullify(connectorList)
     call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
     write (msg,*) "Found ", size(connectorList), " Connectors."// &
       " Modifying CplList Attribute...."
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
@@ -4418,7 +4418,7 @@
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     do i=1, size(connectorList)
       ! query Connector i for its name
       call ESMF_CplCompGet(connectorList(i), name=name, rc=rc)
@@ -4464,9 +4464,9 @@
         deallocate(cplList)
       endif
     enddo
-      
+
     deallocate(connectorList)
-    
+
   end subroutine
 
   !-----------------------------------------------------------------------------
