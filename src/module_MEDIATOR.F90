@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 module module_MEDIATOR
 
@@ -53,11 +53,11 @@ module module_MEDIATOR
     mediator_label_TimestampExport  => label_TimestampExport, &
     mediator_label_SetRunClock      => label_SetRunClock
   use module_MEDIATOR_methods
-  
+
   implicit none
-  
+
   private
-  
+
   ! private internal state to keep instance data
   type InternalStateStruct
     integer               :: fastcntr    ! slice counter for writing to NetCDF file
@@ -75,7 +75,7 @@ module module_MEDIATOR
     type(ESMF_FieldBundle):: FBaccumHyd  ! accumulator of lnd export data
     type(ESMF_FieldBundle):: FBaccumAtmOcn  ! accumulator of atm export data
     type(ESMF_FieldBundle):: FBAtm_a     ! Atm export data on atm grid
-    type(ESMF_FieldBundle):: FBAtm_o     ! Atm export data mapped to ocn grid 
+    type(ESMF_FieldBundle):: FBAtm_o     ! Atm export data mapped to ocn grid
 !BL2017
     type(ESMF_FieldBundle):: FBAtm2_o     ! Atm export data mapped to ocn grid
     type(ESMF_FieldBundle):: FBAtm2_i     ! Atm export data mapped to ice grid
@@ -299,23 +299,23 @@ module module_MEDIATOR
   type(ESMF_PoleMethod_Flag), parameter :: polemethod=ESMF_POLEMETHOD_ALLAVG
 
   public SetServices
-  
+
   !-----------------------------------------------------------------------------
   contains
   !-----------------------------------------------------------------------------
-  
+
   subroutine SetServices(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
 
     ! local variables
     character(len=*),parameter :: subname='(module_MEDIATOR:SetServices)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! the NUOPC mediator component will register the generic methods
     call NUOPC_CompDerive(gcomp, mediator_routine_SS, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -332,13 +332,13 @@ module module_MEDIATOR
       phaseLabelList=(/"IPDv03p1"/), userRoutine=InitializeIPDv03p1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! IPDv03p3: realize connected Fields with transfer action "provide"
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p3"/), userRoutine=InitializeIPDv03p3, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! IPDv03p4: optionally modify the decomp/distr of transferred Grid/Mesh
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
       phaseLabelList=(/"IPDv03p4"/), userRoutine=InitializeIPDv03p4, rc=rc)
@@ -350,7 +350,7 @@ module module_MEDIATOR
       phaseLabelList=(/"IPDv03p5"/), userRoutine=InitializeIPDv03p5, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! attach specializing method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_DataInitialize, &
       specRoutine=DataInitialize, rc=rc)
@@ -385,7 +385,7 @@ module module_MEDIATOR
       specRoutine=MedPhase_fast_before, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! set entry point for Run( phase = fast_after ) and specialize
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
       phaseLabelList=(/"MedPhase_fast_after"/), &
@@ -669,7 +669,7 @@ module module_MEDIATOR
     call fld_list_add(fldsToOcn,"mean_fresh_water_to_ocean_rate", "will provide")
     call fld_list_add(fldsToOcn,"mean_salt_rate"          , "will provide")
     call fld_list_add(fldsToOcn,"ice_fraction"            , "will provide")
- 
+
     ! Fields from OCN
     call fld_list_add(fldsFrOcn,"ocean_mask"              , "cannot provide","conservedst")
     call fld_list_add(fldsFrOcn,"sea_surface_temperature" , "will provide","copy")
@@ -760,7 +760,7 @@ module module_MEDIATOR
     call fld_list_add(fldsFrIce,"mean_salt_rate"          , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"mean_ice_volume"         , "will provide","conservefrac")
     call fld_list_add(fldsFrIce,"mean_snow_volume"        , "will provide","conservefrac")
- 
+
     ! Required met forcing fields to LND
     call fld_list_add(fldsToLnd,"inst_down_lw_flx"                      , "cannot provide")
     call fld_list_add(fldsToLnd,"inst_down_sw_flx"                      , "cannot provide")
@@ -901,7 +901,7 @@ module module_MEDIATOR
     endif
 
   end subroutine SetServices
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
@@ -910,15 +910,15 @@ module module_MEDIATOR
     type(ESMF_Clock)      :: clock
     integer, intent(out)  :: rc
 
-    ! local variables    
+    ! local variables
     character(len=NUOPC_PhaseMapStringLength) :: initPhases(6)
     character(len=*),parameter :: subname='(module_MEDIATOR:InitializeP0)'
     character(len=10)                         :: value
-    
+
     call ESMF_AttributeGet(gcomp, name="Verbosity", value=value, defaultValue="max", &
       convention="NUOPC", purpose="Instance", rc=rc)
      call ESMF_LogWrite(trim(subname)//": Verbosity="//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)
-    
+
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
     dbug_flag = ESMF_UtilString2Int(value, &
@@ -974,7 +974,7 @@ module module_MEDIATOR
     statewrite_flag=(trim(value)=="true")
     write(msgString,'(A,l6)') trim(subname)//' statewrite_flag = ',statewrite_flag
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=dbrc)
-    
+
     call ESMF_AttributeGet(gcomp, name="DumpRHs", value=value, defaultValue="false", &
       convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1025,15 +1025,15 @@ module module_MEDIATOR
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
-    ! local variables    
+    ! local variables
     integer :: n
     character(len=*),parameter :: subname='(module_MEDIATOR:InitializeIPDv03p1)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! importable fields:
 
     ! add a namespace
@@ -1117,7 +1117,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
     enddo
-      
+
     ! exportable fields:
 
     do n = 1,fldsToAtm%num
@@ -1195,7 +1195,7 @@ module module_MEDIATOR
     endif
 
   end subroutine InitializeIPDv03p1
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine InitializeIPDv03p3(gcomp, importState, exportState, clock, rc)
@@ -1203,8 +1203,8 @@ module module_MEDIATOR
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
-    ! local variables    
+
+    ! local variables
     integer                     :: i, j
     real(kind=ESMF_KIND_R8),pointer :: lonPtr(:,:), latPtr(:,:)
     type(InternalState)         :: is_local
@@ -1216,12 +1216,12 @@ module module_MEDIATOR
 !    type(ESMF_Field)            :: fieldX, fieldA, fieldO
 !    type(ESMF_XGrid)            :: xgrid
     character(len=*),parameter :: subname='(module_MEDIATOR:InitializeIPDv03p3)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! Allocate memory for the internal state and set it in the Component.
     allocate(is_local%wrap, stat=stat)
     if (ESMF_LogFoundAllocError(statusToCheck=stat, &
@@ -1232,7 +1232,7 @@ module module_MEDIATOR
     call ESMF_GridCompSetInternalState(gcomp, is_local, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Initialize the internal state members
     is_local%wrap%fastcntr = 1
     is_local%wrap%slowcntr = 1
@@ -1366,13 +1366,13 @@ module module_MEDIATOR
 !    call ESMF_GridDestroy(gridOcn, rc=rc)
 !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !      line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
   contains  !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  
+
     subroutine realizeConnectedFields(state, fieldNameList, grid, string, rc)
       type(ESMF_State)                :: state
       character(len=*)                :: fieldNameList(:)
@@ -1388,7 +1388,7 @@ module module_MEDIATOR
         call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
       rc = ESMF_SUCCESS
-      
+
       do n=1, size(fieldNameList)
         if (NUOPC_IsConnected(state, fieldName=fieldNameList(n))) then
 
@@ -1423,7 +1423,7 @@ module module_MEDIATOR
               value="accept-internal", rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=__FILE__)) return  ! bail out
-            
+
 #endif
           endif   ! transferAction
 
@@ -1443,7 +1443,7 @@ module module_MEDIATOR
     end subroutine realizeConnectedFields
 
   end subroutine InitializeIPDv03p3
-  
+
   !-----------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
@@ -1453,7 +1453,7 @@ module module_MEDIATOR
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables
 !    type(ESMF_Field)              :: field
 !    type(ESMF_Grid)               :: grid
@@ -1466,13 +1466,13 @@ module module_MEDIATOR
 !    integer, allocatable          :: regDecompPTile(:,:)
 !    integer                       :: i, j, n, n1
 !    character(ESMF_MAXSTR)        :: transferAction
-    
+
     character(len=*),parameter :: subname='(module_MEDIATOR:InitializeIPDv03p4)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
-    
+
     rc = ESMF_SUCCESS
 
     call realizeConnectedGrid(NState_atmImp, 'AtmImp', rc)
@@ -1526,7 +1526,7 @@ module module_MEDIATOR
       type(ESMF_State)   , intent(inout) :: State
       character(len=*)   , intent(in)    :: string
       integer            , intent(out)   :: rc
-    
+
       ! local variables
       type(ESMF_Field)              :: field
       type(ESMF_Grid)               :: grid
@@ -1542,10 +1542,10 @@ module module_MEDIATOR
       character(ESMF_MAXSTR),allocatable :: fieldNameList(:)
       character(ESMF_MAXSTR)        :: transferAction
       character(len=*),parameter :: subname='(module_MEDIATOR:realizeConnectedGrid)'
-    
+
       !NOTE: All of the Fields that set their TransferOfferGeomObject Attribute
       !NOTE: to "cannot provide" should now have the accepted Grid available.
-      !NOTE: Go and pull out this Grid for one of a representative Field and 
+      !NOTE: Go and pull out this Grid for one of a representative Field and
       !NOTE: modify the decomposition and distribution of the Grid to match the
       !NOTE: Mediator PETs.
 
@@ -1585,7 +1585,7 @@ module module_MEDIATOR
           if (dbug_flag > 1) then
             call ESMF_LogWrite(trim(subname)//trim(string)//": accept grid for "//trim(fieldNameList(n)), ESMF_LOGMSG_INFO, rc=dbrc)
           endif
-          
+
           ! this is still an empty field, but holds a Grid with DistGrid
           call ESMF_FieldGet(field, grid=grid, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1600,11 +1600,11 @@ module module_MEDIATOR
           call ESMF_GridGet(grid, distgrid=distgrid, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
            line=__LINE__, file=__FILE__)) return  ! bail out
-   
-          ! Create a custom DistGrid, based on the minIndex, maxIndex of the 
+
+          ! Create a custom DistGrid, based on the minIndex, maxIndex of the
           ! accepted DistGrid, but with a default regDecomp for the current VM
           ! that leads to 1DE/PET.
-    
+
           ! get dimCount and tileCount
           call ESMF_DistGridGet(distgrid, dimCount=dimCount, tileCount=tileCount, &
             connectionCount=connectionCount, rc=rc)
@@ -1615,13 +1615,13 @@ module module_MEDIATOR
           allocate(minIndexPTile(dimCount, tileCount), &
                    maxIndexPTile(dimCount, tileCount))
           allocate(connectionList(connectionCount))
-    
+
           ! get minIndex and maxIndex arrays, and connectionList
           call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
             maxIndexPTile=maxIndexPTile, connectionList=connectionList, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-          
+
 #if ESMF_VERSION_MAJOR >= 8
           if (petCount/tileCount * tileCount == petCount) then
             ! petCount is a multiple of tileCount:
@@ -1657,13 +1657,13 @@ module module_MEDIATOR
 #if ESMF_VERSION_MAJOR >= 8
           endif
 #endif
-              
+
           if (dbug_flag > 1) then
             call ESMF_LogWrite(trim(subname)//trim(string)//': distgrid with connlist', ESMF_LOGMSG_INFO, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=__FILE__)) return  ! bail out
           endif
-          
+
           ! local clean-up
           deallocate(minIndexPTile, maxIndexPTile, connectionList)
 
@@ -1683,9 +1683,9 @@ module module_MEDIATOR
               line=__LINE__, file=__FILE__, rcToReturn=rc)
             return  ! bail out
           endif
-          
+
           ! Swap all the Grids in the State
-    
+
 !tcx         do n1=1, fieldCount
           do n1=n,n
             ! access a field in the importState and set the Grid
@@ -1693,7 +1693,7 @@ module module_MEDIATOR
               itemName=fieldNameList(n1), rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=__FILE__)) return  ! bail out
-            call ESMF_FieldEmptySet(field, grid=grid, rc=rc)    
+            call ESMF_FieldEmptySet(field, grid=grid, rc=rc)
             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
               line=__LINE__, file=__FILE__)) return  ! bail out
             if (dbug_flag > 1) then
@@ -1723,7 +1723,7 @@ module module_MEDIATOR
     end subroutine realizeConnectedGrid
 
   end subroutine InitializeIPDv03p4
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine InitializeIPDv03p5(gcomp, importState, exportState, clock, rc)
@@ -1731,7 +1731,7 @@ module module_MEDIATOR
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Field)            :: field, field1, field2
     type(ESMF_Field)            :: fieldArea
@@ -1744,7 +1744,7 @@ module module_MEDIATOR
     integer                     :: i,j
     type(ESMF_Field)            :: fieldAtm, fieldOcn
     type(ESMF_Array)            :: arrayOcn, arrayIce
-    type(ESMF_RouteHandle)      :: RH_mapmask  ! unmasked conservative remapping 
+    type(ESMF_RouteHandle)      :: RH_mapmask  ! unmasked conservative remapping
     type(ESMF_Grid)             :: gridAtmCoord, gridOcnCoord
     integer(ESMF_KIND_I4), pointer :: dataPtr_arrayOcn(:,:), dataPtr_arrayIce(:,:)
     integer(ESMF_KIND_I4), pointer :: dataPtr_arrayAtm(:,:)
@@ -1755,7 +1755,7 @@ module module_MEDIATOR
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
-    
+
     rc = ESMF_SUCCESS
 
     !----------------------------------------------------------
@@ -2180,7 +2180,7 @@ module module_MEDIATOR
 
 #if 1
     !----------------------------------------------------------
-    ! dump the Grid coordinate arrays for reference      
+    ! dump the Grid coordinate arrays for reference
     !----------------------------------------------------------
 
 #ifndef FRONT_FV3
@@ -2427,7 +2427,7 @@ module module_MEDIATOR
     !----------------------------------------------------------
     !--- Check for active regrid directions
     !----------------------------------------------------------
-    
+
     ! initialize
     is_local%wrap%a2o_active = .false.
     is_local%wrap%a2i_active = .false.
@@ -2472,7 +2472,7 @@ module module_MEDIATOR
         is_local%wrap%a2h_active = .true.
       endif
     endif
-    
+
     ! o2a, o2i
     call ESMF_FieldBundleGet(is_local%wrap%FBOcn_o, fieldCount=fieldCount, rc=rc) ! Ocean Export Field Count
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2491,7 +2491,7 @@ module module_MEDIATOR
         is_local%wrap%o2i_active = .true.
       endif
     endif
-    
+
     ! i2a, i2o
     call ESMF_FieldBundleGet(is_local%wrap%FBIce_i, fieldCount=fieldCount, rc=rc) ! Ice Export Field Count
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2510,7 +2510,7 @@ module module_MEDIATOR
         is_local%wrap%i2o_active = .true.
       endif
     endif
-    
+
     ! l2a, l2h
     call ESMF_FieldBundleGet(is_local%wrap%FBLnd_l, fieldCount=fieldCount, rc=rc) ! Land Export Field Count
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2755,7 +2755,7 @@ module module_MEDIATOR
 
       type(ESMF_State)   , intent(inout) :: State
       integer            , intent(out)   :: rc
-    
+
       integer                     :: n, fieldCount
       character(ESMF_MAXSTR),allocatable :: fieldNameList(:)
       type(ESMF_FieldStatus_Flag)        :: fieldStatus
@@ -2790,7 +2790,7 @@ module module_MEDIATOR
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, file=__FILE__)) return  ! bail out
 
-        if (fieldStatus==ESMF_FIELDSTATUS_GRIDSET) then 
+        if (fieldStatus==ESMF_FIELDSTATUS_GRIDSET) then
           if (dbug_flag > 1) then
             call ESMF_LogWrite(subname//" is accepting grid for field "//trim(fieldNameList(n)), &
               ESMF_LOGMSG_INFO, rc=rc)
@@ -2838,13 +2838,13 @@ module module_MEDIATOR
     end subroutine completeFieldInitialization
 
   end subroutine InitializeIPDv03p5
-  
+
   !-----------------------------------------------------------------------------
 
   subroutine DataInitialize(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_State)            :: importState, exportState
@@ -2869,7 +2869,7 @@ module module_MEDIATOR
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -2880,10 +2880,10 @@ module module_MEDIATOR
     call ESMF_ClockGet(clock, currTime=time, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! initialze cumulative flag
     allDone = .true.  ! reset if an item is found that is not done
-    
+
     ! check that all imported fields from ATM show correct timestamp
     do n = 1,fldsFrAtm%num
       call ESMF_StateGet(NState_AtmImp, itemName=fldsFrAtm%shortname(n), &
@@ -2932,13 +2932,13 @@ module module_MEDIATOR
         line=__LINE__, file=__FILE__)) return  ! bail out
 
       ! gjt: The above code ensures that the MED has initial conditions from ATM.
-    
+
       ! TODO - For the real case this should probably use the fields from the
       ! importState and do something with it as a sensible starting point
       ! for the accumulation field so that the OCN receives a meaningful
       ! fields during its first time step. However, here for testing
       ! I simply initialize to zero.
-          
+
       call state_reset(NState_atmImp, value=spval_init, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
@@ -3077,10 +3077,10 @@ module module_MEDIATOR
   subroutine MedPhase_fast_before(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! This Mediator phase runs before ATM and ICE are being called and
     ! prepares the ATM and ICE import Fields.
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -3091,7 +3091,7 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: dataPtr1(:,:),dataPtr2(:,:),dataPtr3(:,:)
     integer                     :: i,j,n
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_fast_before)'
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -3123,10 +3123,10 @@ module module_MEDIATOR
   subroutine MedPhase_prep_atm(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! This Mediator phase runs before ATM and ICE are being called and
     ! prepares the ATM and ICE import Fields.
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -3150,7 +3150,7 @@ module module_MEDIATOR
     character(ESMF_MAXSTR) ,pointer  :: fieldNameList(:)
     integer                     :: fieldCount
 !BL2017b
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -3162,7 +3162,7 @@ module module_MEDIATOR
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -3246,7 +3246,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 
-!BL2017b 
+!BL2017b
 ! use the nearest neighbor method
       call Fieldbundle_Regrid2(fldsFrOcn, is_local%wrap%FBOcn_o, is_local%wrap%FBOcn2_a, &
          nearestmap=is_local%wrap%RH_o2a_nearest, &
@@ -3438,7 +3438,7 @@ module module_MEDIATOR
 !BL2017b
         !--- the bilinear and patch interpolation methods are currently not used
         !--- for any export variables from ice model - B Li
-    
+
         !--- bilinear
         if (ESMF_RouteHandleIsCreated(is_local%wrap%RH_i2a_bilnr, rc=rc)) then
           call FieldBundle_FieldRegrid(is_local%wrap%FBIce_i,'ice_fraction', &
@@ -3639,7 +3639,7 @@ module module_MEDIATOR
 !BL2017b
 !      call ESMF_FieldBundleWrite(is_local%wrap%FBIce2_a, 'fields_med_ice2.nc', &
 !        singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
-!        iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+!        iofmt=ESMF_IOFMT_NETCDF, rc=rc)
 !BL2017b
 
     if (is_local%wrap%l2a_active) then
@@ -3687,13 +3687,13 @@ module module_MEDIATOR
 #ifndef FRONT_FV3
       call ESMF_FieldBundleWrite(is_local%wrap%FBOcn_a, 'fields_med_ocn_a.nc', &
         singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
-        iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+        iofmt=ESMF_IOFMT_NETCDF, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 
       call ESMF_FieldBundleWrite(is_local%wrap%FBIce_a, 'fields_med_ice_a.nc', &
         singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
-        iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+        iofmt=ESMF_IOFMT_NETCDF, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #endif
@@ -3812,7 +3812,7 @@ module module_MEDIATOR
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-          
+
           call ESMF_FieldBundleGet(fieldBundle, fieldCount=icount, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
@@ -3899,11 +3899,11 @@ module module_MEDIATOR
   end subroutine MedPhase_prep_atm
 
   !-----------------------------------------------------------------------------
-  
+
   subroutine TimestampExport_prep_atm(gcomp, rc)
     type(ESMF_GridComp)   :: gcomp
     integer, intent(out)  :: rc
-    
+
     ! This attaches an invalid timestamp on fields sometimes.
     ! Otherwise, it just sets the timestamp to the current clock.
 
@@ -4011,10 +4011,10 @@ module module_MEDIATOR
   subroutine MedPhase_prep_ice(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! This Mediator phase runs before ATM and ICE are being called and
     ! prepares the ATM and ICE import Fields.
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4036,7 +4036,7 @@ module module_MEDIATOR
 !    type(ESMF_Field)                         :: inField
 !    type(ESMF_Routehandle)                   :: rh180
 !BL2018
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -4048,7 +4048,7 @@ module module_MEDIATOR
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -4286,7 +4286,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
-    
+
     !---------------------------------------
     !--- clean up
     !---------------------------------------
@@ -4303,9 +4303,9 @@ module module_MEDIATOR
   subroutine MedPhase_prep_lnd(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! This Mediator phase preps land exports
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4314,7 +4314,7 @@ module module_MEDIATOR
     type(ESMF_Field)            :: field
     type(InternalState)         :: is_local
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_lnd)'
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -4326,7 +4326,7 @@ module module_MEDIATOR
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -4468,7 +4468,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
-    
+
     !---------------------------------------
     !--- clean up
     !---------------------------------------
@@ -4485,9 +4485,9 @@ module module_MEDIATOR
   subroutine MedPhase_prep_hyd(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! This Mediator phase prepares data for they hyd component
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4496,7 +4496,7 @@ module module_MEDIATOR
     type(ESMF_Field)            :: field
     type(InternalState)         :: is_local
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_prep_hyd)'
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
@@ -4508,7 +4508,7 @@ module module_MEDIATOR
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -4650,7 +4650,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
-    
+
     !---------------------------------------
     !--- clean up
     !---------------------------------------
@@ -4667,7 +4667,7 @@ module module_MEDIATOR
   subroutine MedPhase_fast_after(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4687,13 +4687,13 @@ module module_MEDIATOR
     real(ESMF_KIND_R8)          :: sen1 (1),lat1 (1),lwup1(1),evap1(1), &
                                    taux1(1),tauy1(1),tref1(1),qref1(1),duu10n1(1)
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_fast_after)'
-    
+
     if(profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     call MedPhase_atm_ocn_flux(gcomp,rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -4713,7 +4713,7 @@ module module_MEDIATOR
   subroutine MedPhase_accum_fast(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4723,18 +4723,18 @@ module module_MEDIATOR
     integer                     :: i,j,n
     character(len=128)         :: fname
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_accum_fast)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(gcomp, clock=clock, importState=importState, &
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -4881,7 +4881,7 @@ module module_MEDIATOR
   subroutine MedPhase_atm_ocn_flux(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -4907,18 +4907,18 @@ module module_MEDIATOR
     real(ESMF_KIND_R8), pointer :: tbot2(:,:),pbot2(:,:),qbot2(:,:)
 !BL2017
     character(len=*),parameter :: subname='(module_MEDIATOR:MedPhase_atm_ocn_flux)'
-    
+
     if (dbug_flag > 5) then
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(gcomp, clock=clock, importState=importState, &
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     call ESMF_ClockGet(clock,currtime=time,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -4960,7 +4960,7 @@ module module_MEDIATOR
 
     !--- atm fields on ocean grid input
     if (is_local%wrap%a2o_active) then
-      
+
       if (dbug_flag > 1) then
         call ESMF_LogWrite(trim(subname)//' calling FBRegrid FBAtm_a to FBAtm_o', ESMF_LOGMSG_INFO, rc=rc)
       endif
@@ -5051,7 +5051,7 @@ module module_MEDIATOR
     enddo
     enddo
     deallocate(fieldNameList)
-!BL2017 
+!BL2017
     endif
 
     call FieldBundle_GetFldPtr(is_local%wrap%FBAtm_o, 'inst_height_lowest', zbot, rc=rc)
@@ -5172,7 +5172,7 @@ module module_MEDIATOR
       ! write the fields imported from ocn to file
       call ESMF_FieldBundleWrite(is_local%wrap%FBAtmOcn_o, 'fields_med_atmocn.nc', &
         singleFile=.true., overwrite=.true., timeslice=is_local%wrap%fastcntr, &
-        iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+        iofmt=ESMF_IOFMT_NETCDF, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
     endif
@@ -5188,7 +5188,7 @@ module module_MEDIATOR
   subroutine MedPhase_slow(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -5208,7 +5208,7 @@ module module_MEDIATOR
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     call MedPhase_prep_ocn(gcomp,rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5225,7 +5225,7 @@ module module_MEDIATOR
   subroutine MedPhase_prep_ocn(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)            :: clock
     type(ESMF_Time)             :: time
@@ -5252,13 +5252,13 @@ module module_MEDIATOR
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-    
+
     ! query the Component for its clock, importState and exportState
     call ESMF_GridCompGet(gcomp, clock=clock, importState=importState, &
       exportState=exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Get the internal state from Component.
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
@@ -5325,7 +5325,7 @@ module module_MEDIATOR
     call FieldBundle_average(is_local%wrap%FBaccumHyd, is_local%wrap%accumcntHyd, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     call FieldBundle_average(is_local%wrap%FBaccumAtmOcn, is_local%wrap%accumcntAtmOcn, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -5410,7 +5410,7 @@ module module_MEDIATOR
     ! call ESMF_FieldBundleRegrid(FBXgrid, is_local%wrap%FBforOcn  , is_local%wrap%RHx2o, &
     !    termorderflag=(/ESMF_TERMORDER_SRCSEQ/), rc=rc)
     ! tcraig temporarily copy
-    
+
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBAtm_o, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBIce_o, rc=rc)
     call fieldBundle_copy(is_local%wrap%FBforOcn, is_local%wrap%FBAccumAtmOcn, rc=rc)
@@ -5520,7 +5520,7 @@ module module_MEDIATOR
     !-------------
 
     customwgt = wgtm01 / const_lhvap
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_evap_rate'             , &
                                 is_local%wrap%FBAccumAtmOcn, 'mean_evap_rate_atm_into_ocn', atmwgt1, &
                                 is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'      , customwgt, &
                                 rc=rc)
@@ -5531,7 +5531,7 @@ module module_MEDIATOR
     ! field_for_ocn = field_from_atm * (1-ice_fraction)
     !-------------
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_fprec_rate', & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_fprec_rate', &
                                 is_local%wrap%FBAtm_o , 'mean_fprec_rate', atmwgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -5561,7 +5561,7 @@ module module_MEDIATOR
       line=__LINE__, file=__FILE__)) return  ! bail out
 
 ! not used by mom, mom uses net, also mean_down_lw_flx not connected to ocn
-!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_down_lw_flx', & 
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn, 'mean_down_lw_flx', &
 !                                is_local%wrap%FBAtm_o , 'mean_down_lw_flx', atmwgt, &
 !                                rc=rc)
 !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -5569,21 +5569,21 @@ module module_MEDIATOR
 
 ! not used by mom, mom uses evap
 ! hycom uses latent heat flux
-    !call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , & 
+    !call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_laten_heat_flx'             , &
     !                            is_local%wrap%FBAccumAtmOcn, 'mean_laten_heat_flx_atm_into_ocn', atmwgt1, &
     !                            is_local%wrap%FBAtm_o      , 'mean_laten_heat_flx'             , wgtm01, &
     !                            rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_sensi_heat_flx'             , &
                                 is_local%wrap%FBAccumAtmOcn, 'mean_sensi_heat_flx_atm_into_ocn', atmwgt1, &
                                 is_local%wrap%FBAtm_o      , 'mean_sensi_heat_flx'             , wgtm01, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , & 
+
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_net_lw_flx'   , &
                                 is_local%wrap%FBAtm_o      , 'mean_down_lw_flx'  , atmwgt1, &
                                 is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1, &
                                 is_local%wrap%FBAtm_o      , 'mean_net_lw_flx'   , wgtp01, &
@@ -5592,7 +5592,7 @@ module module_MEDIATOR
       line=__LINE__, file=__FILE__)) return  ! bail out
 
 ! not used by mom, mom uses net, also mean_up_lw_flx not recvd from atm
-!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , & 
+!    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_up_lw_flx'    , &
 !                                is_local%wrap%FBAccumAtmOcn, 'mean_up_lw_flx_ocn', atmwgt1, &
 !                                is_local%wrap%FBAtm_o      , 'mean_up_lw_flx'    , wgtp01, &
 !                                rc=rc)
@@ -5613,7 +5613,7 @@ module module_MEDIATOR
     ! field_for_ocn = field_from_atm * (1-ice_fraction) + field_from_ice * (ice_fraction)
     !-------------
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_zonal_moment_flx'  , &
                                 is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_zonal', atmwgt1, &
                                 is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_zonal', icewgt1, &
                                 is_local%wrap%FBAtm_o      , 'mean_zonal_moment_flx_atm'  , wgtm01, &
@@ -5621,7 +5621,7 @@ module module_MEDIATOR
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn     , 'mean_merid_moment_flx'  , &
                                 is_local%wrap%FBAccumAtmOcn, 'stress_on_air_ocn_merid', atmwgt1, &
                                 is_local%wrap%FBIce_o      , 'stress_on_ocn_ice_merid', icewgt1, &
                                 is_local%wrap%FBAtm_o      , 'mean_merid_moment_flx_atm'  , wgtm01, &
@@ -5635,35 +5635,35 @@ module module_MEDIATOR
 
     customwgt = atmwgt * (1.0 - 0.06)
 !    customwgt = (1.0 - 0.06)
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_flx' , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_flx' , &
                                 is_local%wrap%FBAtm_o ,'mean_down_sw_flx',customwgt, &
                                 is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn' ,icewgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dir_flx' , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dir_flx' , &
                                 is_local%wrap%FBAtm_o ,'mean_down_sw_vis_dir_flx',customwgt, &
                                 is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn_vis_dir_flx' ,icewgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dif_flx' , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_vis_dif_flx' , &
                                 is_local%wrap%FBAtm_o ,'mean_down_sw_vis_dif_flx',customwgt, &
                                 is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn_vis_dif_flx',icewgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dir_flx' , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dir_flx' , &
                                 is_local%wrap%FBAtm_o ,'mean_down_sw_ir_dir_flx',customwgt, &
                                 is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn_ir_dir_flx',icewgt, &
                                 rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
-    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dif_flx' , & 
+    call fieldBundle_FieldMerge(is_local%wrap%FBforOcn,'mean_net_sw_ir_dif_flx' , &
                                 is_local%wrap%FBAtm_o ,'mean_down_sw_ir_dif_flx',customwgt, &
                                 is_local%wrap%FBIce_o ,'mean_sw_pen_to_ocn_ir_dif_flx',icewgt, &
                                 rc=rc)
@@ -5679,7 +5679,7 @@ module module_MEDIATOR
     if (dbug_flag > 1) then
       call FieldBundle_diagnose(is_local%wrap%FBforOcn, trim(subname)//' FB4ocn_AFmrg ', rc=rc)
     endif
-    
+
     endif
 
     !---------------------------------------
@@ -5778,7 +5778,7 @@ module module_MEDIATOR
   subroutine MedPhase_write_restart(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(ESMF_Clock)           :: clock
     type(ESMF_Time)            :: currTime
@@ -5808,7 +5808,7 @@ module module_MEDIATOR
 
       call ESMF_TimeIntervalGet(elapsedTime,s_i8=sec8,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, file=__FILE__)) return  ! bail out 
+        line=__LINE__, file=__FILE__)) return  ! bail out
 
       if (mod(sec8,restart_interval) == 0) then
         write(msgString,*) trim(subname)//' restart at sec8= ',sec8,restart_interval
@@ -5841,7 +5841,7 @@ module module_MEDIATOR
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
-    
+
     ! local variables
     type(InternalState)  :: is_local
     integer              :: stat
@@ -5861,7 +5861,7 @@ module module_MEDIATOR
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     ! Destroy objects inside of internal state.
     ! TODO: destroy objects inside objects
 
@@ -5917,7 +5917,7 @@ module module_MEDIATOR
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     call ESMF_LogWrite(trim(subname)//" complete", ESMF_LOGMSG_INFO, rc=dbrc)
 
     if (dbug_flag > 5) then
@@ -6129,7 +6129,7 @@ module module_MEDIATOR
     if (mode == 'write') then
       call ESMF_LogWrite(trim(subname)//": write "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
       call ESMF_FieldBundleWrite(FB, fname, &
-        singleFile=.true., status=ESMF_FILESTATUS_REPLACE, iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+        singleFile=.true., status=ESMF_FILESTATUS_REPLACE, iofmt=ESMF_IOFMT_NETCDF, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
       call fieldBundle_diagnose(FB, 'write '//trim(fname), rc)
@@ -6144,10 +6144,10 @@ module module_MEDIATOR
       if (fexists) then
         call ESMF_LogWrite(trim(subname)//": read "//trim(fname), ESMF_LOGMSG_INFO, rc=dbrc)
 !-----------------------------------------------------------------------------------------------------
-! tcraig, ESMF_FieldBundleRead fails if a field is not on the field bundle, but we really want to just 
+! tcraig, ESMF_FieldBundleRead fails if a field is not on the field bundle, but we really want to just
 ! ignore that field and read the rest, so instead read each field one at a time through ESMF_FieldRead
 !        call ESMF_FieldBundleRead (FB, fname, &
-!          singleFile=.true., iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+!          singleFile=.true., iofmt=ESMF_IOFMT_NETCDF, rc=rc)
 !        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 !          line=__LINE__, file=__FILE__)) call ESMF_LogWrite(trim(subname)//' WARNING missing fields',rc=dbrc)
 !-----------------------------------------------------------------------------------------------------
@@ -6161,7 +6161,7 @@ module module_MEDIATOR
           call fieldBundle_getFieldN(FB, n, field, rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) return  ! bail out
-          call ESMF_FieldRead (field, fname, iofmt=ESMF_IOFMT_NETCDF, rc=rc)  
+          call ESMF_FieldRead (field, fname, iofmt=ESMF_IOFMT_NETCDF, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, file=__FILE__)) call ESMF_LogWrite(trim(subname)//' WARNING missing field '//trim(name),rc=dbrc)
         enddo
@@ -6337,13 +6337,13 @@ module module_MEDIATOR
     endif
 
     if (present(srcMaskValue)) then
-      lsrcMaskValue = srcMaskValue 
+      lsrcMaskValue = srcMaskValue
     else
       lsrcMaskValue = ispval_mask  ! chosen to be ignored
     endif
 
     if (present(dstMaskValue)) then
-      ldstMaskValue = dstMaskValue 
+      ldstMaskValue = dstMaskValue
     else
       ldstMaskValue = ispval_mask  ! chosen to be ignored
     endif
@@ -6451,7 +6451,7 @@ module module_MEDIATOR
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, file=__FILE__)) return  ! bail out
 #if 0
-if (trim(string)=="o2a_weights") then 
+if (trim(string)=="o2a_weights") then
   call ESMF_VMGetCurrent(vm)
   call ESMF_VMBarrier(vm)
   call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -6471,7 +6471,7 @@ endif
         call ESMF_LogWrite(trim(subname)//trim(lstring)//": failed   RH bilnr", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
     endif
-      
+
     !---------------------------------------------------
     !--- conservative frac
     !---------------------------------------------------
@@ -6507,7 +6507,7 @@ endif
         call ESMF_LogWrite(trim(subname)//trim(lstring)//": failed   RH consf", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
      endif
-      
+
     !---------------------------------------------------
     !--- conservative dst
     !---------------------------------------------------
@@ -6564,7 +6564,7 @@ endif
         call ESMF_LogWrite(trim(subname)//trim(lstring)//": failed   RH nearest", ESMF_LOGMSG_INFO, rc=dbrc)
       endif
      endif
-      
+
     !---------------------------------------------------
     !--- patch
     !---------------------------------------------------
@@ -6682,10 +6682,10 @@ endif
       line=__LINE__, file=__FILE__)) return  ! bail out
     deallocate(gridEdgeLWidth, gridEdgeUWidth)
 
-    call ESMF_GridAddCoord(gridnew, staggerLoc=ESMF_STAGGERLOC_CENTER, rc=rc) 
+    call ESMF_GridAddCoord(gridnew, staggerLoc=ESMF_STAGGERLOC_CENTER, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    call ESMF_GridAddCoord(gridnew, staggerLoc=ESMF_STAGGERLOC_CORNER, rc=rc) 
+    call ESMF_GridAddCoord(gridnew, staggerLoc=ESMF_STAGGERLOC_CORNER, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
 
@@ -6766,7 +6766,7 @@ endif
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
     rc = ESMF_SUCCESS
-      
+
     lname = 'undefined'
     if (present(name)) then
        lname = trim(name)
@@ -7352,7 +7352,7 @@ endif
     endif
 
   end subroutine Fieldbundle_Regrid
-      
+
   !-----------------------------------------------------------------------------
 !BL2017
 
@@ -8473,7 +8473,7 @@ endif
     call ESMF_FieldGet(field, grid=grid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     call Grid_Print(grid, string, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
@@ -8506,7 +8506,7 @@ endif
     character(len=*), intent(in)  :: string
     integer         , intent(out) :: rc
 
-    type(ESMF_Distgrid) :: distgrid  
+    type(ESMF_Distgrid) :: distgrid
     character(ESMF_MAXSTR)      :: transferAction
     integer                     :: localDeCount
     integer                     :: dimCount, tileCount
@@ -8522,17 +8522,17 @@ endif
     call ESMF_GridGet(grid, localDeCount=localDeCount, distgrid=distgrid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-   
+
     write (msgString,*) trim(subname)//":"//trim(string)//": localDeCount=", localDeCount
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! get dimCount and tileCount
     call ESMF_DistGridGet(distgrid, dimCount=dimCount, tileCount=tileCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     write (msgString,*) trim(subname)//":"//trim(string)//": dimCount=", dimCount
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -8546,13 +8546,13 @@ endif
     ! allocate minIndexPTile and maxIndexPTile accord. to dimCount and tileCount
     allocate(minIndexPTile(dimCount, tileCount), &
              maxIndexPTile(dimCount, tileCount))
-    
+
     ! get minIndex and maxIndex arrays
     call ESMF_DistGridGet(distgrid, minIndexPTile=minIndexPTile, &
        maxIndexPTile=maxIndexPTile, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, file=__FILE__)) return  ! bail out
-      
+
     write (msgString,*) trim(subname)//":"//trim(string)//": minIndexPTile=", minIndexPTile
     call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -8640,8 +8640,8 @@ endif
     type(ESMF_Grid) ,intent(in)  :: grid
     character(len=*),intent(in)  :: string
     integer         ,intent(out) :: rc
-  
-    ! local 
+
+    ! local
     type(ESMF_Array)            :: array
     character(len=*),parameter  :: subname='(module_MEDIATOR:Grid_Write)'
 
@@ -8759,12 +8759,12 @@ endif
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO, rc=dbrc)
     endif
 
-    ! make sure that stdname is in the NUOPC Field Dictionary 
+    ! make sure that stdname is in the NUOPC Field Dictionary
     call NUOPC_FieldDictionaryGetEntry(stdname, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=trim(subname)//&
       ": invalid stdname: "//trim(stdname), &
       line=__LINE__, file=__FILE__)) return  ! bail out
-    
+
     ! potentially extend the existing lists
 
     if (fldlist%num < 0) then
@@ -8803,7 +8803,7 @@ endif
       fldlist%mapping(1:cnum) = tmpString(1:cnum)
       deallocate(tmpString)
     endif
-    
+
     ! fill in the new entry
 
     fldlist%num = fldlist%num + 1
@@ -9093,7 +9093,7 @@ endif
 
           call ESMF_VMGet(vm, localPet=localPet, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-            line=__LINE__,file=__FILE__)) return  ! bail out            
+            line=__LINE__,file=__FILE__)) return  ! bail out
 
           if (localPet == 0) then
             call ESMF_DistGridGet(distGridDst, deCount=deCountDst, rc=rc)
@@ -9124,7 +9124,7 @@ endif
               write (msgString, "(A)") "Src=>Dst: "//trim(adjustl(numString))//"=>"
               write (numString, "(I10)") factorIndexList(2,1)
               write (msgString, "(A)") trim(msgString)//trim(adjustl(numString))
-              write (numString, "(I10)") factorIndexList(1,sumElementCountPDeDst) 
+              write (numString, "(I10)") factorIndexList(1,sumElementCountPDeDst)
               write (msgString, "(A)") trim(msgString)//" "//trim(adjustl(numString))//"=>"
               write (numString, "(I10)") factorIndexList(2,sumElementCountPDEDst)
      	      write (msgString, "(A)") trim(msgString)//trim(adjustl(numString))
@@ -9377,7 +9377,7 @@ endif
     enddo
 
     if (associated(fieldList)) deallocate(fieldList)
-    
+
   end subroutine NUOPCplus_UpdateTimestampS
 
   !-----------------------------------------------------------------------------
@@ -9391,7 +9391,7 @@ endif
     integer               :: yy, mm, dd, h, m, s, ms, us, ns
 
     rc = ESMF_SUCCESS
-    
+
     call ESMF_TimeGet(time, yy=yy, mm=mm, dd=dd, h=h, m=m, s=s, ms=ms, us=us, &
       ns=ns, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

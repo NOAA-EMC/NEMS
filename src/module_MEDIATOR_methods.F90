@@ -1,4 +1,4 @@
-#include "./ESMFVersionDefine.h"
+#include "ESMFConvenienceMacros.h"
 
 module module_MEDIATOR_methods
 
@@ -18,7 +18,7 @@ module module_MEDIATOR_methods
   real(R8),parameter :: SHR_CONST_G       = 9.80616_R8      ! acceleration of gravity ~ m/s^2
   real(R8),parameter :: SHR_CONST_STEBOL  = 5.67e-8_R8      ! Stefan-Boltzmann constant ~ W/m^2/K^4
   real(R8),parameter :: SHR_CONST_BOLTZ   = 1.38065e-23_R8  ! Boltzmann's constant ~ J/K/molecule
-  real(R8),parameter :: SHR_CONST_AVOGAD  = 6.02214e26_R8   ! Avogadro's number ~ molecules/kmole 
+  real(R8),parameter :: SHR_CONST_AVOGAD  = 6.02214e26_R8   ! Avogadro's number ~ molecules/kmole
   real(R8),parameter :: SHR_CONST_RGAS    = SHR_CONST_AVOGAD*SHR_CONST_BOLTZ       ! Universal gas constant ~ J/K/kmole
   real(R8),parameter :: SHR_CONST_MWDAIR  = 28.966_R8       ! molecular weight dry air ~ kg/kmole
   real(R8),parameter :: SHR_CONST_MWWV    = 18.016_R8       ! molecular weight water vapor
@@ -54,12 +54,12 @@ module module_MEDIATOR_methods
 !
 !     Internal atm/ocn flux calculation
 !     Provided by CESM September 2015
-!     
+!
 ! !REVISION HISTORY:
 !
 ! !INTERFACE: ------------------------------------------------------------------
 
-SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   & 
+SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
            &               qbot  ,rbot  ,tbot  ,us    ,vs    ,   &
            &               ts    ,mask  ,sen   ,lat   ,lwup  ,   &
            &               evap  ,taux  ,tauy  ,tref  ,qref  ,   &
@@ -81,7 +81,7 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    real(R8)   ,intent(in) :: thbot(nMax) ! atm potential T       (K)
    real(R8)   ,intent(in) :: qbot (nMax) ! atm specific humidity (kg/kg)
    real(R8)   ,intent(in) :: rbot (nMax) ! atm air density       (kg/m^3)
-   real(R8)   ,intent(in) :: tbot (nMax) ! atm T                 (K) 
+   real(R8)   ,intent(in) :: tbot (nMax) ! atm T                 (K)
    real(R8)   ,intent(in) :: us   (nMax) ! ocn u-velocity        (m/s)
    real(R8)   ,intent(in) :: vs   (nMax) ! ocn v-velocity        (m/s)
    real(R8)   ,intent(in) :: ts   (nMax) ! ocn temperature       (K)
@@ -100,7 +100,7 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    real(R8),intent(out),optional :: ustar_sv(nMax) ! diag: ustar
    real(R8),intent(out),optional :: re_sv   (nMax) ! diag: sqrt of exchange coefficient (water)
    real(R8),intent(out),optional :: ssq_sv  (nMax) ! diag: sea surface humidity  (kg/kg)
- 
+
    real(R8),intent(in) ,optional :: missval        ! masked value
 
 ! !EOP
@@ -118,15 +118,15 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    real(R8)    :: delt   ! potential T difference   (K)
    real(R8)    :: delq   ! humidity difference      (kg/kg)
    real(R8)    :: stable ! stability factor
-   real(R8)    :: rdn    ! sqrt of neutral exchange coeff (momentum) 
-   real(R8)    :: rhn    ! sqrt of neutral exchange coeff (heat)     
-   real(R8)    :: ren    ! sqrt of neutral exchange coeff (water)    
-   real(R8)    :: rd     ! sqrt of exchange coefficient (momentum)         
-   real(R8)    :: rh     ! sqrt of exchange coefficient (heat)             
-   real(R8)    :: re     ! sqrt of exchange coefficient (water)            
-   real(R8)    :: ustar  ! ustar             
-   real(R8)    :: qstar  ! qstar             
-   real(R8)    :: tstar  ! tstar             
+   real(R8)    :: rdn    ! sqrt of neutral exchange coeff (momentum)
+   real(R8)    :: rhn    ! sqrt of neutral exchange coeff (heat)
+   real(R8)    :: ren    ! sqrt of neutral exchange coeff (water)
+   real(R8)    :: rd     ! sqrt of exchange coefficient (momentum)
+   real(R8)    :: rh     ! sqrt of exchange coefficient (heat)
+   real(R8)    :: re     ! sqrt of exchange coefficient (water)
+   real(R8)    :: ustar  ! ustar
+   real(R8)    :: qstar  ! qstar
+   real(R8)    :: tstar  ! tstar
    real(R8)    :: hol    ! H (at zbot) over L
    real(R8)    :: xsq    ! ?
    real(R8)    :: xqq    ! ?
@@ -135,7 +135,7 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    real(R8)    :: psix2  ! stability function at ztref reference height
    real(R8)    :: alz    ! ln(zbot/zref)
    real(R8)    :: al2    ! ln(zref/ztref)
-   real(R8)    :: u10n   ! 10m neutral wind 
+   real(R8)    :: u10n   ! 10m neutral wind
    real(R8)    :: tau    ! stress at zbot
    real(R8)    :: cp     ! specific heat of moist air
    real(R8)    :: bn     ! exchange coef funct for interpolation
@@ -151,12 +151,12 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    real(R8)    :: Umps   ! dummy arg ~ wind velocity (m/s)
    real(R8)    :: Tk     ! dummy arg ~ temperature (K)
    real(R8)    :: xd     ! dummy arg ~ ?
- 
+
    qsat(Tk)   = 640380.0_R8 / exp(5107.4_R8/Tk)
    cdn(Umps)  =   0.0027_R8 / Umps + 0.000142_R8 + 0.0000764_R8 * Umps
    psimhu(xd) = log((1.0_R8+xd*(2.0_R8+xd))*(1.0_R8+xd*xd)/8.0_R8) - 2.0_R8*atan(xd) + 1.571_R8
    psixhu(xd) = 2.0_R8 * log((1.0_R8 + xd*xd)/2.0_R8)
- 
+
    !--- formats ----------------------------------------
    character(*),parameter :: subName = '(shr_flux_atmOcn) '
    character(*),parameter ::   F00 = "('(shr_flux_atmOcn) ',4a)"
@@ -165,12 +165,12 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
 ! PURPOSE:
 !   computes atm/ocn surface fluxes
 !
-! NOTES: 
+! NOTES:
 !   o all fluxes are positive downward
 !   o net heat flux = net sw + lw up + lw down + sen + lat
 !   o here, tstar = <WT>/U*, and qstar = <WQ>/U*.
 !   o wind speeds should all be above a minimum speed (eg. 1.0 m/s)
-! 
+!
 ! ASSUMPTIONS:
 !   o Neutral 10m drag coeff: cdn = .0027/U10 + .000142 + .0000764 U10
 !   o Neutral 10m stanton number: ctn = .0327 sqrt(cdn), unstable
@@ -186,36 +186,36 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
    else
       spval = shr_const_spval
    endif
- 
+
    al2 = log(zref/ztref)
 
    DO n=1,nMax
      if (mask(n) /= 0) then
-    
+
         !--- compute some needed quantities ---
         vmag   = max(umin, sqrt( (ubot(n)-us(n))**2 + (vbot(n)-vs(n))**2) )
         thvbot = thbot(n) * (1.0_R8 + shr_const_zvir * qbot(n)) ! virtual temp (K)
         ssq    = 0.98_R8 * qsat(ts(n)) / rbot(n)   ! sea surf hum (kg/kg)
         delt   = thbot(n) - ts(n)                  ! pot temp diff (K)
         delq   = qbot(n) - ssq                     ! spec hum dif (kg/kg)
-        alz    = log(zbot(n)/zref) 
-        cp     = shr_const_cpdair*(1.0_R8 + shr_const_cpvir*ssq) 
-   
+        alz    = log(zbot(n)/zref)
+        cp     = shr_const_cpdair*(1.0_R8 + shr_const_cpvir*ssq)
+
         !------------------------------------------------------------
         ! first estimate of Z/L and ustar, tstar and qstar
         !------------------------------------------------------------
-   
+
         !--- neutral coefficients, z/L = 0.0 ---
         stable = 0.5_R8 + sign(0.5_R8 , delt)
         rdn    = sqrt(cdn(vmag))
-        rhn    = (1.0_R8-stable) * 0.0327_R8 + stable * 0.018_R8 
-        ren    = 0.0346_R8 
-   
+        rhn    = (1.0_R8-stable) * 0.0327_R8 + stable * 0.018_R8
+        ren    = 0.0346_R8
+
         !--- ustar, tstar, qstar ---
         ustar = rdn * vmag
-        tstar = rhn * delt  
-        qstar = ren * delq  
-   
+        tstar = rhn * delt
+        qstar = ren * delq
+
         !--- compute stability & evaluate all stability functions ---
         hol  = shr_const_karman*shr_const_g*zbot(n)*  &
                (tstar/thbot(n)+qstar/(1.0_R8/shr_const_zvir+qbot(n)))/ustar**2
@@ -225,30 +225,30 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
         xqq    = sqrt(xsq)
         psimh  = -5.0_R8*hol*stable + (1.0_R8-stable)*psimhu(xqq)
         psixh  = -5.0_R8*hol*stable + (1.0_R8-stable)*psixhu(xqq)
-   
+
         !--- shift wind speed using old coefficient ---
         rd   = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh))
-        u10n = vmag * rd / rdn 
-   
+        u10n = vmag * rd / rdn
+
         !--- update transfer coeffs at 10m and neutral stability ---
         rdn = sqrt(cdn(u10n))
         ren = 0.0346_R8
-        rhn = (1.0_R8-stable)*0.0327_R8 + stable * 0.018_R8 
-    
+        rhn = (1.0_R8-stable)*0.0327_R8 + stable * 0.018_R8
+
         !--- shift all coeffs to measurement height and stability ---
-        rd = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh)) 
-        rh = rhn / (1.0_R8 + rhn/shr_const_karman*(alz-psixh)) 
-        re = ren / (1.0_R8 + ren/shr_const_karman*(alz-psixh)) 
-   
+        rd = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh))
+        rh = rhn / (1.0_R8 + rhn/shr_const_karman*(alz-psixh))
+        re = ren / (1.0_R8 + ren/shr_const_karman*(alz-psixh))
+
         !--- update ustar, tstar, qstar using updated, shifted coeffs --
-        ustar = rd * vmag 
-        tstar = rh * delt 
-        qstar = re * delq 
-    
+        ustar = rd * vmag
+        tstar = rh * delt
+        qstar = re * delq
+
         !------------------------------------------------------------
         ! iterate to converge on Z/L, ustar, tstar and qstar
         !------------------------------------------------------------
-    
+
         !--- compute stability & evaluate all stability functions ---
         hol  = shr_const_karman*shr_const_g*zbot(n)* &
                (tstar/thbot(n)+qstar/(1.0_R8/shr_const_zvir+qbot(n)))/ustar**2
@@ -258,44 +258,44 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
         xqq    = sqrt(xsq)
         psimh  = -5.0_R8*hol*stable + (1.0_R8-stable)*psimhu(xqq)
         psixh  = -5.0_R8*hol*stable + (1.0_R8-stable)*psixhu(xqq)
-    
+
         !--- shift wind speed using old coeffs ---
         rd   = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh))
-        u10n = vmag * rd/rdn 
-    
+        u10n = vmag * rd/rdn
+
         !--- update transfer coeffs at 10m and neutral stability ---
         rdn = sqrt(cdn(u10n))
         ren = 0.0346_R8
-        rhn = (1.0_R8 - stable)*0.0327_R8 + stable * 0.018_R8 
-   
+        rhn = (1.0_R8 - stable)*0.0327_R8 + stable * 0.018_R8
+
         !--- shift all coeffs to measurement height and stability ---
-        rd = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh)) 
-        rh = rhn / (1.0_R8 + rhn/shr_const_karman*(alz-psixh)) 
-        re = ren / (1.0_R8 + ren/shr_const_karman*(alz-psixh)) 
-    
+        rd = rdn / (1.0_R8 + rdn/shr_const_karman*(alz-psimh))
+        rh = rhn / (1.0_R8 + rhn/shr_const_karman*(alz-psixh))
+        re = ren / (1.0_R8 + ren/shr_const_karman*(alz-psixh))
+
         !--- update ustar, tstar, qstar using updated, shifted coeffs ---
-        ustar = rd * vmag 
-        tstar = rh * delt 
-        qstar = re * delq 
-    
+        ustar = rd * vmag
+        tstar = rh * delt
+        qstar = re * delq
+
         !------------------------------------------------------------
         ! compute the fluxes
         !------------------------------------------------------------
-    
-        tau = rbot(n) * ustar * ustar 
-       
+
+        tau = rbot(n) * ustar * ustar
+
         !--- momentum flux ---
-        taux(n) = tau * (ubot(n)-us(n)) / vmag 
-        tauy(n) = tau * (vbot(n)-vs(n)) / vmag 
-        
+        taux(n) = tau * (ubot(n)-us(n)) / vmag
+        tauy(n) = tau * (vbot(n)-vs(n)) / vmag
+
         !--- heat flux ---
-        sen (n) =                cp * tau * tstar / ustar 
+        sen (n) =                cp * tau * tstar / ustar
         lat (n) =  shr_const_latvap * tau * qstar / ustar
-        lwup(n) = -shr_const_stebol * ts(n)**4 
-      
+        lwup(n) = -shr_const_stebol * ts(n)**4
+
         !--- water flux ---
-        evap(n) = lat(n)/shr_const_latvap 
-    
+        evap(n) = lat(n)/shr_const_latvap
+
         !------------------------------------------------------------
         ! compute diagnositcs: 2m ref T & Q, 10m wind speed squared
         !------------------------------------------------------------
@@ -304,11 +304,11 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
         xqq = sqrt(xsq)
         psix2   = -5.0_R8*hol*stable + (1.0_R8-stable)*psixhu(xqq)
         fac     = (rh/shr_const_karman) * (alz + al2 - psixh + psix2 )
-        tref(n) = thbot(n) - delt*fac 
+        tref(n) = thbot(n) - delt*fac
         tref(n) = tref(n) - 0.01_R8*ztref   ! pot temp to temp correction
         fac     = (re/shr_const_karman) * (alz + al2 - psixh + psix2 )
         qref(n) =  qbot(n) - delq*fac
-    
+
         duu10n(n) = u10n*u10n ! 10m wind speed squared
 
         !------------------------------------------------------------
@@ -336,7 +336,7 @@ SUBROUTINE shr_flux_atmOcn(nMax  ,zbot  ,ubot  ,vbot  ,thbot ,   &
         if (present(re_sv   )) re_sv   (n) = spval
         if (present(ssq_sv  )) ssq_sv  (n) = spval
      endif
-   ENDDO 
+   ENDDO
 
 END subroutine shr_flux_atmOcn
 
