@@ -2,7 +2,7 @@ Introduction to NEMS {#introduction}
 ====================
 
 The NOAA Environmental Modeling System (NEMS) is the infrastructure
-underlying NOAA's [Unified Forecast System (UFS)] (https://ufscommunity.org/) a fully coupled modeling framework that supports predictions of
+underlying NOAA's [Unified Forecast System (UFS)] (https://ufscommunity.org/), a fully coupled modeling framework that supports predictions of
 Earth's environment at a range of time scales. Examples of other
 coupled modeling systems are the 
 [Community Earth System Model (CESM)](http://www.cesm.ucar.edu)
@@ -42,14 +42,14 @@ in others it may be the Modular Ocean Model (MOM).
 Infrastructure
 --------------
 
-[NEMS is built using the Earth System Modeling Framework (ESMF)](https://www.earthsystemcog.org/projects/esmf/)
+NEMS is built using the [Earth System Modeling Framework (ESMF)](https://www.earthsystemmodeling.org)
 infrastructure software. ESMF provides utilities like generation of
-interpolation weights and utilities for calendar and timee management,
+interpolation weights and utilities for calendar and time management,
 and also wrappers that create a standard component calling
 interface. This enables model components developed at different sites
 to be coupled more easily.
 
-[The National Unified Operational Prediction Capability (NUOPC) Layer] (https://earthsystemcog.org/projects/nuopc/)
+The [National Unified Operational Prediction Capability (NUOPC) Layer] (https://earthsystemmodeling.org/nuopc/)
 adds additional rules about how ESMF models interact and increases
 their interoperability. The NUOPC Layer covers aspects from the level
 of build dependencies, to standardization of initialization phases,
@@ -70,7 +70,7 @@ as the Global Ensemble Forecast System (GEFS).
 Coupled NEMS includes atmosphere, ocean, ice, wave, land,
 aerosol/chemistry, and hydrologic models, with coupling interface and
 utilities based on the 
-[Earth System Modeling Framework (ESMF)](https://www.earthsystemcog.org/projects/esmf/).
+[Earth System Modeling Framework (ESMF)](https://www.earthsystemmodeling.org).
 The NEMS applications also utilize intreopereability conventions
 introduced by the 
-[National Unified Operational Prediction Capability (NUOPC)](https://www.earthsystemcog.org/projects/nuopc/).
+[National Unified Operational Prediction Capability (NUOPC)](https://www.earthsystemmodeling.org/nuopc/).
