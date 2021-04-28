@@ -10,10 +10,10 @@ The architecture allows for multiple `EARTH_COMP` instances.
 NEMS includes atmosphere, ocean, ice, wave, land,
 aerosol/chemistry, and hydrologic models, with coupling interface and
 utilities based on the 
-[Earth System Modeling Framework (ESMF)](https://www.earthsystemcog.org/projects/esmf/).
+[Earth System Modeling Framework (ESMF)](https://www.earthsystemmodeling.org).
 The NEMS applications also utilize intreopereability conventions
 introduced by the 
-[National Unified Operational Prediction Capability (NUOPC)](https://www.earthsystemcog.org/projects/nuopc/).
+[National Unified Operational Prediction Capability (NUOPC)](https://www.earthsystemmodeling.org/nuopc/).
 
 Key architecture features are:
 
@@ -24,8 +24,7 @@ Key architecture features are:
 
 * The NEMS mediator component is an integral part of the NEMS
   software. The mediator source code is managed alongside the NEMS
-  source code, is integrated into the NEMS make system and is built
-  when the NEMS executable is built.
+  source code and is built when the NEMS executable is built.
 
 * Component models are treated by NEMS as external
   dependencies. Their source code is managed outside of NEMS,
