@@ -662,3 +662,13 @@
       END PROGRAM MAIN_NEMS
 !
 !-----------------------------------------------------------------------
+
+#ifndef IBM
+        REAL(8) FUNCTION RTC()
+          RTC = 0.d0
+        END FUNCTION
+
+        REAL(8) FUNCTION TIMEF()
+          TIMEF = 0.d0
+        END FUNCTION
+#endif
