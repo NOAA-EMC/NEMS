@@ -57,7 +57,7 @@
 !***  The following module contains error-checking, and other utilities
 !-----------------------------------------------------------------------
 !
-       USE module_NEMS_UTILS, ONLY: check_esmf_pet, err_msg, message_check
+       USE module_NEMS_UTILS, ONLY: check_esmf_pet, message_check
 !
 !-----------------------------------------------------------------------
 !***  This module calculates resource usage across all ranks.
@@ -663,7 +663,6 @@
 !
 !-----------------------------------------------------------------------
 
-
 #ifndef IBM
         REAL(8) FUNCTION RTC()
           RTC = 0.d0
@@ -673,4 +672,3 @@
           TIMEF = 0.d0
         END FUNCTION
 #endif
-
