@@ -84,9 +84,9 @@
 #ifdef FRONT_IPE
       use FRONT_IPE,        only: IPE_SS   => SetServices
 #endif
-  ! - Handle build time GSDCHEM options:
-#ifdef FRONT_GSDCHEM
-      use FRONT_GSDCHEM,    only: GSDCHEM_SS  => SetServices
+  ! - Handle build time GOCART options:
+#ifdef FRONT_GOCART
+      use FRONT_GOCART,     only: GOCART_SS  => SetServices
 #endif
   ! - Mediator
 #ifdef FRONT_CMEPS
@@ -420,9 +420,9 @@
             found_comp = .true.
           end if
 #endif
-#ifdef FRONT_GSDCHEM
-          if (trim(model) == "gsdchem") then
-            call NUOPC_DriverAddComp(driver, trim(prefix), GSDCHEM_SS, &
+#ifdef FRONT_GOCART
+          if (trim(model) == "gocart") then
+            call NUOPC_DriverAddComp(driver, trim(prefix), GOCART_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
             found_comp = .true.
