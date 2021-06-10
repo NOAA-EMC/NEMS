@@ -452,6 +452,20 @@
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+          call ESMF_ConfigFindNextLabel(config, &
+            label=trim(prefix)//"_modelio::", isPresent=isPresent, rc=rc)
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          if (isPresent) then
+            attrFF = NUOPC_FreeFormatCreate(config, &
+              label=trim(prefix)//"_modelio::", relaxedflag=.true., rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          endif
+
           ! clean-up
           deallocate(petList)
 
