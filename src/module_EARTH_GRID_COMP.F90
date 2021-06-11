@@ -65,6 +65,9 @@
 #ifdef FRONT_MOM6
       use FRONT_MOM6,       only: MOM6_SS   => SetServices
 #endif
+#ifdef FRONT_CDEPS_DOCN
+      use FRONT_CDEPS_DOCN, only: DOCN_SS  => SetServices
+#endif
   ! - Handle build time ICE options:
 #ifdef FRONT_CICE6
       use FRONT_CICE6,      only: CICE6_SS => SetServices
@@ -375,6 +378,14 @@
 #ifdef FRONT_MOM6
           if (trim(model) == "mom6") then
             call NUOPC_DriverAddComp(driver, trim(prefix), MOM6_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            found_comp = .true.
+          end if
+#endif
+#ifdef FRONT_CDEPS_DOCN
+          if (trim(model) == "docn") then
+            call NUOPC_DriverAddComp(driver, trim(prefix), DOCN_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
             found_comp = .true.
