@@ -23,9 +23,9 @@
 !          |    |
 !          |    |
 !          |    |
-!          |    (MOM5, HYCOM, etc.)
+!          |    (MOM6, HYCOM, etc.)
 !          |
-!          CORE component (GSM, NMM, FIM, GEN, etc.)
+!          CORE component (FV3, DATM, etc.)
 !
 !-----------------------------------------------------------------------
 !  2011-05-11  Theurich & Yang  - Modified for using the ESMF 5.2.0r_beta_snapshot_07.
@@ -35,12 +35,9 @@
 !
       USE ESMF
 !
-      USE module_NEMS_INTERNAL_STATE,ONLY: NEMS_INTERNAL_STATE          &
-                                          ,WRAP_NEMS_INTERNAL_STATE
-!
       USE module_EARTH_GRID_COMP
 !
-      USE module_NEMS_UTILS,ONLY: ERR_MSG,MESSAGE_CHECK
+      USE module_NEMS_UTILS,ONLY: MESSAGE_CHECK
 !
 !-----------------------------------------------------------------------
 !
@@ -63,9 +60,6 @@
       CHARACTER(ESMF_MAXSTR) :: IMP_EARTH_NAME                             !<-- Import state name of the EARTH components
       CHARACTER(ESMF_MAXSTR) :: EXP_EARTH_NAME                             !<-- Export state name of the EARTH components
       CHARACTER(ESMF_MAXSTR) :: GC_EARTH_NAME                              !<-- Name of the EARTH component
-!
-      TYPE(NEMS_INTERNAL_STATE),POINTER,SAVE :: NEMS_INT_STATE
-      TYPE(WRAP_NEMS_INTERNAL_STATE)   ,SAVE :: WRAP
 !
       TYPE(ESMF_Clock), SAVE :: CLOCK_NEMS                                 !<-- The ESMF Clock of the NEMS component
       TYPE(ESMF_Config),SAVE :: CF_NEMS                                    !<-- The configure object of the NEMS component
@@ -235,19 +229,6 @@
 
       ESMF_ERR_RETURN(RC,RC_INIT)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-!-----------------------------------------------------------------------
-!***  Allocate the NEMS component's internal state, point at it,
-!***  and attach it to the NEMS component.
-!-----------------------------------------------------------------------
-!
-      ALLOCATE(NEMS_INT_STATE,stat=RC)
-      wrap%NEMS_INT_STATE=>NEMS_INT_STATE
-!
-      CALL ESMF_GridCompSetInternalState(NEMS_GRID_COMP                 &  !<--The NEMS component
-                                        ,WRAP                           &  !<-- Pointer to the NEMS internal state
-                                        ,RC)
-      ESMF_ERR_RETURN(RC,RC_INIT)
 !
 !-----------------------------------------------------------------------
 !***  Get the global VM (Virtual Machine).
