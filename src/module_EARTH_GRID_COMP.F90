@@ -249,12 +249,12 @@
         integer                         :: petListBounds(2)
         integer                         :: componentCount
         type(NUOPC_FreeFormat)          :: attrFF, fdFF
-       logical                         :: found_comp
+        logical                         :: found_comp
+        logical                         :: isPresent
 #ifdef CMEPS
         logical                         :: read_restart
         character(ESMF_MAXSTR)          :: cvalue
         character(len=5)                :: inst_suffix
-        logical                         :: isPresent
 #endif
         rc = ESMF_SUCCESS
 
