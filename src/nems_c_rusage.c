@@ -6,7 +6,7 @@
 #include <time.h>
 
 static const uint32_t crc32_tab[] = {
-  /* 
+  /*
    * This table was taken from the freebsd kernal.  The file's
    * copyright notice said it could be used without any
    * restrictions:
@@ -78,7 +78,7 @@ crc32(const void *buf, size_t size)
 
   const uint8_t *p = buf;
   uint32_t crc;
-  
+
   crc = ~0U;
   while (size--)
     crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
@@ -95,7 +95,7 @@ nems_c_crc32(const unsigned char *buffer,
   if(length>2147483646 || length<1) {
     *error=1;
     return 0;
-  } 
+  }
 
   *error=0;
   return crc32(buffer,length);
@@ -134,7 +134,7 @@ void nems_c_timer(int64_t *sec,int64_t *nsec,int32_t *error) {
   *error = ( *sec != -1 );  /* time() returns -1 on failure */
 }
 
-void nems_c_usage(double *utime, double *stime, int64_t *maxrss, 
+void nems_c_usage(double *utime, double *stime, int64_t *maxrss,
                   int64_t *inblock, int64_t *outblock, int32_t *error) {
   struct rusage ru;
 

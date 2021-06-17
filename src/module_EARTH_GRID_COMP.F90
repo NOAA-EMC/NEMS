@@ -1,5 +1,3 @@
-#include "ESMFConvenienceMacros.h"
-
 !-----------------------------------------------------------------------
 !
       MODULE module_EARTH_GRID_COMP
@@ -22,11 +20,7 @@
 !
 !          Main program
 !               |
-!               |
-!          NEMS component
-!               |     |________________________.
-!               |                              |
-!          EARTH component        Ensemble Coupler component
+!          EARTH component
 !              /|\
 !             / | \
 !          ATM/OCN/ICE/WAV/LND/IPM/HYD .. components
@@ -35,7 +29,7 @@
 !          |    |
 !          |    (MOM6, HYCOM, etc.)
 !          |
-!          CORE component (FV3, etc.)
+!          (FV3, etc.)
 !
 !-----------------------------------------------------------------------
 !
@@ -92,8 +86,6 @@
 #ifdef FRONT_CMEPS
       use MED,              only: MED_SS     => SetServices
 #endif
-
-      USE module_NEMS_UTILS,ONLY: MESSAGE_CHECK
 !
 !-----------------------------------------------------------------------
 !
@@ -108,7 +100,6 @@
 !
 !-----------------------------------------------------------------------
 !
-
       LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
       logical, private :: printattr = .false.
 
@@ -145,7 +136,7 @@
 !#######################################################################
 !-----------------------------------------------------------------------
 !
-      SUBROUTINE EARTH_REGISTER(EARTH_GRID_COMP,RC_REG)
+      SUBROUTINE EARTH_REGISTER(EARTH_GRID_COMP,RC)
 !
 !-----------------------------------------------------------------------
 !
@@ -155,20 +146,19 @@
 !
       TYPE(ESMF_GridComp) :: EARTH_GRID_COMP                               !<-- The EARTH component
 !
-      INTEGER,INTENT(OUT) :: RC_REG                                        !<-- Error return code
+      INTEGER,INTENT(OUT) :: RC                                            !<-- Error return code
 !
 !---------------------
 !***  Local Variables
 !---------------------
 !
-      INTEGER :: RC
       type(ESMF_Config)             :: config
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
 !-----------------------------------------------------------------------
 !
-      RC_REG = ESMF_SUCCESS
+      RC = ESMF_SUCCESS
 !
 !-----------------------------------------------------------------------
 !***********************************************************************
@@ -176,42 +166,42 @@
 !
       ! Derive from NUOPC_Driver
       call NUOPC_CompDerive(EARTH_GRID_COMP, Driver_routine_SS, rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
       ! specializations:
 
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetModelServices, specRoutine=SetModelServices, &
         rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
         specLabel=Driver_label_SetRunSequence, specRoutine=SetRunSequence, &
         rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
 #ifndef JEDI_DRIVER
       ! The NEMS Earth component is currently the top-level driver and
       ! does not need to coordinate Clocks with its parent.
-      call ESMF_MethodRemove(EARTH_GRID_COMP, Driver_label_SetRunClock, rc=RC_REG)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      call ESMF_MethodRemove(EARTH_GRID_COMP, Driver_label_SetRunClock, rc=RC)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
       call NUOPC_CompSpecialize(EARTH_GRID_COMP, &
-        specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC_REG)
-      ESMF_ERR_RETURN(RC,RC_REG)
+        specLabel=Driver_label_SetRunClock, specRoutine=NUOPC_NoOp, rc=RC)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 #endif
 
       ! register an internal initialization method
       call NUOPC_CompSetInternalEntryPoint(EARTH_GRID_COMP, ESMF_METHOD_INITIALIZE, &
         phaseLabelList=(/"IPDv04p2"/), userRoutine=ModifyCplLists, rc=rc)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
       ! create, open, and set the config
       config = ESMF_ConfigCreate(rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
       call ESMF_ConfigLoadFile(config, "nems.configure", rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
       call ESMF_GridCompSet(EARTH_GRID_COMP, config=config, rc=RC)
-      ESMF_ERR_RETURN(RC,RC_REG)
+      if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
       ! Load the required entries from the fd_nems.yaml file
       call NUOPC_FieldDictionarySetup("fd_nems.yaml", rc=rc)
@@ -262,7 +252,7 @@
         ! get petCount and config
         call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         ! read and ingest free format driver attributes
         attrFF = NUOPC_FreeFormatCreate(config, label="EARTH_attributes::", &
           relaxedflag=.true., rc=rc)
@@ -277,7 +267,7 @@
           value=value, defaultValue="false", &
           convention="NUOPC", purpose="Instance", rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         if (trim(value)=="true") then
           call ESMF_LogWrite( &
             "===>===>===>===> Begin Dumping Field Dictionary <===<===<===<===",&
@@ -295,7 +285,7 @@
         componentCount = ESMF_ConfigGetLen(config, &
           label="EARTH_component_list:", rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         allocate(compLabels(componentCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of compLabels failed.", &
@@ -496,15 +486,15 @@
     call NUOPC_DriverIngestRunSequence(driver, runSeqFF, &
       autoAddConnectors=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
     ! Diagnostic output
     if(verbose_diagnostics()) then
        call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     endif
-    
+
   end subroutine
-    
+
   !-----------------------------------------------------------------------------
 
   recursive subroutine ModifyCplLists(driver, importState, exportState, clock, &
@@ -521,17 +511,17 @@
     character(len=160)              :: value
 
     rc = ESMF_SUCCESS
-    
+
     call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO)
-    
+
     nullify(connectorList)
     call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
     write (msg,*) "Found ", size(connectorList), " Connectors."// &
       " Modifying CplList Attribute...."
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO)
-      
+
     do i=1, size(connectorList)
       ! query Connector i for its name
       call ESMF_CplCompGet(connectorList(i), name=name, rc=rc)
