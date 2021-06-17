@@ -87,9 +87,6 @@
 !
       TYPE(ESMF_GridComp) :: EARTH_GRID_COMP                               !<-- The EARTH gridded component.
 !
-      TYPE(ESMF_State) :: EARTH_EXP_STATE                               &  !<-- The EARTH export state
-                         ,EARTH_IMP_STATE                                  !<-- The EARTH import state
-!
       TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The ESMF time management clock
 !
       TYPE(ESMF_Config) :: CF_MAIN                                         !<-- The Configure object
@@ -390,30 +387,6 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Create the EARTH component's import/export states.
-!***  Currently they are not required to perform an actual function.
-!-----------------------------------------------------------------------
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the EARTH Import/Export States"
-!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-      EARTH_IMP_STATE = ESMF_StateCreate(                                 &
-                                    name='EARTH Import State'             &
-                                   ,stateintent = ESMF_STATEINTENT_IMPORT &
-                                   ,rc          = RC)
-      ESMF_ERR_ABORT(RC)
-!
-      EARTH_EXP_STATE = ESMF_StateCreate(                                 &
-                                    name='EARTH Export State'             &
-                                   ,stateintent = ESMF_STATEINTENT_EXPORT &
-                                   ,rc          = RC)
-      ESMF_ERR_ABORT(RC)
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-!-----------------------------------------------------------------------
 !***  Adjust the currTime of the main clock: CLOCK_MAIN
 !***  if the fhrot is > 0
 !***  This will correctly set the EARTH clocks in case of
@@ -449,8 +422,6 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       CALL ESMF_GridCompInitialize(gridcomp   =EARTH_GRID_COMP          &  !<-- The EARTH component
-                                  ,importState=EARTH_IMP_STATE          &  !<-- The EARTH import state
-                                  ,exportState=EARTH_EXP_STATE          &  !<-- The EARTH export state
                                   ,clock      =CLOCK_MAIN               &  !<-- The ESMF clock
                                   ,userRc     =RC_USER                  &
                                   ,rc         =RC)
@@ -468,8 +439,6 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       CALL ESMF_GridCompRun(gridcomp   =EARTH_GRID_COMP                 &  !<-- The EARTH component
-                           ,importState=EARTH_IMP_STATE                 &  !<-- The EARTH import state
-                           ,exportState=EARTH_EXP_STATE                 &  !<-- The EARTH export state
                            ,clock      =CLOCK_MAIN                      &  !<-- The ESMF clock
                            ,userRc     =RC_USER                         &
                            ,rc         =RC)
@@ -487,8 +456,6 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
       CALL ESMF_GridCompFinalize(gridcomp   =EARTH_GRID_COMP            &  !<-- The EARTH component
-                                ,importState=EARTH_IMP_STATE            &  !<-- The EARTH import state
-                                ,exportState=EARTH_EXP_STATE            &  !<-- The EARTH export state
                                 ,clock      =CLOCK_MAIN                 &  !<-- The Main ESMF clock
                                 ,userRc     =RC_USER                    &
                                 ,rc         =RC)
