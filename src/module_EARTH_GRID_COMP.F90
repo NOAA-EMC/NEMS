@@ -33,7 +33,7 @@
 !
 !-----------------------------------------------------------------------
 !
-      USE ESMF
+      use ESMF
 
       use NUOPC
       use NUOPC_Driver, &
@@ -89,18 +89,18 @@
 !
 !-----------------------------------------------------------------------
 !
-      IMPLICIT NONE
+      implicit none
 !
 !-----------------------------------------------------------------------
 !
-      PRIVATE
+      private
 !
-      PUBLIC :: EARTH_REGISTER
-      PUBLIC :: VERBOSE_DIAGNOSTICS
+      public :: earth_register
+      public :: verbose_diagnostics
 !
 !-----------------------------------------------------------------------
 !
-      LOGICAL, PRIVATE :: flag_verbose_diagnostics = .false.
+      logical, private :: flag_verbose_diagnostics = .false.
       logical, private :: printattr = .false.
 
       character(len=*),parameter :: u_FILE_u = &
@@ -144,9 +144,9 @@
 !***  Argument Variables
 !------------------------
 !
-      TYPE(ESMF_GridComp) :: EARTH_GRID_COMP                               !<-- The EARTH component
+      type(ESMF_GridComp) :: EARTH_GRID_COMP                               !<-- The EARTH component
 !
-      INTEGER,INTENT(OUT) :: RC                                            !<-- Error return code
+      integer,intent(out) :: rc                                            !<-- Error return code
 !
 !---------------------
 !***  Local Variables
