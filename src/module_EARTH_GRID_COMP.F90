@@ -84,9 +84,9 @@
 #ifdef FRONT_IPE
       use FRONT_IPE,        only: IPE_SS   => SetServices
 #endif
-  ! - Handle build time GSDCHEM options:
-#ifdef FRONT_GSDCHEM
-      use FRONT_GSDCHEM,    only: GSDCHEM_SS  => SetServices
+  ! - Handle build time GOCART options:
+#ifdef FRONT_GOCART
+      use FRONT_GOCART,     only: GOCART_SS  => SetServices
 #endif
   ! - Mediator
 #ifdef FRONT_CMEPS
@@ -262,7 +262,7 @@
         ! get petCount and config
         call ESMF_GridCompGet(driver, petCount=petCount, config=config, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         ! read and ingest free format driver attributes
         attrFF = NUOPC_FreeFormatCreate(config, label="EARTH_attributes::", &
           relaxedflag=.true., rc=rc)
@@ -277,7 +277,7 @@
           value=value, defaultValue="false", &
           convention="NUOPC", purpose="Instance", rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         if (trim(value)=="true") then
           call ESMF_LogWrite( &
             "===>===>===>===> Begin Dumping Field Dictionary <===<===<===<===",&
@@ -295,7 +295,7 @@
         componentCount = ESMF_ConfigGetLen(config, &
           label="EARTH_component_list:", rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        
+
         allocate(compLabels(componentCount), stat=stat)
         if (ESMF_LogFoundAllocError(statusToCheck=stat, &
           msg="Allocation of compLabels failed.", &
@@ -420,9 +420,9 @@
             found_comp = .true.
           end if
 #endif
-#ifdef FRONT_GSDCHEM
-          if (trim(model) == "gsdchem") then
-            call NUOPC_DriverAddComp(driver, trim(prefix), GSDCHEM_SS, &
+#ifdef FRONT_GOCART
+          if (trim(model) == "gocart") then
+            call NUOPC_DriverAddComp(driver, trim(prefix), GOCART_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
             found_comp = .true.
@@ -496,15 +496,15 @@
     call NUOPC_DriverIngestRunSequence(driver, runSeqFF, &
       autoAddConnectors=.true., rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
     ! Diagnostic output
     if(verbose_diagnostics()) then
        call NUOPC_DriverPrint(driver, orderflag=.true., rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     endif
-    
+
   end subroutine
-    
+
   !-----------------------------------------------------------------------------
 
   recursive subroutine ModifyCplLists(driver, importState, exportState, clock, &
@@ -521,17 +521,17 @@
     character(len=160)              :: value
 
     rc = ESMF_SUCCESS
-    
+
     call ESMF_LogWrite("Driver is in ModifyCplLists()", ESMF_LOGMSG_INFO)
-    
+
     nullify(connectorList)
     call NUOPC_DriverGetComp(driver, compList=connectorList, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    
+
     write (msg,*) "Found ", size(connectorList), " Connectors."// &
       " Modifying CplList Attribute...."
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO)
-      
+
     do i=1, size(connectorList)
       ! query Connector i for its name
       call ESMF_CplCompGet(connectorList(i), name=name, rc=rc)
