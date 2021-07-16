@@ -1,15 +1,4 @@
-#include "ESMFConvenienceMacros.h"
-
-#if ESMF_VERSION_MAJOR >= 8
-! Do things for ESMF 8 and later
-#else
-#ifndef ESMF_VERSION_MAJOR
-#error ESMF_VERSION_MAJOR is unset or empty; I do not know what version of ESMF you are using.
-#else
-! Do things for ESMF versions before 8
-#endif
-#endif
-
+#define ESMF_ERR_ABORT(rc) if (ESMF_LogFoundError(rc, msg="Aborting NEMS", line=__LINE__, file=__FILE__)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 !-----------------------------------------------------------------------
 !
       PROGRAM MAIN_NEMS
@@ -43,33 +32,32 @@
 !
 !-----------------------------------------------------------------------
 !
+      USE MPI
       USE ESMF
 !
 !-----------------------------------------------------------------------
-!***  USE the NEMS gridded component module.  Although it
+!***  USE the EARTH gridded component module.  Although it
 !***  contains the calls to Register and the top level Initialize,
 !***  Run, and Finalize, only the Register routine is public.
 !-----------------------------------------------------------------------
 !
-       USE module_NEMS_GRID_COMP, ONLY: NEMS_REGISTER
+      USE module_EARTH_GRID_COMP
 !
 !-----------------------------------------------------------------------
 !***  The following module contains error-checking, and other utilities
 !-----------------------------------------------------------------------
 !
-       USE module_NEMS_UTILS, ONLY: check_esmf_pet, message_check
+!      USE module_NEMS_UTILS, ONLY: check_esmf_pet, message_check
 !
 !-----------------------------------------------------------------------
 !***  This module calculates resource usage across all ranks.
 !-----------------------------------------------------------------------
 !
-       USE module_NEMS_Rusage,ONLY: NEMS_Rusage
+      USE module_NEMS_Rusage,ONLY: NEMS_Rusage
 !
 !-----------------------------------------------------------------------
 !
       IMPLICIT NONE
-!
-      INCLUDE 'mpif.h'
 !
 !-----------------------------------------------------------------------
 !***  Local Variables.
@@ -77,18 +65,17 @@
 !
       INTEGER :: MYPE                                                   &  !<-- The MPI task ID
                 ,NSECONDS_FCST                                          &  !<-- Length of forecast in seconds
-                ,TIMESTEP_SEC_WHOLE                                     &  !<-- Integer part of timestep
-                ,TIMESTEP_SEC_NUMERATOR                                 &  !<-- Numerator of fractional part
-                ,TIMESTEP_SEC_DENOMINATOR                               &  !<-- Denominator of fractional part
                 ,YY,MM,DD                                               &  !<-- Time variables for date
-                ,HH,MNS,SEC                                                !<-- Time variables for time of day
+                ,HH,MNS,SEC                                             &  !<-- Time variables for time of day
+                ,fhrot
 !
       REAL :: NHOURS_FCST                                                  !<-- Length of forecast in hours
 
       TYPE(NEMS_Rusage) :: rusage                                          !<-- Resource usage tracking object
 
       TYPE(ESMF_TimeInterval) :: RUNDURATION                            &  !<-- The ESMF time. The total forecast hours.
-                                ,TIMESTEP                                  !<-- The ESMF timestep length (we only need a dummy here)
+                                ,TIMESTEP                               &  !<-- The ESMF timestep length (we only need a dummy here)
+                                ,restartOffset
 !
       TYPE(ESMF_Time) :: CURRTIME                                       &  !<-- The ESMF current time.
                         ,STARTTIME                                         !<-- The ESMF start time.
@@ -98,23 +85,17 @@
                                                                            !    the computer CPU resource
                                                                            !    for the ESMF grid components.
 !
-      TYPE(ESMF_GridComp) :: NEMS_GRID_COMP                                !<-- The NEMS gridded component.
-!
-      TYPE(ESMF_State) :: NEMS_EXP_STATE                                &  !<-- The NEMS export state
-                         ,NEMS_IMP_STATE                                   !<-- The NEMS import state
+      TYPE(ESMF_GridComp) :: EARTH_GRID_COMP                               !<-- The EARTH gridded component.
 !
       TYPE(ESMF_Clock) :: CLOCK_MAIN                                       !<-- The ESMF time management clock
 !
       TYPE(ESMF_Config) :: CF_MAIN                                         !<-- The Configure object
 !
-      LOGICAL :: RUN_CONTINUE                                           &  !<-- Flag for more than one NEMS run.
-                ,PRINT_ESMF                                                !<-- Flag for ESMF PET files
+      LOGICAL :: PRINT_ESMF                                                !<-- Flag for ESMF PET files
 !
-      INTEGER :: HH_START                                               &
-                ,HH_FINAL
+      CHARACTER(ESMF_MAXSTR) :: MESSAGE_CHECK
 !
       INTEGER :: RC, RC_USER                                               !<-- The running error signal
-      INTEGER :: RUSAGE_RC                                                 !<-- Resource usage collection flag
 !
       CHARACTER(LEN=MPI_MAX_PROCESSOR_NAME) :: PROCNAME                    !<-- The processor(host) name
       INTEGER :: PROCNAME_LEN                                              !<-- Actual PROCRNAME string length
@@ -173,12 +154,7 @@
 !***  Print subversion version and other status information.
 !-----------------------------------------------------------------------
 !
-#if defined (SVN_INFO) && defined (CMP_YEAR) && defined (CMP_JD)
-      if (mype==0) call w3tagb('NEMS '//SVN_INFO,                       &
-                               CMP_YEAR, CMP_JD, 0000, 'NEMS')
-#else
       if (mype==0) call w3tagb('nems     ',0000,0000,0000,'np23   ')
-#endif
 !
 !-----------------------------------------------------------------------
 !***  Start gathering resource usage information.
@@ -202,8 +178,6 @@
       IF(PRINT_ESMF) THEN
         CALL ESMF_LogSet(flush      =.false.                            &
                         ,trace      =.false.                            &
-! --> do not abort inside of ESMF, or else no ESMF backtrace will be in Log!!!!
-!                        ,logmsgAbort=(/ ESMF_LOGMSG_ERROR /)            &
                         ,rc         =RC)
         ESMF_ERR_ABORT(RC)
       ENDIF
@@ -229,34 +203,33 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Create the NEMS gridded component which will create and
+!***  Create the EARTH gridded component which will create and
 !***  control the ATM (atmoshpere), OCN (ocean), ICE (sea ice), etc.
 !***  gridded components.
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the NEMS Gridded Component"
+      MESSAGE_CHECK="Create the EARTH Gridded Component"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      NEMS_GRID_COMP=ESMF_GridCompCreate(name        ='NEMS Grid Comp'  &  !<-- NEMS component name
-                                        ,configFile  ='model_configure' &  !<-- Link the user-created configure file.
-                                        ,rc          =RC)
+      EARTH_GRID_COMP=ESMF_GridCompCreate(name   ='EARTH Grid Comp'     &  !<-- EARTH component name
+                                         ,rc     = RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Register the NEMS gridded component's Initialize, Run and
+!***  Register the EARTH gridded component's Initialize, Run and
 !***  Finalize routines.
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Register NEMS Gridded Component Init, Run, Finalize"
+      MESSAGE_CHECK="Register EARTH Gridded Component Init, Run, Finalize"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompSetServices(NEMS_GRID_COMP                      &  !<-- The NEMS component
-                                   ,NEMS_REGISTER                       &  !<-- User's subroutineName
+      CALL ESMF_GridCompSetServices(EARTH_GRID_COMP                     &  !<-- The EARTH component
+                                   ,EARTH_REGISTER                      &  !<-- User's subroutineName
                                    ,rc=RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -265,26 +238,6 @@
 !***  Create the main ESMF Clock.
 !***  The Clock is needed for all calls to Init, Run, and Finalize.
 !
-!***  A timestep is needed to create the Clock but actual timesteps
-!***  are handled by the individual subcomponents therefore a dummy
-!***  value is used here.
-!-----------------------------------------------------------------------
-!
-      TIMESTEP_SEC_WHOLE      =1                                           !<-- Dummy timestep values
-      TIMESTEP_SEC_NUMERATOR  =0                                           !
-      TIMESTEP_SEC_DENOMINATOR=1                                           !<--
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Set up Time Step Interval in Main Clock"
-!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-      CALL ESMF_TimeIntervalSet(timeinterval=TIMESTEP                   &  !<-- Main Clock's timestep
-                               ,s           =TIMESTEP_SEC_WHOLE         &  !<-- Whole part of timestep
-                               ,sn          =TIMESTEP_SEC_NUMERATOR     &  !<-- Numerator of fractional part
-                               ,sd          =TIMESTEP_SEC_DENOMINATOR   &  !<-- Denominator of fractional part
-                               ,rc          =RC)
-      ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
@@ -434,42 +387,42 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Create the NEMS component's import/export states.
-!***  Currently they are not required to perform an actual function.
+!***  Adjust the currTime of the main clock: CLOCK_MAIN
+!***  if the fhrot is > 0
+!***  This will correctly set the EARTH clocks in case of
+!***  Restart-From-History.
 !-----------------------------------------------------------------------
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Create the NEMS Import/Export States"
-!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-      NEMS_IMP_STATE=ESMF_StateCreate(name='NEMS Import State'     &
-                                     ,rc       =RC)
+
+      CALL ESMF_ConfigGetAttribute(config   = CF_MAIN  &
+                                   ,value   = fhrot    &
+                                   ,label   = 'fhrot:' &
+                                   ,default = 0        &
+                                   ,rc      = RC)
       ESMF_ERR_ABORT(RC)
-!
-      NEMS_EXP_STATE=ESMF_StateCreate(name='NEMS Export State'     &
-                                     ,rc       =RC)
-      ESMF_ERR_ABORT(RC)
-!
+
+      if (fhrot > 0) then
+        CALL ESMF_TimeIntervalSet(restartOffset, h=fhrot, rc=RC)
+        ESMF_ERR_ABORT(RC)
+        CURRTIME = STARTTIME + restartOffset
+        call ESMF_ClockSet(CLOCK_MAIN, currTime=CURRTIME, rc=RC)
+        ESMF_ERR_ABORT(RC)
+      endif
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Execute the INITIALIZE step for the NEMS component.
+!***  Execute the INITIALIZE step for the EARTH component.
 !***  The Initialize routine that is called here as well as the
 !***  Run and Finalize routines invoked below are those specified
 !***  in the Register routine called in ESMF_GridCompSetServices above.
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the NEMS Component Initialize Step"
+      MESSAGE_CHECK="Execute the EARTH Component Initialize Step"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompInitialize(gridcomp   =NEMS_GRID_COMP           &  !<-- The NEMS component
-                                  ,importState=NEMS_IMP_STATE           &  !<-- The NEMS import state
-                                  ,exportState=NEMS_EXP_STATE           &  !<-- The NEMS export state
+      CALL ESMF_GridCompInitialize(gridcomp   =EARTH_GRID_COMP          &  !<-- The EARTH component
                                   ,clock      =CLOCK_MAIN               &  !<-- The ESMF clock
-                                  ,phase      =1                        &
                                   ,userRc     =RC_USER                  &
                                   ,rc         =RC)
       ESMF_ERR_ABORT(RC)
@@ -477,19 +430,16 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  Execute the RUN step for the NEMS component.
+!***  Execute the RUN step for the EARTH component.
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the NEMS Component Run Step"
+      MESSAGE_CHECK="Execute the EARTH Component Run Step"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompRun(gridcomp   =NEMS_GRID_COMP                  &  !<-- The NEMS component
-                           ,importState=NEMS_IMP_STATE                  &  !<-- The NEMS import state
-                           ,exportState=NEMS_EXP_STATE                  &  !<-- The NEMS export state
+      CALL ESMF_GridCompRun(gridcomp   =EARTH_GRID_COMP                 &  !<-- The EARTH component
                            ,clock      =CLOCK_MAIN                      &  !<-- The ESMF clock
-                           ,phase      =1                               &
                            ,userRc     =RC_USER                         &
                            ,rc         =RC)
       ESMF_ERR_ABORT(RC)
@@ -497,91 +447,16 @@
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
 !-----------------------------------------------------------------------
-!***  The RUN_CONTINUE flag tells us if the RUN step of the
-!***  NEMS component must be called multiple times for ensembles.
+!***  Execute the FINALIZE step for the EARTH component.
 !-----------------------------------------------------------------------
 !
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Extract the RUN_CONTINUE flag from Config File"
+      MESSAGE_CHECK="Execute the EARTH Component Finalize Step"
 !     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_ConfigGetAttribute(config = CF_MAIN                     &
-                                  ,value  = RUN_CONTINUE                &
-                                  ,label  = 'RUN_CONTINUE:'             &
-                                  ,default= .false.                     &
-                                  ,rc     = RC)
-      ESMF_ERR_ABORT(RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-!-----------------------------------------------------------------------
-!***  Update the Main clock.  This is for calling the RUN step
-!***  of the NEMS component multiple times.
-!-----------------------------------------------------------------------
-!
-      IF(RUN_CONTINUE) THEN
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="Extract the Ensemble Clock Parameters from Config File"
-!       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-        CALL ESMF_ConfigGetAttribute(config = CF_MAIN                   &
-                                    ,value  = hh_start                  &
-                                    ,label  = 'HH_START:'               &
-                                    ,rc     = RC)
-        ESMF_ERR_ABORT(RC)
-!
-        CALL ESMF_ConfigGetAttribute(config = CF_MAIN                   &
-                                    ,value  = hh_final                  &
-                                    ,label  = 'HH_FINAL:'               &
-                                    ,rc     = RC)
-        ESMF_ERR_ABORT(RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-        NHOURS_FCST = HH_FINAL - HH_START
-        NSECONDS_FCST = nint(NHOURS_FCST*3600.)
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-        MESSAGE_CHECK="MAIN: Re-set the clock after the ensemble run cycles."
-!       CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-        CALL ESMF_TimeIntervalSet(timeInterval = RUNDURATION            &
-                                 ,s            = NSECONDS_FCST          &
-                                 ,rc           = RC)
-        ESMF_ERR_ABORT(RC)
-!
-        CALL ESMF_ClockGet(clock    = CLOCK_MAIN                        &
-                          ,currTime = CURRTIME                          &
-                          ,rc       = rc)
-        ESMF_ERR_ABORT(RC)
-!
-        CURRTIME = CURRTIME + RUNDURATION
-!
-        CALL ESMF_ClockSet(clock       = CLOCK_MAIN                     &
-                          ,RunDuration = RUNDURATION                    &
-                          ,currTime    = CURRTIME                       &
-                          ,rc          = RC)
-        ESMF_ERR_ABORT(RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-      END IF
-!
-!-----------------------------------------------------------------------
-!***  Execute the FINALIZE step for the NEMS component.
-!-----------------------------------------------------------------------
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK="Execute the NEMS Component Finalize Step"
-!     CALL ESMF_LogWrite(MESSAGE_CHECK,ESMF_LOGMSG_INFO,rc=RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-      CALL ESMF_GridCompFinalize(gridcomp   =NEMS_GRID_COMP             &  !<-- The NEMS component
-                                ,importState=NEMS_IMP_STATE             &  !<-- The NEMS component import state
-                                ,exportState=NEMS_EXP_STATE             &  !<-- The NEMS component export state
+      CALL ESMF_GridCompFinalize(gridcomp   =EARTH_GRID_COMP            &  !<-- The EARTH component
                                 ,clock      =CLOCK_MAIN                 &  !<-- The Main ESMF clock
-                                ,phase      =1                          &
                                 ,userRc     =RC_USER                    &
                                 ,rc         =RC)
       ESMF_ERR_ABORT(RC)
@@ -615,27 +490,11 @@
                              ,rc    =RC)
       ESMF_ERR_ABORT(RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-      MESSAGE_CHECK = "Destroy the ESMF states"
-!      CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
-      CALL ESMF_StateDestroy(state=NEMS_IMP_STATE                       &
-                            ,rc   =RC)
-      ESMF_ERR_ABORT(RC)
-!
-      CALL ESMF_StateDestroy(state=NEMS_EXP_STATE                       &
-                            ,rc   =RC)
-      ESMF_ERR_ABORT(RC)
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-!
-! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
       MESSAGE_CHECK = "Destroy ESMF Grid Comp and Cpl Comp"
 !      CALL ESMF_LogWrite(MESSAGE_CHECK, ESMF_LOGMSG_INFO, rc = RC)
 ! ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 !
-      CALL ESMF_GridCompDestroy(gridcomp=NEMS_GRID_COMP                 &
+      CALL ESMF_GridCompDestroy(gridcomp=EARTH_GRID_COMP                &
                                ,rc      =RC)
       ESMF_ERR_ABORT(RC)
 
@@ -659,16 +518,39 @@
 !
 !-----------------------------------------------------------------------
 !
+contains
+      subroutine check_esmf_pet(print_esmf)
+
+      implicit none
+      integer :: i,n
+      character *256 :: c1,c2
+      logical :: opened,print_esmf
+
+      do n=101,201
+        inquire(n,opened=opened)
+        if(.not.opened)then
+          open(n,file='model_configure',status='old')  !<-- Open configure file
+          exit
+        endif
+      enddo
+
+      print_esmf=.false.
+
+      do i=1,10000
+        read(n,*,end=22)c1,c2
+        if(c1(1:10) == 'print_esmf') then              !<-- Search for print_esmf flag
+          if( c2 == 'true'   .or.          &           !<-- Check if print_esmf is true or false
+              c2 == '.true.' .or.          &
+              c2 == 'TRUE'   .or.          &
+              c2 == '.TRUE.' ) print_esmf=.true.
+          exit
+        endif
+      enddo
+  22  close(n)
+      return
+
+      end subroutine check_esmf_pet
+
       END PROGRAM MAIN_NEMS
 !
 !-----------------------------------------------------------------------
-
-#ifndef IBM
-        REAL(8) FUNCTION RTC()
-          RTC = 0.d0
-        END FUNCTION
-
-        REAL(8) FUNCTION TIMEF()
-          TIMEF = 0.d0
-        END FUNCTION
-#endif
