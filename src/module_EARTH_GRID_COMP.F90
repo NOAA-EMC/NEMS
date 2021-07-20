@@ -59,6 +59,9 @@
 #ifdef FRONT_MOM6
       use FRONT_MOM6,       only: MOM6_SS   => SetServices
 #endif
+#ifdef FRONT_CDEPS_DOCN
+      use FRONT_CDEPS_DOCN, only: DOCN_SS  => SetServices
+#endif
   ! - Handle build time ICE options:
 #ifdef FRONT_CICE6
       use FRONT_CICE6,      only: CICE6_SS => SetServices
@@ -236,12 +239,12 @@
         integer                         :: petListBounds(2)
         integer                         :: componentCount
         type(NUOPC_FreeFormat)          :: attrFF, fdFF
-       logical                         :: found_comp
+        logical                         :: found_comp
+        logical                         :: isPresent
 #ifdef CMEPS
         logical                         :: read_restart
         character(ESMF_MAXSTR)          :: cvalue
         character(len=5)                :: inst_suffix
-        logical                         :: isPresent
 #endif
         rc = ESMF_SUCCESS
 
@@ -370,6 +373,14 @@
             found_comp = .true.
           end if
 #endif
+#ifdef FRONT_CDEPS_DOCN
+          if (trim(model) == "docn") then
+            call NUOPC_DriverAddComp(driver, trim(prefix), DOCN_SS, &
+              petList=petList, comp=comp, rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            found_comp = .true.
+          end if
+#endif
 #ifdef FRONT_CICE6
           if (trim(model) == "cice6") then
             call NUOPC_DriverAddComp(driver, trim(prefix), CICE6_SS, &
@@ -442,6 +453,20 @@
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+          call ESMF_ConfigFindNextLabel(config, &
+            label=trim(prefix)//"_modelio::", isPresent=isPresent, rc=rc)
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          if (isPresent) then
+            attrFF = NUOPC_FreeFormatCreate(config, &
+              label=trim(prefix)//"_modelio::", relaxedflag=.true., rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+            call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
+            if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          endif
+
           ! clean-up
           deallocate(petList)
 
