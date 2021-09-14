@@ -27,4 +27,7 @@ ifneq (,$(and $(wildcard /gpfs/hps),$(wildcard /usrx)))
     # WCOSS Cray
     $(call add_build_env,wcoss_cray,env/wcoss/wcoss_cray.mk)
   endif
+else
+    # WCOSS2 (Cactus or Dogwood)
+    $(call add_build_env,wcoss2,env/wcoss/wcoss2.mk)
 endif
