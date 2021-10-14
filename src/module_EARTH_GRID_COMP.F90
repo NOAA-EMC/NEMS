@@ -220,9 +220,7 @@
 !
 
       subroutine SetModelServices(driver, rc)
-#ifdef CMEPS
-        use med_internalstate_mod , only : med_id
-#endif
+
         type(ESMF_GridComp)  :: driver
         integer, intent(out) :: rc
 
@@ -241,11 +239,7 @@
         type(NUOPC_FreeFormat)          :: attrFF, fdFF
         logical                         :: found_comp
         logical                         :: isPresent
-#ifdef CMEPS
-        logical                         :: read_restart
-        character(ESMF_MAXSTR)          :: cvalue
-        character(len=5)                :: inst_suffix
-#endif
+
         rc = ESMF_SUCCESS
 
         ! query the Component for info
@@ -297,15 +291,16 @@
         call ESMF_ConfigGetAttribute(config, valueList=compLabels, &
           label="EARTH_component_list:", count=componentCount, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-#ifdef CMEPS
-        inst_suffix = ""
 
-        ! obtain driver attributes (for CMEPS)
-        call ReadAttributes(driver, config, "DRIVER_attributes::", formatprint=printattr, rc=rc)
+        call ReadAttributes(driver, config, "DRIVER_attributes::",  relaxedflag=.true., &
+          formatprint=printattr, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-        call ReadAttributes(driver, config, "ALLCOMP_attributes::", formatprint=printattr, rc=rc)
+        call ReadAttributes(driver, config, "ALLCOMP_attributes::", relaxedflag=.true., &
+          formatprint=printattr, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-#endif
+        ! get starttype and set read_restart attribute in driver config list
+        call InitRestart(driver, config, rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
         ! determine information for each component and add to the driver
         do i=1, componentCount
@@ -431,7 +426,6 @@
 #endif
 #ifdef FRONT_CMEPS
           if (trim(model) == "cmeps") then
-            med_id = i+1
             call NUOPC_DriverAddComp(driver, trim(prefix), MED_SS, &
               petList=petList, comp=comp, rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -445,39 +439,11 @@
             return
           endif
 
-          ! read and ingest free format component attributes
-          attrFF = NUOPC_FreeFormatCreate(config, &
-            label=trim(prefix)//"_attributes::", relaxedflag=.true., rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-          call ESMF_ConfigFindNextLabel(config, &
-            label=trim(prefix)//"_modelio::", isPresent=isPresent, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          if (isPresent) then
-            attrFF = NUOPC_FreeFormatCreate(config, &
-              label=trim(prefix)//"_modelio::", relaxedflag=.true., rc=rc)
-            if (ChkErr(rc,__LINE__,u_FILE_u)) return
-            call NUOPC_CompAttributeIngest(comp, attrFF, addFlag=.true., rc=rc)
-            if (ChkErr(rc,__LINE__,u_FILE_u)) return
-            call NUOPC_FreeFormatDestroy(attrFF, rc=rc)
-            if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          endif
+          call AddAttributes(comp, driver, config, trim(prefix), rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
 
           ! clean-up
           deallocate(petList)
-
-#ifdef CMEPS
-        ! Perform restarts if appropriate
-        call InitRestart(driver, rc)
-        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-        call AddAttributes(comp, driver, config, i+1, trim(prefix), inst_suffix, rc=rc)
-        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-#endif
         enddo
 
         ! clean-up
@@ -586,7 +552,6 @@
 
   !-----------------------------------------------------------------------------
 
-#ifdef CMEPS
   subroutine ReadAttributes(gcomp, config, label, relaxedflag, formatprint, rc)
 
     use ESMF  , only : ESMF_GridComp, ESMF_Config, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
@@ -631,7 +596,7 @@
 
   end subroutine ReadAttributes
 
-  subroutine InitRestart(driver, rc)
+  subroutine InitRestart(driver, config, rc)
 
     !-----------------------------------------------------
     ! Determine if will restart and read pointer file if appropriate
@@ -643,12 +608,13 @@
 
     ! input/output variables
     type(ESMF_GridComp)    , intent(inout) :: driver
+    type(ESMF_Config)      , intent(inout) :: config
     integer                , intent(out)   :: rc
 
     ! local variables
     logical           :: read_restart   ! read the restart file, based on start_type
     character(len=ESMF_MAXSTR) :: cvalue         ! temporary
-    character(len=ESMF_MAXSTR) :: rest_case_name ! Short case identification
+    character(len=ESMF_MAXSTR) :: attribute      !
     character(len=*) , parameter :: subname = "(module_EARTH_GRID_COMP.F90:InitRestart)"
     !-------------------------------------------
 
@@ -659,24 +625,22 @@
     ! Carry out restart if appropriate
     !-----------------------------------------------------
 
-    read_restart = IsRestart(driver, rc)
+    read_restart = IsRestart(driver, config, rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    ! Add rest_case_name and read_restart to driver attributes
-    call NUOPC_CompAttributeAdd(driver, attrList=(/'rest_case_name','read_restart  '/), rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    rest_case_name = ' '
-    call NUOPC_CompAttributeSet(driver, name='rest_case_name', value=rest_case_name, rc=rc)
+    attribute = 'read_restart'
+    ! Add read_restart to driver attributes
+    call NUOPC_CompAttributeAdd(driver, attrList=(/trim(attribute)/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     write(cvalue,*) read_restart
     call NUOPC_CompAttributeSet(driver, name='read_restart', value=trim(cvalue), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_LogWrite('Set attribute read_restart in driver ', ESMF_LOGMSG_INFO)
 
   end subroutine InitRestart
 
-  function IsRestart(gcomp, rc)
+  function IsRestart(gcomp, config, rc)
 
     use ESMF         , only : ESMF_GridComp, ESMF_SUCCESS
     use ESMF         , only : ESMF_LogSetError, ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_RC_NOT_VALID
@@ -685,9 +649,11 @@
     ! input/output variables
     logical                                :: IsRestart
     type(ESMF_GridComp)    , intent(inout) :: gcomp
+    type(ESMF_Config)      , intent(inout) :: config
     integer                , intent(out)   :: rc
 
     ! locals
+    logical                               :: isPresent, isSet
     character(len=ESMF_MAXSTR)            :: start_type     ! Type of startup
     character(len=ESMF_MAXSTR)            :: msgstr
     character(len=*) , parameter :: start_type_start = "startup"
@@ -699,26 +665,32 @@
     rc = ESMF_SUCCESS
 
     ! First Determine if restart is read
-    call NUOPC_CompAttributeGet(gcomp, name='start_type', value=start_type, rc=rc)
+    call NUOPC_CompAttributeGet(gcomp, name='start_type', value=start_type, &
+       isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    if ((trim(start_type) /= start_type_start) .and.  &
-        (trim(start_type) /= start_type_cont ) .and.  &
-        (trim(start_type) /= start_type_brnch)) then
-       write (msgstr, *) subname//': start_type invalid = '//trim(start_type)
-       call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
-       return
-    end if
+    if( isPresent .and. isSet) then
+       if ((trim(start_type) /= start_type_start) .and.  &
+           (trim(start_type) /= start_type_cont ) .and.  &
+           (trim(start_type) /= start_type_brnch)) then
+          write (msgstr, *) subname//': start_type invalid = '//trim(start_type)
+          call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+          return
+       end if
 
-    !TODO: this is hard-wired to CIME start/continue types in terms of gcomp
-    IsRestart = .false.
-    if (trim(start_type) == trim(start_type_cont) .or. trim(start_type) == trim(start_type_brnch)) then
-       IsRestart = .true.
-    end if
+       !TODO: this is hard-wired to CIME start/continue types in terms of gcomp
+       IsRestart = .false.
+       if (trim(start_type) == trim(start_type_cont) .or. trim(start_type) == trim(start_type_brnch)) then
+          IsRestart = .true.
+       end if
+    else
+       IsRestart = .false.
+       call ESMF_LogWrite('No start_type attribute found, setting read_restart false ', ESMF_LOGMSG_INFO)
+    endif
 
   end function IsRestart
 
-  subroutine AddAttributes(gcomp, driver, config, compid, compname, inst_suffix, rc)
+  subroutine AddAttributes(gcomp, driver, config, compname, rc)
 
     ! Add specific set of attributes to components from driver attributes
 
@@ -730,9 +702,7 @@
     type(ESMF_GridComp) , intent(inout) :: gcomp
     type(ESMF_GridComp) , intent(in)    :: driver
     type(ESMF_Config)   , intent(inout) :: config
-    integer             , intent(in)    :: compid
     character(len=*)    , intent(in)    :: compname
-    character(len=*)    , intent(in)    :: inst_suffix
     integer             , intent(inout) :: rc
 
     ! local variables
@@ -752,20 +722,8 @@
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
 
     !------
-    ! Add compid to gcomp attributes
+    ! Add restart flag to gcomp attributes
     !------
-    !write(cvalue,*) compid
-    !call NUOPC_CompAttributeAdd(gcomp, attrList=(/'MCTID'/), rc=rc)
-    !if (chkerr(rc,__LINE__,u_FILE_u)) return
-    !call NUOPC_CompAttributeSet(gcomp, name='MCTID', value=trim(cvalue), rc=rc)
-    !if (chkerr(rc,__LINE__,u_FILE_u)) return
-
-    !------
-    ! Add all the other attributes in AttrList (which have already been added to driver attributes)
-    !------
-    !allocate(attrList(5))
-    !attrList =  (/"read_restart", "orb_eccen   ", "orb_obliqr  ", "orb_lambm0  ", "orb_mvelpp  "/)
-    ! TODO: orb_obliqr and orb_lambm0 not exist
     allocate(attrList(1))
     attrList =  (/"read_restart"/)
 
@@ -774,61 +732,44 @@
 
     do n = 1,size(attrList)
        if (trim(attrList(n)) == "read_restart") then
-          call NUOPC_CompAttributeGet(driver, name="mediator_read_restart", value=cvalue, rc=rc)
+          call NUOPC_CompAttributeGet(driver, name="read_restart", value=cvalue, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
           read(cvalue,*) lvalue
 
           if (.not. lvalue) then
             call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
             if (ChkErr(rc,__LINE__,u_FILE_u)) return
           end if
-
           call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        else
-          print*, trim(attrList(n))
+          print *, trim(attrList(n))
           call NUOPC_CompAttributeGet(driver, name=trim(attrList(n)), value=cvalue, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call NUOPC_CompAttributeSet(gcomp, name=trim(attrList(n)), value=trim(cvalue), rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        end if
+       call ESMF_LogWrite('Added attribute '//trim(attrList(n))//' to '//trim(compname), ESMF_LOGMSG_INFO)
     enddo
     deallocate(attrList)
 
     !------
     ! Add component specific attributes
     !------
-    call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", formatprint=printattr, rc=rc)
+
+    call ReadAttributes(gcomp, config, trim(compname)//"_attributes::", relaxedflag=.true., &
+       formatprint=printattr, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", formatprint=printattr, rc=rc)
+    call ReadAttributes(gcomp, config, trim(compname)//"_modelio::", relaxedflag=.true., &
+       formatprint=printattr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    call ReadAttributes(gcomp, config, "ALLCOMP_attributes::", relaxedflag=.true., &
+       formatprint=printattr, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    !------
-    ! Add multi-instance specific attributes
-    !------
-    call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_index'/), rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    ! add inst_index attribute (inst_index is not required for cime internal components)
-    ! for now hard-wire inst_index to 1
-    inst_index = 1
-    write(cvalue,*) inst_index
-    call NUOPC_CompAttributeSet(gcomp, name='inst_index', value=trim(cvalue), rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    ! add inst_suffix attribute
-    if (len_trim(inst_suffix) > 0) then
-       call NUOPC_CompAttributeAdd(gcomp, attrList=(/'inst_suffix'/), rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-       call NUOPC_CompAttributeSet(gcomp, name='inst_suffix', value=inst_suffix, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    end if
 
   end subroutine AddAttributes
-#endif
 !
 !-----------------------------------------------------------------------
 !
