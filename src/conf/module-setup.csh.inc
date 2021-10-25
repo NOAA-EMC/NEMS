@@ -102,6 +102,13 @@ else if ( { test -d /lustre -a -d /ncrc } ) then
       source /etc/csh.login
       unset __ms_source_etc_csh_login
     endif
+else if ( { test -d /expanse } ) then
+    # We are on SDSC Expanse
+    if ( ! { module help >& /dev/null } ) then
+      source /etc/profile.d/modules.csh
+    endif
+    module purge
+    module load slurm/expanse/20.02.3
 else if ( { test -d /Applications } ) then
     # We are on a MacOSX system, nothing to do
     sh -c 'echo Platform: MacOSX'
