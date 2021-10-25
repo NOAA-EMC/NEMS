@@ -121,6 +121,13 @@ elif [[ -d /lustre && -d /ncrc ]] ; then
       source /etc/profile
       unset __ms_source_etc_profile
     fi
+elif [[ -d /expanse ]]; then
+    # We are on SDSC Expanse
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+      source /etc/profile.d/modules.sh
+    fi  
+    module purge
+    module load slurm/expanse/20.02.3
 elif [[ -d /Applications ]] ; then
     # We are on a MacOSX system, nothing to do
     echo "Platform: MacOSX"
