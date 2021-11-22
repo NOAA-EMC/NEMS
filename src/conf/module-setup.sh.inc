@@ -69,9 +69,6 @@ elif [[ -d /lfs/h2/emc ]] ; then
        source /usr/share/lmod/lmod/init/$__ms_shell
     fi
     module purge
-    module load craype-x86-rome
-    module load libfabric/1.11.0.4.75
-    module load craype-network-ofi
     module load envvar/1.0
 elif [[ -d /glade ]] ; then
     # We are on NCAR Cheyenne   
