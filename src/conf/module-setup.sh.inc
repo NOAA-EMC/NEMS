@@ -63,6 +63,13 @@ elif [[ -L /usrx && "$( readlink /usrx 2> /dev/null )" =~ dell ]] ; then
 	source /usrx/local/prod/lmod/lmod/init/$__ms_shell
     fi
     module purge
+elif [[ -d /lfs/h2/emc ]] ; then
+    # We are on NOAA Cactus or Dogwood
+    if ( ! eval module help > /dev/null 2>&1 ) ; then
+       source /usr/share/lmod/lmod/init/$__ms_shell
+    fi
+    module purge
+    module load envvar/1.0
 elif [[ -d /glade ]] ; then
     # We are on NCAR Cheyenne   
     if ( ! eval module help > /dev/null 2>&1 ) ; then
