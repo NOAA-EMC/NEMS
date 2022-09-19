@@ -35,8 +35,8 @@ build_FV3: $(fv3_mk)
 $(fv3_mk): $(fms_mk) configure
 	cp -fp $(NEMSDIR)/src/conf/configure.nems \
 	       "$(FV3_SRCDIR)"/conf/configure.fv3
-	cp -fp $(NEMSDIR)/src/conf/modules.nems   \
-	       "$(FV3_SRCDIR)"/conf/modules.fv3
+	cp -fp $(NEMSDIR)/src/conf/modules.nems.lua   \
+	       "$(FV3_SRCDIR)"/conf/modules.fv3.lua
 	$(info Compiling $(FV3_MAKEOPT) into $(FV3_BINDIR) on $(MACHINE_ID))
 	+$(MODULE_LOGIC) ; cd $(FV3_SRCDIR) ; \
 	  exec $(MAKE) $(FV3_FULL_OPTS) nemsinstall

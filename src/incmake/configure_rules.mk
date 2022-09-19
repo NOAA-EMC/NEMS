@@ -25,15 +25,15 @@ $(NEMSDIR)/src/ESMFVersionDefine.h:
 
 ########################################################################
 
-# Copy modules.nems and figure out how to load them.  Put that
+# Copy modules.nems.lua and figure out how to load them.  Put that
 # information into modules.nems.sh, modules.nems.csh, and
 # $(MODULE_LOGIC)
 
 ifneq ($(CHOSEN_MODULE),)
-$(CONFDIR)/modules.nems: $(MODULE_DIR)/$(CHOSEN_MODULE)
+$(CONFDIR)/modules.nems.lua: $(MODULE_DIR)/$(CHOSEN_MODULE)
 	cp $(MODULE_DIR)/$(CHOSEN_MODULE) $@
 else
-$(CONFDIR)/modules.nems:
+$(CONFDIR)/modules.nems.lua:
 	cat /dev/null > $@
 endif
 
@@ -42,17 +42,17 @@ ifeq ($(USE_MODULES),YES)
 $(CONFDIR)/modules.nems.sh:
 	( echo '. $(CONFDIR)/module-setup.sh.inc' ; \
 	echo 'module use $(CONFDIR)' ; \
-	echo 'module load modules.nems' ) > "$@"
+	echo 'module load modules.nems.lua' ) > "$@"
 $(CONFDIR)/modules.nems.csh:
 	( echo 'source $(CONFDIR)/module-setup.csh.inc' ; \
 	echo 'module use $(CONFDIR)' ; \
-	echo 'module load modules.nems' ) > "$@"
+	echo 'module load modules.nems.lua' ) > "$@"
 else
 # Generate scripts that source the module files.
 $(CONFDIR)/modules.nems.sh:
-	( echo '. $(CONFDIR)/modules.nems' ) > "$@"
+	( echo '. $(CONFDIR)/modules.nems.lua' ) > "$@"
 $(CONFDIR)/modules.nems.csh:
-	( echo 'source $(CONFDIR)/modules.nems' ) > "$@"
+	( echo 'source $(CONFDIR)/modules.nems.lua' ) > "$@"
 endif
 
 ########################################################################
@@ -67,7 +67,7 @@ unconfigure_NEMS:
 	rm -f $(NEMS_CONF_FILES)
 
 # Test the module support.
-module_test: $(CONFDIR)/modules.nems
+module_test: $(CONFDIR)/modules.nems.lua
 	$(MODULE_LOGIC) ; \
 	env | grep ESMF
 
