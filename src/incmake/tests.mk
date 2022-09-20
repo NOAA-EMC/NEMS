@@ -10,7 +10,7 @@ endif
 
 TEST: $(TARGET)
 $(TARGET):
-	if [ -f "$(CONFDIR)/modules.nems" ] ; then \
+	if [ -f "$(CONFDIR)/modules.nems.lua" ] ; then \
 	  $(MODULE_LOGIC) ; \
 	fi ; \
 	( \

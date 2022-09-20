@@ -46,13 +46,13 @@ define ULIMIT_MODULE_LOGIC
   stack=`ulimit -S -s`                  ; \
   ulimit -S -s $(1)                     ; \
   module use $(CONFDIR)                 ; \
-  module load modules.nems              ; \
+  module load modules.nems.lua          ; \
   module list                           ; \
   ulimit -S -s $$stack
 endef
 
 define SOURCE_MODULE_LOGIC
-  . $(CONFDIR)/modules.nems
+  . $(CONFDIR)/modules.nems.lua
 endef
 
 # ----------------------------------------------------------------------

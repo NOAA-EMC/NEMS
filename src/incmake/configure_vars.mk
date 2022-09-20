@@ -3,7 +3,7 @@
 NEMS_CONF_FILES=\
   $(CONFDIR)/configure.nems \
   $(CONFDIR)/externals.nems \
-  $(CONFDIR)/modules.nems \
+  $(CONFDIR)/modules.nems.lua \
   $(NEMSDIR)/src/ESMFVersionDefine.h \
   $(CONFDIR)/modules.nems.sh \
   $(CONFDIR)/modules.nems.csh \
